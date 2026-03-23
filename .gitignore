@@ -1,0 +1,33 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# IntelliJ IDEA / Android Studio
+*.iml
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+*.class
+
+# SonarQube
+.sonar/
+
+# Generated files
+bin/
+gen/
+out/
+
+# Logs
+*.log
