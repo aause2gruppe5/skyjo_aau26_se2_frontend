@@ -2,19 +2,20 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("jacoco")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val composeBomVersion = "2024.04.01"
-val navigationComposeVersion = "2.7.7"
+val composeBomVersion = "2025.05.01"
+val navigationComposeVersion = "2.9.0"
 
 android {
     namespace = "at.aau.se2.skyjo"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "at.aau.se2.skyjo"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -46,10 +47,6 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.13"
     }
 }
 
