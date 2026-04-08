@@ -1,12 +1,21 @@
 package at.aau.se2.skyjo
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.navigation.compose.rememberNavController
+import at.aau.se2.skyjo.ui.navigation.AppNavHost
+import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContent {
+            SkyjoTheme {
+                val navController = rememberNavController()
+                AppNavHost(navController = navController)
+            }
+        }
     }
 }

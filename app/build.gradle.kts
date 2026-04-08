@@ -4,6 +4,9 @@ plugins {
     id("jacoco")
 }
 
+val composeBomVersion = "2024.04.01"
+val navigationComposeVersion = "2.7.7"
+
 android {
     namespace = "at.aau.se2.skyjo"
     compileSdk = 34
@@ -42,6 +45,11 @@ android {
 
     buildFeatures {
         viewBinding = true
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.13"
     }
 }
 
@@ -50,6 +58,18 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
+    // Jetpack Compose
+    val composeBom = platform("androidx.compose:compose-bom:$composeBomVersion")
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.navigation:navigation-compose:$navigationComposeVersion")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 
     // WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
