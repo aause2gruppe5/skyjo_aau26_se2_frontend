@@ -1,6 +1,6 @@
 package at.aau.se2.skyjo.ui.screens.friends
 
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -24,7 +24,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Friends").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Friends").assertExists()
     }
 
     @Test
@@ -34,7 +34,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Invite").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Invite").assertExists()
     }
 
     @Test

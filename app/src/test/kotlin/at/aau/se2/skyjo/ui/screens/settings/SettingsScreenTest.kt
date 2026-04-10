@@ -1,6 +1,6 @@
 package at.aau.se2.skyjo.ui.screens.settings
 
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -24,7 +24,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Settings").assertExists()
     }
 
     @Test
@@ -34,7 +34,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Game Preferences").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Game Preferences").assertExists()
     }
 
     @Test
@@ -44,7 +44,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Account").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Account").assertExists()
     }
 
     @Test

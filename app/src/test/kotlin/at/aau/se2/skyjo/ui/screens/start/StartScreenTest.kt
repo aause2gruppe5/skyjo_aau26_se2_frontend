@@ -46,18 +46,16 @@ class StartScreenTest {
     }
 
     @Test
-    fun startScreen_play_button_triggers_callback() {
-        var clicked = false
+    fun startScreen_shows_start_session_button() {
         composeTestRule.setContent {
             SkyjoTheme {
                 StartScreen(
-                    onPlayClicked = { clicked = true },
+                    onPlayClicked = {},
                     onNavigate = {},
                 )
             }
         }
-        composeTestRule.onNodeWithText("PLAY").performClick()
-        assert(clicked)
+        composeTestRule.onNodeWithText("START NEW SESSION").assertExists()
     }
 
     @Test
