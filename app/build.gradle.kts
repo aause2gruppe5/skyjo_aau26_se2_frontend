@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("jacoco")
 }
 
 sonar {
@@ -42,7 +43,8 @@ android {
             )
         }
         debug {
-            enableUnitTestCoverage = true
+            // enableUnitTestCoverage uses AGP offline instrumentation which conflicts
+            // with the JaCoCo JVM agent approach needed for Robolectric compatibility
         }
     }
 
@@ -53,6 +55,12 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // CRITICAL: Disable Robolectric's re-instrumentation to preserve JaCoCo probes
+            // Robolectric's InstrumentingClassLoader corrupts offline instrumentation
+            // See: https://github.com/robolectric/robolectric/issues/7527
+            all { test ->
+                test.jvmArgs("-javaagent:${configurations.jacocoAgent.asPath}=destfile=${buildDir}/jacoco/test.exec,append=false")
+            }
         }
     }
 
@@ -99,7 +107,81 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.test:core-ktx:1.6.1")
+
+    // JaCoCo agent for runtime coverage collection (needed for Robolectric compat)
+    jacocoAgent("org.jacoco:org.jacoco.agent:0.8.11:runtime")
+
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JaCoCo Coverage Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+// PROBLEM: AGP's enableUnitTestCoverage uses offline instrumentation, but
+// Robolectric's InstrumentingClassLoader re-instruments bytecode at runtime,
+// corrupting JaCoCo's compile-time probes. This causes 0% coverage for Robolectric tests.
+//
+// SOLUTION: Use runtime instrumentation with JaCoCo Java agent instead of
+// offline instrumentation. The agent preserves JaCoCo probes through Robolectric's
+// re-instrumentation because it instruments AFTER Robolectric does.
+// ─────────────────────────────────────────────────────────────────────────────
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+// Register JaCoCo report task for debug unit tests
+tasks.register<JacocoReport>("jacocoDebugReport") {
+    group = "verification"
+    description = "Generate JaCoCo coverage report for unit tests (Robolectric-compatible)"
+
+    dependsOn("testDebugUnitTest")
+
+    // Use the execution data collected via JaCoCo agent at runtime
+    executionData(files("$buildDir/jacoco/test.exec").filter { it.exists() })
+
+    sourceDirectories.setFrom(files("src/main/kotlin", "src/main/java"))
+    classDirectories.setFrom(files(
+        fileTree("$buildDir/tmp/kotlin-classes/debug") {
+            exclude(
+                "**/R.class",
+                "**/R\$*.class",
+                "**/BuildConfig.class",
+                "**/Manifest*.class",
+                "**/*\$\$serializer.class"
+            )
+        }
+    ))
+
+    reports {
+        xml.required.set(true)
+        xml.outputLocation.set(File("$buildDir/reports/coverage/test/debug/report.xml"))
+        html.required.set(true)
+        html.outputLocation.set(File("$buildDir/reports/coverage/test/debug/html"))
+    }
+}
+
+// Override AGP's createDebugUnitTestCoverageReport to use our JaCoCo agent approach
+tasks.register("createDebugUnitTestCoverageReport") {
+    dependsOn("jacocoDebugReport")
+    doLast {
+        val reportPath = "$buildDir/reports/coverage/test/debug/report.xml"
+        val reportFile = File(reportPath)
+        if (reportFile.exists()) {
+            println("JaCoCo coverage report generated successfully at: $reportPath")
+        } else {
+            println("WARNING: Coverage report not found at $reportPath")
+            println("This may indicate no tests were executed or execution data was not collected.")
+        }
+    }
+}
+
+// Convenience task for CI: runs tests with JaCoCo agent and generates report
+tasks.register("testDebugWithCoverage") {
+    dependsOn("createDebugUnitTestCoverageReport")
+    doLast {
+        println("Coverage report generated at: app/build/reports/coverage/test/debug/report.xml")
+    }
 }
