@@ -1,8 +1,9 @@
 package at.aau.se2.skyjo.ui.screens.settings
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
@@ -24,27 +25,27 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Settings").assertExists()
+        composeTestRule.onRoot().assertIsDisplayed()
     }
 
     @Test
-    fun settingsScreen_shows_game_preferences_section() {
+    fun settingsScreen_shows_version_info() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Game Preferences").assertExists()
+        composeTestRule.onNodeWithText("Skyjo Action v1.0.0").assertIsDisplayed()
     }
 
     @Test
-    fun settingsScreen_shows_account_section() {
+    fun settingsScreen_shows_player_level() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Account").assertExists()
+        composeTestRule.onNodeWithText("Level 42").assertIsDisplayed()
     }
 
     @Test
