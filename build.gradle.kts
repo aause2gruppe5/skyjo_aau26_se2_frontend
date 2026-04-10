@@ -10,12 +10,5 @@ sonar {
         property("sonar.projectKey", "aause2gruppe5_skyjo_aau26_se2_frontend")
         property("sonar.organization", "aause2gruppe5")
         property("sonar.host.url", "https://sonarcloud.io")
-        property("sonar.sources", "${rootProject.projectDir}/app/src/main/kotlin")
-        property("sonar.tests", "${rootProject.projectDir}/app/src/test/kotlin")
-        property("sonar.coverage.jacoco.xmlReportPaths", "${rootProject.projectDir}/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
-        property("sonar.kotlin.file.suffixes", ".kt,.kts")
-        property("sonar.androidLint.reportPaths", "${rootProject.projectDir}/app/build/reports/lint-results-debug.xml")
-        property("sonar.exclusions", "**/*.xml,**/res/**")
-        property("sonar.sourceEncoding", "UTF-8")
     }
 }

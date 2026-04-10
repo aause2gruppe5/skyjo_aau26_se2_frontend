@@ -5,6 +5,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+sonar {
+    properties {
+        property("sonar.sources", "src/main/kotlin")
+        property("sonar.tests", "src/test/kotlin")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
+        property("sonar.androidLint.reportPaths", "${project.projectDir}/build/reports/lint-results-debug.xml")
+        property("sonar.kotlin.file.suffixes", ".kt,.kts")
+        property("sonar.exclusions", "**/*.xml,**/res/**")
+        property("sonar.sourceEncoding", "UTF-8")
+    }
+}
+
 val composeBomVersion = "2025.05.01"
 val navigationComposeVersion = "2.9.0"
 
