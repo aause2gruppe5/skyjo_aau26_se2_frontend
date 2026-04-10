@@ -10,12 +10,12 @@ val navigationComposeVersion = "2.9.0"
 
 android {
     namespace = "at.aau.se2.skyjo"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "at.aau.se2.skyjo"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
