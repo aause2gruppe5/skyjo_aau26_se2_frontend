@@ -31,7 +31,7 @@ android {
             )
         }
         debug {
-            // Coverage handled by Gradle jacoco plugin (writes to build/jacoco/<taskName>.exec)
+            enableUnitTestCoverage = true
         }
     }
 
@@ -93,12 +93,6 @@ jacoco {
     toolVersion = "0.8.11"
 }
 
-tasks.withType<Test>().configureEach {
-    configure<JacocoTaskExtension> {
-        isEnabled = true
-    }
-}
-
 tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
     reports {
@@ -113,7 +107,11 @@ tasks.register<JacocoReport>("jacocoTestReport") {
             }
         }
     )
+    // AGP offline instrumentation (enableUnitTestCoverage = true) writes .ec files here.
+    // The JVM agent wrote .exec files; those didn't capture Robolectric tests.
     executionData.setFrom(
-        layout.buildDirectory.file("jacoco/testDebugUnitTest.exec")
+        layout.buildDirectory.file(
+            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.ec"
+        )
     )
 }

@@ -32,11 +32,16 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
-      - name: List generated exec files
-        run: find app/build -name "*.exec" -o -name "*.ec" 2>/dev/null || echo "No exec files found"
-
-      - name: List kotlin class files
-        run: find app/build/tmp/kotlin-classes/debug -name "*.class" 2>/dev/null | head -5 || echo "No class files found at expected path"
+      - name: Verify coverage data file
+        run: |
+          EC_FILE="app/build/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.ec"
+          if [ -f "$EC_FILE" ]; then
+            echo "Coverage file found: $EC_FILE ($(wc -c < "$EC_FILE") bytes)"
+          else
+            echo "ERROR: coverage file not found at $EC_FILE"
+            find app/build -name "*.ec" -o -name "*.exec" 2>/dev/null || echo "No coverage files anywhere"
+            exit 1
+          fi
 
       - name: Generate JaCoCo Report
         run: ./gradlew jacocoTestReport
