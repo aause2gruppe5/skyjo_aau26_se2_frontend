@@ -31,7 +31,7 @@ android {
             )
         }
         debug {
-            enableUnitTestCoverage = true
+            // Coverage handled by Gradle jacoco plugin (writes to build/jacoco/<taskName>.exec)
         }
     }
 
@@ -89,6 +89,16 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
 
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.withType<Test>().configureEach {
+    configure<JacocoTaskExtension> {
+        isEnabled = true
+    }
+}
+
 tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
     reports {
@@ -103,7 +113,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     )
     executionData.setFrom(
         fileTree(layout.buildDirectory) {
-            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+            include("jacoco/testDebugUnitTest.exec")
         }
     )
 }
