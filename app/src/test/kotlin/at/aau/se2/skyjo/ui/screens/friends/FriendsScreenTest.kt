@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.friends
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
@@ -28,14 +29,63 @@ class FriendsScreenTest {
     }
 
     @Test
-    fun friendsScreen_content_is_composed() {
+    fun friendsScreen_shows_friends_title() {
         composeTestRule.setContent {
             SkyjoTheme {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.waitForIdle()
-        composeTestRule.onRoot().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Friends").assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsScreen_shows_online_friends_section() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("Online Friends (3)").assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsScreen_shows_suggested_friends_section() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("Suggested Friends").assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsScreen_shows_online_friend_name() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("KiraBlaze").assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsScreen_shows_friend_invite_button() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("Invite").assertIsDisplayed()
+    }
+
+    @Test
+    fun friendsScreen_shows_suggested_friend_add_button() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("+ Add").assertIsDisplayed()
     }
 
     @Test
