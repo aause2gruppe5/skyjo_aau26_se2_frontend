@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.application") version "8.3.2" apply false
+    id("com.android.application") version "8.7.3" apply false
     id("org.jetbrains.kotlin.android") version "2.2.10" apply false
     id("org.sonarqube") version "5.0.0.4638"
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" apply false
