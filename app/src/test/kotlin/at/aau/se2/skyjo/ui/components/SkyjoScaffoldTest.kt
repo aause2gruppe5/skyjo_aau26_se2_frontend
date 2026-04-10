@@ -138,6 +138,8 @@ class SkyjoScaffoldTest {
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
 
+    // "Log Out" is pushed to the bottom of the drawer by a weight(1f) spacer;
+    // use assertExists() since it may be outside the visible viewport in tests
     @Test
     fun drawerContent_shows_log_out_button() {
         composeTestRule.setContent {
@@ -145,7 +147,7 @@ class SkyjoScaffoldTest {
                 SkyjoDrawerContent(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Log Out").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Log Out").assertExists()
     }
 
     @Test
