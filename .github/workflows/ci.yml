@@ -29,6 +29,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Clear JaCoCo agent cache
+        run: rm -rf ~/.gradle/caches/modules-2/files-2.1/org.jacoco
+
       - name: Run Unit Tests with Coverage
         run: ./gradlew createDebugUnitTestCoverageReport
 

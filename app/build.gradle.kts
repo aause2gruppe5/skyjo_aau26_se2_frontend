@@ -110,7 +110,7 @@ dependencies {
     testImplementation("androidx.test:core-ktx:1.6.1")
 
     // JaCoCo agent jar — resolved at runtime so the jvmArgs path is available at config time
-    jacocoAgent("org.jacoco:org.jacoco.agent:0.8.11:runtime")
+    jacocoAgent("org.jacoco:org.jacoco.agent:0.8.12:runtime")
 
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
@@ -118,7 +118,7 @@ dependencies {
 }
 
 jacoco {
-    toolVersion = "0.8.11"
+    toolVersion = "0.8.12"
 }
 
 // JaCoCo report task — uses execution data from the JVM agent (Robolectric-compatible)
