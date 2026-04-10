@@ -3,6 +3,7 @@ package at.aau.se2.skyjo.ui.screens.start
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
