@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("jacoco")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -9,7 +8,7 @@ sonar {
     properties {
         property("sonar.sources", "src/main/kotlin")
         property("sonar.tests", "src/test/kotlin")
-        property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/coverage/test/debug/report.xml")
         property("sonar.androidLint.reportPaths", "${project.projectDir}/build/reports/lint-results-debug.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
         property("sonar.exclusions", "**/*.xml,**/res/**")
@@ -103,31 +102,4 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-}
-
-jacoco {
-    toolVersion = "0.8.11"
-}
-
-tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
-    }
-    sourceDirectories.setFrom(files("src/main/kotlin"))
-    classDirectories.setFrom(
-        layout.buildDirectory.dir("tmp/kotlin-classes/debug").map { dir ->
-            fileTree(dir) {
-                exclude("**/R.class", "**/R\$*.class", "**/BuildConfig.class", "**/Manifest*.class")
-            }
-        }
-    )
-    // AGP offline instrumentation (enableUnitTestCoverage = true) writes .ec files here.
-    // The JVM agent wrote .exec files; those didn't capture Robolectric tests.
-    executionData.setFrom(
-        layout.buildDirectory.file(
-            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
-        )
-    )
 }

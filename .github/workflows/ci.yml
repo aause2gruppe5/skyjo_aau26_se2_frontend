@@ -29,28 +29,22 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest
-
-      - name: Verify coverage data file
-        run: |
-          EC_FILE="app/build/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
-          if [ -f "$EC_FILE" ]; then
-            echo "Coverage file found: $EC_FILE ($(wc -c < "$EC_FILE") bytes)"
-          else
-            echo "ERROR: coverage file not found at $EC_FILE"
-            find app/build -name "*.ec" -o -name "*.exec" 2>/dev/null || echo "No coverage files anywhere"
-            exit 1
-          fi
+      - name: Run Unit Tests with Coverage
+        run: ./gradlew createDebugUnitTestCoverageReport
 
       - name: Run Lint
         run: ./gradlew lintDebug
 
-      - name: Generate JaCoCo Report
-        run: ./gradlew jacocoTestReport
-
-      - name: Verify JaCoCo XML generated
-        run: find app/build/reports/jacoco -type f 2>/dev/null || echo "No JaCoCo reports found"
+      - name: Verify coverage XML
+        run: |
+          REPORT="app/build/reports/coverage/test/debug/report.xml"
+          if [ -f "$REPORT" ]; then
+            echo "Coverage report found: $REPORT"
+          else
+            echo "ERROR: coverage report not found at $REPORT"
+            find app/build/reports -name "*.xml" 2>/dev/null || echo "No XML reports found"
+            exit 1
+          fi
 
       - name: SonarCloud Scan
         run: ./gradlew sonar
