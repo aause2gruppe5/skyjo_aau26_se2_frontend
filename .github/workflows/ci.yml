@@ -41,6 +41,9 @@ jobs:
       - name: Generate JaCoCo Report
         run: ./gradlew jacocoTestReport
 
+      - name: Verify JaCoCo XML generated
+        run: find app/build/reports/jacoco -type f 2>/dev/null || echo "No JaCoCo reports found"
+
       - name: SonarCloud Scan
         run: ./gradlew sonar
         env:
