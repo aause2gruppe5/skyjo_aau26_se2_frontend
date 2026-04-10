@@ -111,7 +111,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     // The JVM agent wrote .exec files; those didn't capture Robolectric tests.
     executionData.setFrom(
         layout.buildDirectory.file(
-            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.ec"
+            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
         )
     )
 }

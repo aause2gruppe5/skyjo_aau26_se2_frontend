@@ -34,7 +34,7 @@ jobs:
 
       - name: Verify coverage data file
         run: |
-          EC_FILE="app/build/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.ec"
+          EC_FILE="app/build/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
           if [ -f "$EC_FILE" ]; then
             echo "Coverage file found: $EC_FILE ($(wc -c < "$EC_FILE") bytes)"
           else
