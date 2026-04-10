@@ -32,6 +32,9 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
+      - name: List generated exec files
+        run: find app/build -name "*.exec" -o -name "*.ec" 2>/dev/null || echo "No exec files found"
+
       - name: Generate JaCoCo Report
         run: ./gradlew jacocoTestReport
 
