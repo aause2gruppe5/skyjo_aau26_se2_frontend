@@ -5,6 +5,9 @@ plugins {
     id("jacoco")
 }
 
+// Custom configuration so the JaCoCo plugin's artifact transform does not interfere
+val jacocoRuntime by configurations.creating
+
 sonar {
     properties {
         property("sonar.sources", "src/main/kotlin")
@@ -58,7 +61,7 @@ android {
             // JaCoCo JVM agent attaches AFTER Robolectric's InstrumentingClassLoader
             // transforms bytecode, so probes survive and coverage is captured correctly.
             all { test ->
-                val agentJar = configurations.getByName("jacocoAgent").asPath
+                val agentJar = configurations.getByName("jacocoRuntime").asPath
                 val execFile = layout.buildDirectory.file("jacoco/test.exec").get().asFile
                 test.jvmArgs("-javaagent:$agentJar=destfile=$execFile,append=false")
             }
@@ -109,8 +112,8 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.test:core-ktx:1.6.1")
 
-    // JaCoCo agent jar — resolved at runtime so the jvmArgs path is available at config time
-    jacocoAgent("org.jacoco:org.jacoco.agent:0.8.12:runtime")
+    // JaCoCo agent jar — resolved via custom config to avoid the plugin's ZIP-extract transform
+    jacocoRuntime("org.jacoco:org.jacoco.agent:0.8.12:runtime")
 
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
