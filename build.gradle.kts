@@ -12,7 +12,9 @@ sonar {
         property("sonar.host.url", "https://sonarcloud.io")
         property("sonar.sources", "app/src/main/kotlin")
         property("sonar.tests", "app/src/test/kotlin")
-        property("sonar.coverage.jacoco.xmlReportPaths", "app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${rootProject.projectDir}/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
+        property("sonar.exclusions", "**/*.xml,**/res/**")
+        property("sonar.sourceEncoding", "UTF-8")
     }
 }
