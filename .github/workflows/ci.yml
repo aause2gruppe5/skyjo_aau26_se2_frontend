@@ -35,6 +35,9 @@ jobs:
       - name: List generated exec files
         run: find app/build -name "*.exec" -o -name "*.ec" 2>/dev/null || echo "No exec files found"
 
+      - name: List kotlin class files
+        run: find app/build/tmp/kotlin-classes/debug -name "*.class" 2>/dev/null | head -5 || echo "No class files found at expected path"
+
       - name: Generate JaCoCo Report
         run: ./gradlew jacocoTestReport
 
