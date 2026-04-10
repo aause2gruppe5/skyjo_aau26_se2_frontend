@@ -14,6 +14,7 @@ sonar {
         property("sonar.tests", "${rootProject.projectDir}/app/src/test/kotlin")
         property("sonar.coverage.jacoco.xmlReportPaths", "${rootProject.projectDir}/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
+        property("sonar.androidLint.reportPaths", "${rootProject.projectDir}/app/build/reports/lint-results-debug.xml")
         property("sonar.exclusions", "**/*.xml,**/res/**")
         property("sonar.sourceEncoding", "UTF-8")
     }
