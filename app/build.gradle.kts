@@ -5,14 +5,11 @@ plugins {
     id("jacoco")
 }
 
-// Custom configuration so the JaCoCo plugin's artifact transform does not interfere
-val jacocoRuntime by configurations.creating
-
 sonar {
     properties {
         property("sonar.sources", "src/main/kotlin")
         property("sonar.tests", "src/test/kotlin")
-        property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/coverage/test/debug/report.xml")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
         property("sonar.androidLint.reportPaths", "${project.projectDir}/build/reports/lint-results-debug.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
         property("sonar.exclusions", "**/*.xml,**/res/**")
@@ -45,10 +42,6 @@ android {
                 "proguard-rules.pro"
             )
         }
-        debug {
-            // enableUnitTestCoverage (AGP offline instrumentation) is intentionally OFF —
-            // it conflicts with the JaCoCo JVM agent used below for Robolectric compatibility
-        }
     }
 
     lint {
@@ -58,12 +51,8 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            // JaCoCo JVM agent attaches AFTER Robolectric's InstrumentingClassLoader
-            // transforms bytecode, so probes survive and coverage is captured correctly.
-            all { test ->
-                val agentJar = configurations.getByName("jacocoRuntime").asPath
-                val execFile = layout.buildDirectory.file("jacoco/test.exec").get().asFile
-                test.jvmArgs("-javaagent:$agentJar=destfile=$execFile,append=false")
+            all {
+                it.finalizedBy(tasks.named("jacocoTestReport"))
             }
         }
     }
@@ -81,6 +70,48 @@ android {
         viewBinding = true
         compose = true
     }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "verification"
+    description = "Generates code coverage report for the test task."
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        xml.outputLocation.set(file("${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"))
+    }
+
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*"
+    )
+
+    val debugTree =
+        fileTree("${project.layout.buildDirectory.get().asFile}/tmp/kotlin-classes/debug") {
+            exclude(fileFilter)
+        }
+
+    val javaDebugTree =
+        fileTree("${project.layout.buildDirectory.get().asFile}/intermediates/javac/debug") {
+            exclude(fileFilter)
+        }
+
+    val mainSrc = listOf(
+        "${project.projectDir}/src/main/java",
+        "${project.projectDir}/src/main/kotlin"
+    )
+
+    sourceDirectories.setFrom(files(mainSrc))
+    classDirectories.setFrom(files(debugTree, javaDebugTree))
+    executionData.setFrom(fileTree(project.layout.buildDirectory.get().asFile) {
+        include("jacoco/testDebugUnitTest.exec")
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
 }
 
 dependencies {
@@ -112,50 +143,7 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.test:core-ktx:1.6.1")
 
-    // JaCoCo agent jar — resolved via custom config to avoid the plugin's ZIP-extract transform
-    jacocoRuntime("org.jacoco:org.jacoco.agent:0.8.12:runtime")
-
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-}
-
-jacoco {
-    toolVersion = "0.8.12"
-}
-
-// JaCoCo report task — uses execution data from the JVM agent (Robolectric-compatible)
-tasks.register<JacocoReport>("jacocoDebugReport") {
-    group = "verification"
-    dependsOn("testDebugUnitTest")
-
-    val execFile = layout.buildDirectory.file("jacoco/test.exec")
-    executionData(execFile.map { f -> if (f.asFile.exists()) files(f) else files() })
-
-    sourceDirectories.setFrom(files("src/main/kotlin"))
-    classDirectories.setFrom(
-        layout.buildDirectory.dir("tmp/kotlin-classes/debug").map { dir ->
-            fileTree(dir) {
-                exclude(
-                    "**/R.class",
-                    "**/R\$*.class",
-                    "**/BuildConfig.class",
-                    "**/Manifest*.class",
-                    "**/*\$\$serializer.class"
-                )
-            }
-        }
-    )
-
-    reports {
-        xml.required.set(true)
-        xml.outputLocation.set(layout.buildDirectory.file("reports/coverage/test/debug/report.xml"))
-        html.required.set(true)
-        html.outputLocation.set(layout.buildDirectory.dir("reports/coverage/test/debug/html"))
-    }
-}
-
-// createDebugUnitTestCoverageReport delegates to jacocoDebugReport
-tasks.register("createDebugUnitTestCoverageReport") {
-    dependsOn("jacocoDebugReport")
 }
