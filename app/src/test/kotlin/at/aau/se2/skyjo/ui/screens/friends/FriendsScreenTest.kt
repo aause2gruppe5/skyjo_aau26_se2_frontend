@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.friends
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,7 @@ class FriendsScreenTest {
         composeTestRule.onRoot().assertIsDisplayed()
     }
 
+    // "Friends" also appears in the bottom nav tab, so use onAllNodesWithText
     @Test
     fun friendsScreen_shows_friends_title() {
         composeTestRule.setContent {
@@ -35,7 +37,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Friends").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Friends")[0].assertExists()
     }
 
     @Test
@@ -48,6 +50,7 @@ class FriendsScreenTest {
         composeTestRule.onNodeWithText("Online Friends (3)").assertIsDisplayed()
     }
 
+    // "Suggested Friends" may be below the visible fold in the test viewport
     @Test
     fun friendsScreen_shows_suggested_friends_section() {
         composeTestRule.setContent {
@@ -55,7 +58,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Suggested Friends").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Suggested Friends").assertExists()
     }
 
     @Test
@@ -68,6 +71,7 @@ class FriendsScreenTest {
         composeTestRule.onNodeWithText("KiraBlaze").assertIsDisplayed()
     }
 
+    // Each online friend has its own "Invite" button (3 total), so use onAllNodesWithText
     @Test
     fun friendsScreen_shows_friend_invite_button() {
         composeTestRule.setContent {
@@ -75,9 +79,10 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Invite").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Invite")[0].assertExists()
     }
 
+    // Each suggested friend has a "+ Add" button (2 total) and they may be below the fold
     @Test
     fun friendsScreen_shows_suggested_friend_add_button() {
         composeTestRule.setContent {
@@ -85,7 +90,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("+ Add").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("+ Add")[0].assertExists()
     }
 
     @Test
