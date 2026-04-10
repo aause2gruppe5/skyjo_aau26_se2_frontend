@@ -29,13 +29,13 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun settingsScreen_shows_version_info() {
+    fun settingsScreen_shows_player_name() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Skyjo Action v1.0.0").assertIsDisplayed()
+        composeTestRule.onNodeWithText("AcePlayer").assertIsDisplayed()
     }
 
     @Test
