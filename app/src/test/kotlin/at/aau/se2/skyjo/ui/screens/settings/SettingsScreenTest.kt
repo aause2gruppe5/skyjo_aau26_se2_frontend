@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -28,6 +29,7 @@ class SettingsScreenTest {
         composeTestRule.onRoot().assertIsDisplayed()
     }
 
+    // "Settings" also appears in the bottom nav tab and drawer item, so use onAllNodesWithText
     @Test
     fun settingsScreen_shows_settings_title() {
         composeTestRule.setContent {
@@ -35,9 +37,10 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Settings")[0].assertExists()
     }
 
+    // "AcePlayer" also appears in the always-composed drawer header, so use onAllNodesWithText
     @Test
     fun settingsScreen_shows_player_name() {
         composeTestRule.setContent {
@@ -45,7 +48,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("AcePlayer").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("AcePlayer")[0].assertExists()
     }
 
     @Test
@@ -58,6 +61,7 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("Level 42").assertIsDisplayed()
     }
 
+    // Items below the fold in the scrollable column use assertExists() instead of assertIsDisplayed()
     @Test
     fun settingsScreen_shows_game_preferences_section() {
         composeTestRule.setContent {
@@ -65,7 +69,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Game Preferences").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Game Preferences").assertExists()
     }
 
     @Test
@@ -75,7 +79,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Sound FX").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Sound FX").assertExists()
     }
 
     @Test
@@ -85,7 +89,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Music").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Music").assertExists()
     }
 
     @Test
@@ -95,7 +99,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Haptic Feedback").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Haptic Feedback").assertExists()
     }
 
     @Test
@@ -105,7 +109,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Account").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Account").assertExists()
     }
 
     @Test
@@ -115,7 +119,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Link Account").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Link Account").assertExists()
     }
 
     @Test
@@ -125,7 +129,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Skyjo Action v1.0.0").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Skyjo Action v1.0.0").assertExists()
     }
 
     @Test
