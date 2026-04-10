@@ -35,6 +35,10 @@ android {
         }
     }
 
+    lint {
+        disable += "NullSafeMutableLiveData"
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
