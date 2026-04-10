@@ -9,6 +9,7 @@ sonar {
     properties {
         property("sonar.sources", "src/main/kotlin")
         property("sonar.tests", "src/test/kotlin")
+        property("sonar.java.binaries", "${project.layout.buildDirectory.get().asFile}/tmp/kotlin-classes/debug")
         property("sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
         property("sonar.androidLint.reportPaths", "${project.projectDir}/build/reports/lint-results-debug.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
