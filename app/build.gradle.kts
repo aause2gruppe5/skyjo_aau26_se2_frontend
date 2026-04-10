@@ -42,6 +42,9 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            enableUnitTestCoverage = true
+        }
     }
 
     lint {
@@ -69,6 +72,13 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+    }
+}
+
+// Disable the jacoco plugin's runtime agent — AGP offline instrumentation handles coverage
+tasks.withType<Test> {
+    extensions.configure<JacocoTaskExtension> {
+        isEnabled = false
     }
 }
 
