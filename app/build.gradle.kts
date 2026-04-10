@@ -43,8 +43,8 @@ android {
             )
         }
         debug {
-            // enableUnitTestCoverage uses AGP offline instrumentation which conflicts
-            // with the JaCoCo JVM agent approach needed for Robolectric compatibility
+            // enableUnitTestCoverage (AGP offline instrumentation) is intentionally OFF —
+            // it conflicts with the JaCoCo JVM agent used below for Robolectric compatibility
         }
     }
 
@@ -55,11 +55,12 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
-            // CRITICAL: Disable Robolectric's re-instrumentation to preserve JaCoCo probes
-            // Robolectric's InstrumentingClassLoader corrupts offline instrumentation
-            // See: https://github.com/robolectric/robolectric/issues/7527
+            // JaCoCo JVM agent attaches AFTER Robolectric's InstrumentingClassLoader
+            // transforms bytecode, so probes survive and coverage is captured correctly.
             all { test ->
-                test.jvmArgs("-javaagent:${configurations.jacocoAgent.asPath}=destfile=${buildDir}/jacoco/test.exec,append=false")
+                val agentJar = configurations.getByName("jacocoAgent").asPath
+                val execFile = layout.buildDirectory.file("jacoco/test.exec").get().asFile
+                test.jvmArgs("-javaagent:$agentJar=destfile=$execFile,append=false")
             }
         }
     }
@@ -108,7 +109,7 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.test:core-ktx:1.6.1")
 
-    // JaCoCo agent for runtime coverage collection (needed for Robolectric compat)
+    // JaCoCo agent jar — resolved at runtime so the jvmArgs path is available at config time
     jacocoAgent("org.jacoco:org.jacoco.agent:0.8.11:runtime")
 
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -116,72 +117,42 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// JaCoCo Coverage Configuration
-// ─────────────────────────────────────────────────────────────────────────────
-// PROBLEM: AGP's enableUnitTestCoverage uses offline instrumentation, but
-// Robolectric's InstrumentingClassLoader re-instruments bytecode at runtime,
-// corrupting JaCoCo's compile-time probes. This causes 0% coverage for Robolectric tests.
-//
-// SOLUTION: Use runtime instrumentation with JaCoCo Java agent instead of
-// offline instrumentation. The agent preserves JaCoCo probes through Robolectric's
-// re-instrumentation because it instruments AFTER Robolectric does.
-// ─────────────────────────────────────────────────────────────────────────────
-
 jacoco {
     toolVersion = "0.8.11"
 }
 
-// Register JaCoCo report task for debug unit tests
+// JaCoCo report task — uses execution data from the JVM agent (Robolectric-compatible)
 tasks.register<JacocoReport>("jacocoDebugReport") {
     group = "verification"
-    description = "Generate JaCoCo coverage report for unit tests (Robolectric-compatible)"
-
     dependsOn("testDebugUnitTest")
 
-    // Use the execution data collected via JaCoCo agent at runtime
-    executionData(files("$buildDir/jacoco/test.exec").filter { it.exists() })
+    val execFile = layout.buildDirectory.file("jacoco/test.exec")
+    executionData(execFile.map { f -> if (f.asFile.exists()) files(f) else files() })
 
-    sourceDirectories.setFrom(files("src/main/kotlin", "src/main/java"))
-    classDirectories.setFrom(files(
-        fileTree("$buildDir/tmp/kotlin-classes/debug") {
-            exclude(
-                "**/R.class",
-                "**/R\$*.class",
-                "**/BuildConfig.class",
-                "**/Manifest*.class",
-                "**/*\$\$serializer.class"
-            )
+    sourceDirectories.setFrom(files("src/main/kotlin"))
+    classDirectories.setFrom(
+        layout.buildDirectory.dir("tmp/kotlin-classes/debug").map { dir ->
+            fileTree(dir) {
+                exclude(
+                    "**/R.class",
+                    "**/R\$*.class",
+                    "**/BuildConfig.class",
+                    "**/Manifest*.class",
+                    "**/*\$\$serializer.class"
+                )
+            }
         }
-    ))
+    )
 
     reports {
         xml.required.set(true)
-        xml.outputLocation.set(File("$buildDir/reports/coverage/test/debug/report.xml"))
+        xml.outputLocation.set(layout.buildDirectory.file("reports/coverage/test/debug/report.xml"))
         html.required.set(true)
-        html.outputLocation.set(File("$buildDir/reports/coverage/test/debug/html"))
+        html.outputLocation.set(layout.buildDirectory.dir("reports/coverage/test/debug/html"))
     }
 }
 
-// Override AGP's createDebugUnitTestCoverageReport to use our JaCoCo agent approach
+// createDebugUnitTestCoverageReport delegates to jacocoDebugReport
 tasks.register("createDebugUnitTestCoverageReport") {
     dependsOn("jacocoDebugReport")
-    doLast {
-        val reportPath = "$buildDir/reports/coverage/test/debug/report.xml"
-        val reportFile = File(reportPath)
-        if (reportFile.exists()) {
-            println("JaCoCo coverage report generated successfully at: $reportPath")
-        } else {
-            println("WARNING: Coverage report not found at $reportPath")
-            println("This may indicate no tests were executed or execution data was not collected.")
-        }
-    }
-}
-
-// Convenience task for CI: runs tests with JaCoCo agent and generates report
-tasks.register("testDebugWithCoverage") {
-    dependsOn("createDebugUnitTestCoverageReport")
-    doLast {
-        println("Coverage report generated at: app/build/reports/coverage/test/debug/report.xml")
-    }
 }
