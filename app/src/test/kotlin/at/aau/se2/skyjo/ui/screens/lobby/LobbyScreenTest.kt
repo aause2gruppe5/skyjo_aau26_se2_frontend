@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.ui.game.GameViewModel
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
 import org.junit.Test
@@ -23,6 +24,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             SkyjoTheme {
                 LobbyScreen(
+                    gameViewModel = GameViewModel(),
                     onStartGame = {},
                     onBack = {},
                 )
@@ -36,6 +38,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             SkyjoTheme {
                 LobbyScreen(
+                    gameViewModel = GameViewModel(),
                     onStartGame = {},
                     onBack = {},
                 )
@@ -50,6 +53,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             SkyjoTheme {
                 LobbyScreen(
+                    gameViewModel = GameViewModel(),
                     onStartGame = { started = true },
                     onBack = {},
                 )
@@ -65,6 +69,7 @@ class LobbyScreenTest {
         composeTestRule.setContent {
             SkyjoTheme {
                 LobbyScreen(
+                    gameViewModel = GameViewModel(),
                     onStartGame = {},
                     onBack = { backPressed = true },
                 )

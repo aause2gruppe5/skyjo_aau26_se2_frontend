@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,26 +16,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.game.model.BoardLayout
+import at.aau.se2.skyjo.game.model.BoardPosition
+import at.aau.se2.skyjo.game.model.BoardSlot
+import at.aau.se2.skyjo.game.model.GamePhase
+import at.aau.se2.skyjo.game.model.GameState
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SecondaryButton
 import at.aau.se2.skyjo.ui.components.StatChip
@@ -53,42 +63,31 @@ import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
-// ── Dummy data ──────────────────────────────────────────────────────────────
-
-private data class GamePlayer(val name: String, val score: Int, val isActive: Boolean = false)
-
-private val dummyPlayers = listOf(
-    GamePlayer("Alice", 12, isActive = true),
-    GamePlayer("Bob", 8),
-    GamePlayer("Charlie", 15),
-)
-
-// Grid: null = face-down, number string = revealed
-private val myGrid = listOf(
-    listOf(null, "3", null, "-1"),
-    listOf("7", null, "11", null),
-    listOf(null, "5", null, "2"),
-)
-
-private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double")
-
-// ── Screen ──────────────────────────────────────────────────────────────────
+private enum class PendingAction { PLACE_CARD, DISCARD_AND_REVEAL }
 
 @Composable
 fun GameScreen(
+    gameState: GameState?,
+    onDrawFromDeck: () -> Unit = {},
+    onTakeDiscardCard: () -> Unit = {},
+    onReplaceDrawnCard: (BoardPosition) -> Unit = {},
+    onDiscardAndReveal: (BoardPosition) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var pendingAction by remember(gameState?.phase) { mutableStateOf<PendingAction?>(null) }
+    var showResults by remember(gameState?.phase) { mutableStateOf(gameState?.phase == GamePhase.ROUND_FINISHED) }
+
+    val currentPlayer = gameState?.players?.getOrNull(gameState.currentPlayerIndex)
+    val currentPlayerName = currentPlayer?.id ?: "—"
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(BackgroundGray),
     ) {
         // ── Header ───────────────────────────────────────────────────────
-        Surface(
-            color = SurfaceWhite,
-            shadowElevation = 2.dp,
-        ) {
+        Surface(color = SurfaceWhite, shadowElevation = 2.dp) {
             Column {
                 Row(
                     modifier = Modifier
@@ -111,23 +110,38 @@ fun GameScreen(
                         color = PrimaryGreen,
                         modifier = Modifier.weight(1f),
                     )
-                    Text(
-                        text = "Round 1",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MutedText,
-                        modifier = Modifier.padding(end = 16.dp),
-                    )
+                    if (gameState?.phase == GamePhase.FINAL_TURNS) {
+                        Surface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = BlueSurface,
+                        ) {
+                            Text(
+                                text = "Final Turns: ${gameState.finalTurnsRemaining}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
 
                 // Player pills
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    dummyPlayers.forEach { player ->
-                        PlayerPill(player = player, modifier = Modifier.weight(1f))
+                if (gameState != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        gameState.players.forEachIndexed { index, player ->
+                            PlayerPill(
+                                name = player.id,
+                                score = player.board.rawScore(),
+                                isActive = index == gameState.currentPlayerIndex,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
 
@@ -136,9 +150,25 @@ fun GameScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    StatChip(label = "Turn", value = "Alice")
-                    StatChip(label = "Target", value = "≤ 100")
-                    StatChip(label = "Cards", value = "24 left")
+                    StatChip(label = "Turn", value = currentPlayerName)
+                    StatChip(label = "Deck", value = "${gameState?.drawPile?.size ?: "—"}")
+                    if (pendingAction != null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = PrimaryGreen,
+                        ) {
+                            Text(
+                                text = when (pendingAction) {
+                                    PendingAction.PLACE_CARD -> "Tap a card to place"
+                                    PendingAction.DISCARD_AND_REVEAL -> "Tap a face-down card"
+                                    null -> ""
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SurfaceWhite,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -150,96 +180,193 @@ fun GameScreen(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ── Action Market ─────────────────────────────────────────────
-            ActionMarketSection()
-
             // ── Deck + Discard ────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                DeckCard(label = "Draw Deck", modifier = Modifier.weight(1f))
-                DiscardCard(value = "4", label = "Discard Pile", modifier = Modifier.weight(1f))
-            }
-
-            // ── Player Grid ───────────────────────────────────────────────
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = SurfaceWhite,
-                shadowElevation = 2.dp,
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Your Grid",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = GreenSurface,
-                        ) {
-                            Text(
-                                text = "Score: 12",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    CardGrid(cards = myGrid)
+                DeckCard(
+                    size = gameState?.drawPile?.size,
+                    label = "Draw Deck",
+                    modifier = Modifier.weight(1f),
+                )
+                DiscardCard(
+                    value = gameState?.discardPile?.cards?.lastOrNull()?.value?.toString() ?: "—",
+                    label = "Discard Pile",
+                    modifier = Modifier.weight(1f),
+                )
+                if (gameState?.drawnCard != null) {
+                    DrawnCard(
+                        value = gameState.drawnCard.value.toString(),
+                        label = "Drawn Card",
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
 
-            // Bottom spacing
+            // ── Player Grids ──────────────────────────────────────────────
+            if (gameState != null) {
+                gameState.players.forEachIndexed { index, player ->
+                    val isCurrentPlayer = index == gameState.currentPlayerIndex
+                    val board = player.board
+                    val grid = (0 until BoardLayout.ROWS).map { row ->
+                        (0 until BoardLayout.COLUMNS).map { col ->
+                            board.slotAt(BoardPosition(row, col))
+                        }
+                    }
+
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = SurfaceWhite,
+                        shadowElevation = if (isCurrentPlayer) 4.dp else 1.dp,
+                        border = if (isCurrentPlayer)
+                            androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen)
+                        else null,
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = if (isCurrentPlayer) "${player.id}'s Grid (Your Turn)" else "${player.id}'s Grid",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCurrentPlayer) PrimaryGreen else MaterialTheme.colorScheme.onSurface,
+                                )
+                                Surface(
+                                    shape = MaterialTheme.shapes.extraLarge,
+                                    color = GreenSurface,
+                                ) {
+                                    Text(
+                                        text = "Score: ${board.rawScore()}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = PrimaryGreen,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            CardGrid(
+                                grid = grid,
+                                onCardTap = if (isCurrentPlayer && pendingAction != null) { row, col ->
+                                    val pos = BoardPosition(row, col)
+                                    val slot = board.slotAt(pos)
+                                    when (pendingAction) {
+                                        PendingAction.PLACE_CARD -> {
+                                            onReplaceDrawnCard(pos)
+                                            pendingAction = null
+                                        }
+                                        PendingAction.DISCARD_AND_REVEAL -> {
+                                            if (slot is BoardSlot.Occupied && !slot.faceUp) {
+                                                onDiscardAndReveal(pos)
+                                                pendingAction = null
+                                            }
+                                        }
+                                        null -> {}
+                                    }
+                                } else null,
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         // ── Action Buttons ────────────────────────────────────────────────
-        Surface(
-            color = SurfaceWhite,
-            shadowElevation = 8.dp,
-        ) {
+        Surface(color = SurfaceWhite, shadowElevation = 8.dp) {
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PrimaryButton(text = "REVEAL CARD", onClick = {})
-                SecondaryButton(text = "Swap with Discard", onClick = {})
-                // Timer chip
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = BlueSurface,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) {
-                    Text(
-                        text = "⏱  24s remaining",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                    )
+                when (gameState?.phase) {
+                    GamePhase.AWAITING_DRAW, GamePhase.FINAL_TURNS -> {
+                        PrimaryButton(text = "DRAW FROM DECK", onClick = onDrawFromDeck)
+                        SecondaryButton(text = "Take from Discard", onClick = onTakeDiscardCard)
+                    }
+                    GamePhase.AWAITING_REPLACEMENT -> {
+                        PrimaryButton(
+                            text = if (pendingAction == PendingAction.PLACE_CARD) "← Tap a card on the grid" else "PLACE DRAWN CARD",
+                            onClick = { pendingAction = PendingAction.PLACE_CARD },
+                        )
+                        SecondaryButton(
+                            text = if (pendingAction == PendingAction.DISCARD_AND_REVEAL) "← Tap a face-down card" else "Discard & Reveal",
+                            onClick = { pendingAction = PendingAction.DISCARD_AND_REVEAL },
+                        )
+                    }
+                    GamePhase.ROUND_FINISHED -> {
+                        PrimaryButton(text = "VIEW RESULTS", onClick = { showResults = true })
+                    }
+                    else -> {
+                        // NOT_STARTED or null: show disabled placeholder
+                        PrimaryButton(text = "DRAW FROM DECK", onClick = {}, enabled = false)
+                    }
                 }
             }
         }
+    }
+
+    // ── Round Results Dialog ──────────────────────────────────────────────
+    if (showResults && gameState?.roundResult != null) {
+        AlertDialog(
+            onDismissRequest = { showResults = false },
+            title = { Text("Round Results", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    gameState.roundResult.scores
+                        .sortedBy { it.finalScore }
+                        .forEach { score ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                val suffix = when {
+                                    score.playerId == gameState.roundResult.finisherPlayerId -> " 🏁"
+                                    score.finalScore != score.rawScore -> " (×2)"
+                                    else -> ""
+                                }
+                                Text(text = "${score.playerId}$suffix", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = "${score.finalScore} pts",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryGreen,
+                                )
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showResults = false; onBack() }) {
+                    Text("Back to Lobby")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResults = false }) {
+                    Text("Close")
+                }
+            },
+        )
     }
 }
 
 // ── Subcomponents ────────────────────────────────────────────────────────────
 
 @Composable
-private fun PlayerPill(player: GamePlayer, modifier: Modifier = Modifier) {
+private fun PlayerPill(
+    name: String,
+    score: Int,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (player.isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
-        border = if (!player.isActive)
-            androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
-        else null,
+        color = if (isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
+        border = if (!isActive) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
         modifier = modifier,
     ) {
         Column(
@@ -247,15 +374,16 @@ private fun PlayerPill(player: GamePlayer, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = player.name,
+                text = name,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (player.isActive) SurfaceWhite else MutedText,
+                color = if (isActive) SurfaceWhite else MutedText,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
             )
             Text(
-                text = "${player.score} pts",
+                text = "$score pts",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (player.isActive) MintGreen else MaterialTheme.colorScheme.onSurface,
+                color = if (isActive) MintGreen else MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -263,94 +391,7 @@ private fun PlayerPill(player: GamePlayer, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ActionMarketSection() {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = SurfaceWhite,
-        shadowElevation = 2.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "ACTION MARKET",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.Bold,
-                )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "3 cards",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Central action deck
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(PrimaryGreen, GreenDark),
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                    )
-                    .border(
-                        width = 2.dp,
-                        color = MintGreen.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "⚡",
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Action card chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                actionCards.forEach { action ->
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = GreenSurface,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(
-                            text = action,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = PrimaryGreen,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeckCard(label: String, modifier: Modifier = Modifier) {
+private fun DeckCard(size: Int?, label: String, modifier: Modifier = Modifier) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = SurfaceWhite,
@@ -358,7 +399,7 @@ private fun DeckCard(label: String, modifier: Modifier = Modifier) {
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
@@ -366,22 +407,24 @@ private fun DeckCard(label: String, modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .aspectRatio(0.75f)
                     .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(PrimaryGreen, GreenDark),
-                        ),
+                        brush = Brush.verticalGradient(listOf(PrimaryGreen, GreenDark)),
                         shape = MaterialTheme.shapes.medium,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = "?", style = MaterialTheme.typography.headlineLarge, color = MintGreen)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "?", style = MaterialTheme.typography.headlineLarge, color = MintGreen)
+                    if (size != null) {
+                        Text(
+                            text = "$size left",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MintGreen.copy(alpha = 0.8f),
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MutedText,
-                textAlign = TextAlign.Center,
-            )
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = MutedText, textAlign = TextAlign.Center)
         }
     }
 }
@@ -395,22 +438,60 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val numValue = value.toIntOrNull()
+            val bgColor = when {
+                numValue == null -> CardHiddenBg
+                numValue <= 0 -> CardNegativeBg
+                else -> CardPositiveBg
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(0.75f)
-                    .background(
-                        color = CardPositiveBg,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = BorderColor,
-                        shape = MaterialTheme.shapes.medium,
-                    ),
+                    .background(color = bgColor, shape = MaterialTheme.shapes.medium)
+                    .border(width = 1.dp, color = BorderColor, shape = MaterialTheme.shapes.medium),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = MutedText, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun DrawnCard(value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceWhite,
+        shadowElevation = 4.dp,
+        border = androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen),
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            val numValue = value.toIntOrNull()
+            val bgColor = when {
+                numValue == null -> CardHiddenBg
+                numValue <= 0 -> CardNegativeBg
+                else -> CardPositiveBg
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.75f)
+                    .background(color = bgColor, shape = MaterialTheme.shapes.medium),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -424,7 +505,8 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = MutedText,
+                color = PrimaryGreen,
+                fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
         }
@@ -432,18 +514,25 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun CardGrid(cards: List<List<String?>>) {
+private fun CardGrid(
+    grid: List<List<BoardSlot>>,
+    onCardTap: ((row: Int, col: Int) -> Unit)?,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        cards.forEach { row ->
+        grid.forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                row.forEach { value ->
-                    GameCardTile(value = value, modifier = Modifier.weight(1f))
+                row.forEachIndexed { colIndex, slot ->
+                    GameCardTile(
+                        slot = slot,
+                        onClick = onCardTap?.let { { it(rowIndex, colIndex) } },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -451,32 +540,39 @@ private fun CardGrid(cards: List<List<String?>>) {
 }
 
 @Composable
-private fun GameCardTile(value: String?, modifier: Modifier = Modifier) {
-    val isHidden = value == null
-    val numValue = value?.toIntOrNull()
-    val bgColor = when {
-        isHidden -> CardHiddenBg
-        numValue != null && numValue <= 0 -> CardNegativeBg
-        else -> CardPositiveBg
+private fun GameCardTile(
+    slot: BoardSlot,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val (bgColor, textColor, label) = when (slot) {
+        is BoardSlot.Cleared -> Triple(GreenSurface, MutedText, "✓")
+        is BoardSlot.Occupied -> if (!slot.faceUp) {
+            Triple(CardHiddenBg, CardHiddenText, "?")
+        } else {
+            val numVal = slot.card.value
+            val bg = if (numVal <= 0) CardNegativeBg else CardPositiveBg
+            Triple(bg, MaterialTheme.colorScheme.onBackground, numVal.toString())
+        }
     }
-    val textColor = when {
-        isHidden -> CardHiddenText
-        else -> MaterialTheme.colorScheme.onBackground
-    }
+
+    val tappable = onClick != null && slot is BoardSlot.Occupied && slot != BoardSlot.Cleared
 
     Box(
         modifier = modifier
             .aspectRatio(0.65f)
+            .clip(RoundedCornerShape(10.dp))
             .background(color = bgColor, shape = RoundedCornerShape(10.dp))
             .border(
-                width = 1.dp,
-                color = if (isHidden) MintGreen.copy(alpha = 0.4f) else BorderColor,
+                width = if (tappable) 2.dp else 1.dp,
+                color = if (tappable) PrimaryGreen else if (slot is BoardSlot.Occupied && !slot.faceUp) MintGreen.copy(alpha = 0.4f) else BorderColor,
                 shape = RoundedCornerShape(10.dp),
-            ),
+            )
+            .then(if (onClick != null && slot !is BoardSlot.Cleared) Modifier.clickable { onClick() } else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = value ?: "?",
+            text = label,
             style = MaterialTheme.typography.titleLarge,
             color = textColor,
             fontWeight = FontWeight.ExtraBold,
@@ -489,6 +585,6 @@ private fun GameCardTile(value: String?, modifier: Modifier = Modifier) {
 @Composable
 private fun GameScreenPreview() {
     SkyjoTheme {
-        GameScreen(onBack = {})
+        GameScreen(gameState = null, onBack = {})
     }
 }
