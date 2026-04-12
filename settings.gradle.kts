@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "skyjo-frontend"
-include(":app")
+include(":app", ":game")

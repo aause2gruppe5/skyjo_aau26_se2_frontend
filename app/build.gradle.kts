@@ -138,6 +138,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:$navigationComposeVersion")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Game logic
+    implementation(project(":game"))
+
     // WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.java-websocket:Java-WebSocket:1.5.6")
