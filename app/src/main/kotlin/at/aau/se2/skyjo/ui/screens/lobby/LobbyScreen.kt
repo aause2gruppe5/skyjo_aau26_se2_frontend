@@ -50,6 +50,7 @@ import at.aau.se2.skyjo.ui.theme.MutedText
 import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
+import at.aau.se2.skyjo.viewmodel.GameViewModel
 
 private data class DummyPlayer(val name: String, val isHost: Boolean = false)
 

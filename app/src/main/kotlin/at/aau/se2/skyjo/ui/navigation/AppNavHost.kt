@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -10,11 +11,13 @@ import at.aau.se2.skyjo.ui.screens.game.GameScreen
 import at.aau.se2.skyjo.ui.screens.lobby.LobbyScreen
 import at.aau.se2.skyjo.ui.screens.settings.SettingsScreen
 import at.aau.se2.skyjo.ui.screens.start.StartScreen
+import at.aau.se2.skyjo.viewmodel.GameViewModel
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    gameViewModel: GameViewModel
 ) {
     val navigateMain: (AppDestination) -> Unit = { dest ->
         navController.navigate(dest.route) {
@@ -42,7 +45,8 @@ fun AppNavHost(
             )
         }
         composable(AppDestination.Game.route) {
-            GameScreen(onBack = { navController.popBackStack() })
+            GameScreen(
+                onBack = { navController.popBackStack() })
         }
         composable(AppDestination.Friends.route) {
             FriendsScreen(onNavigate = navigateMain)

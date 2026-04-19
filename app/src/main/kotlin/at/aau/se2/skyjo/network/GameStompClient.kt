@@ -10,6 +10,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.hildan.krossbow.stomp.*
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
+import android.util.Log
 
 class GameStompClient {
     //Krossbow STOMP Client mit OkHttp
@@ -31,11 +32,11 @@ class GameStompClient {
             try{
                 //Verbindung Aufabuen (Localhost von Android Emulator)
                 session = stompClient.connect("ws://10.0.2.2:8080/ws")
-                println("STOMP: Connected Sucsessfully")
+                Log.d("STOMP", "Connected Sucsessfully")
                 //sofort öffentlichen Kanal "zuhören"
                 subscribeToPublicTopic()
             }catch(e: Exception){
-                println("STOMP Error: ${e.message}")
+                Log.d("STOMP", "Error: ${e.message}")
             }
         }
     }
@@ -47,9 +48,8 @@ class GameStompClient {
                 // Wandelt das ankommende JSON direkt in die Kotlin ServerMessage um
                 val message = json.decodeFromString<ServerMessage>(jsonText)
                 _messages.emit(message) //leitet Nachricht an App/UI weiter
-                println("Server says: ${message.content}")
             }catch (e: Exception){
-                println("JSON Parsing Error: ${e.message}")
+                Log.d("JSON Parsing Error:", "${e.message}")
             }
         }
     }
