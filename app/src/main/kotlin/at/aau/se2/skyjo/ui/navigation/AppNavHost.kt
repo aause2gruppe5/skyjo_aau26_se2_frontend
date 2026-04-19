@@ -12,6 +12,8 @@ import at.aau.se2.skyjo.ui.screens.lobby.LobbyScreen
 import at.aau.se2.skyjo.ui.screens.settings.SettingsScreen
 import at.aau.se2.skyjo.ui.screens.start.StartScreen
 import at.aau.se2.skyjo.viewmodel.GameViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 @Composable
 fun AppNavHost(
@@ -55,4 +57,5 @@ fun AppNavHost(
             SettingsScreen(onNavigate = navigateMain)
         }
     }
+    val messages by gameViewModel.messages.collectAsState(initial = null) //Platzhalter, damit gameViewModel einmal benutzt wird, wird verändert, wenn gameview auf alle Screens angewendet wird
 }
