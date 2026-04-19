@@ -150,6 +150,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.compose.ui:ui-test-junit4")
