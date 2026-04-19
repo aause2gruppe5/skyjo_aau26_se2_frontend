@@ -22,6 +22,8 @@ sonar {
 val composeBomVersion = "2025.05.01"
 val navigationComposeVersion = "2.9.0"
 val krossbowVersion = "5.4.0"
+val serializationVersion = "1.6.2"
+val mockkVersion = "1.13.8"
 
 android {
     namespace = "at.aau.se2.skyjo"
@@ -144,13 +146,12 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.hildan.krossbow:krossbow-stomp-core:${krossbowVersion}")
     implementation("org.hildan.krossbow:krossbow-websocket-okhttp:${krossbowVersion}")
-    //implementation("org.java-websocket:Java-WebSocket:1.5.6")
 
     //Kotlin Serialization JASON Format
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:${serializationVersion}")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.mockk:mockk:${mockkVersion}")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.compose.ui:ui-test-junit4")
