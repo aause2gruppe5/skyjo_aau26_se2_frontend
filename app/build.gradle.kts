@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("jacoco")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
 }
 
 sonar {
@@ -20,6 +21,7 @@ sonar {
 
 val composeBomVersion = "2025.05.01"
 val navigationComposeVersion = "2.9.0"
+val krossbowVersion = "5.4.0"
 
 android {
     namespace = "at.aau.se2.skyjo"
@@ -140,7 +142,12 @@ dependencies {
 
     // WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.java-websocket:Java-WebSocket:1.5.6")
+    implementation("org.hildan.krossbow:krossbow-stomp-core:${krossbowVersion}")
+    implementation("org.hildan.krossbow:krossbow-websocket-okhttp:${krossbowVersion}")
+    //implementation("org.java-websocket:Java-WebSocket:1.5.6")
+
+    //Kotlin Serialization JASON Format
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
