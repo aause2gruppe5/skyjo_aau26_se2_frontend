@@ -145,21 +145,14 @@ fun StartScreen(
             // ── Feature Cards Row ────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
                 FeatureCard(
                     emoji = "👥",
                     title = "Friends",
                     subtitle = "3 online",
                     onClick = { onNavigate(AppDestination.Friends) },
-                    modifier = Modifier.weight(1f),
-                )
-                FeatureCard(
-                    emoji = "🛒",
-                    title = "Shop",
-                    subtitle = "New items!",
-                    onClick = {},
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(0.5f),
                 )
             }
 
