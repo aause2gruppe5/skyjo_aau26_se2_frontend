@@ -287,17 +287,6 @@ private fun ActionMarketSection() {
                     color = PrimaryGreen,
                     fontWeight = FontWeight.Bold,
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "3 cards",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
             }
             Spacer(modifier = Modifier.height(14.dp))
 
