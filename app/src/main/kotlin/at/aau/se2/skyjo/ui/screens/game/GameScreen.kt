@@ -163,38 +163,8 @@ fun GameScreen(
             }
 
             // ── Player Grid ───────────────────────────────────────────────
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = SurfaceWhite,
-                shadowElevation = 2.dp,
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Your Grid",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = GreenSurface,
-                        ) {
-                            Text(
-                                text = "Score: 12",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    CardGrid(cards = myGrid)
-                }
+            SectionCard(title = "Your Grid", badge = "Score: 12") {
+                CardGrid(cards = myGrid)
             }
 
             // ── Hand Action Cards ─────────────────────────────────────────
@@ -433,6 +403,56 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
 
 @Composable
 private fun HandActionCardsSection(cards: List<String>) {
+    SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
+        if (cards.isEmpty()) {
+            Text(
+                text = "No action cards in hand",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MutedText,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                cards.forEach { card ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = GreenSurface,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(0.65f)
+                            .border(
+                                width = 1.dp,
+                                color = MintGreen.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(10.dp),
+                            ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = card,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PrimaryGreen,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    badge: String? = null,
+    content: @Composable () -> Unit,
+) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = SurfaceWhite,
@@ -445,64 +465,27 @@ private fun HandActionCardsSection(cards: List<String>) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Your Action Cards",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "${cards.size} cards",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PrimaryGreen,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            if (cards.isEmpty()) {
-                Text(
-                    text = "No action cards in hand",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MutedText,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    cards.forEach { card ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = GreenSurface,
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(0.65f)
-                                .border(
-                                    width = 1.dp,
-                                    color = MintGreen.copy(alpha = 0.4f),
-                                    shape = RoundedCornerShape(10.dp),
-                                ),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = card,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = PrimaryGreen,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(4.dp),
-                                )
-                            }
-                        }
+                if (badge != null) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = GreenSurface,
+                    ) {
+                        Text(
+                            text = badge,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryGreen,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
         }
     }
 }
