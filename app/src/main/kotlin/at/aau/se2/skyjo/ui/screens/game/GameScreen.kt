@@ -395,104 +395,138 @@ private fun ActionMarketSection(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "ACTION MARKET",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.Bold,
-                )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "${actionCards.size} cards",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
-            }
+            ActionMarketHeader()
             Spacer(modifier = Modifier.height(14.dp))
-
-            // Central action deck
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(PrimaryGreen, GreenDark),
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                    )
-                    .border(
-                        width = 2.dp,
-                        color = MintGreen.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "⚡",
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-            }
-
+            ActionDeckPreview()
             Spacer(modifier = Modifier.height(14.dp))
-
-            // Action card chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                actionCards.forEach { action ->
-                    val isErleuchtung = action == "Erleuchtung"
-                    val isSelected = isErleuchtung && isErleuchtungSelecting
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = if (isSelected) PrimaryGreen else GreenSurface,
-                        border = if (isErleuchtung && !isSelected) {
-                            BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.45f))
-                        } else {
-                            null
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(enabled = isErleuchtung) { onErleuchtungClick() },
-                    ) {
-                        Text(
-                            text = action,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (isSelected) SurfaceWhite else PrimaryGreen,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp),
-                        )
-                    }
-                }
-            }
+            ActionCardChips(
+                isErleuchtungSelecting = isErleuchtungSelecting,
+                onErleuchtungClick = onErleuchtungClick,
+            )
             if (isErleuchtungSelecting) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = BlueSurface,
-                ) {
-                    Text(
-                        text = "Select any row or column to peek at face-down cards",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
+                ErleuchtungSelectionHint()
             }
         }
+    }
+}
+
+@Composable
+private fun ActionMarketHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "ACTION MARKET",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = GreenSurface,
+        ) {
+            Text(
+                text = "${actionCards.size} cards",
+                style = MaterialTheme.typography.labelSmall,
+                color = PrimaryGreen,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionDeckPreview() {
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(PrimaryGreen, GreenDark),
+                ),
+                shape = RoundedCornerShape(14.dp),
+            )
+            .border(
+                width = 2.dp,
+                color = MintGreen.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(14.dp),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "⚡",
+            style = MaterialTheme.typography.headlineMedium,
+        )
+    }
+}
+
+@Composable
+private fun ActionCardChips(
+    isErleuchtungSelecting: Boolean,
+    onErleuchtungClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        actionCards.forEach { action ->
+            ActionCardChip(
+                action = action,
+                isErleuchtungSelecting = isErleuchtungSelecting,
+                onErleuchtungClick = onErleuchtungClick,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionCardChip(
+    action: String,
+    isErleuchtungSelecting: Boolean,
+    onErleuchtungClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isErleuchtung = action == "Erleuchtung"
+    val isSelected = isErleuchtung && isErleuchtungSelecting
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = if (isSelected) PrimaryGreen else GreenSurface,
+        border = if (isErleuchtung && !isSelected) {
+            BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.45f))
+        } else {
+            null
+        },
+        modifier = modifier.clickable(enabled = isErleuchtung) { onErleuchtungClick() },
+    ) {
+        Text(
+            text = action,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isSelected) SurfaceWhite else PrimaryGreen,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 10.dp),
+        )
+    }
+}
+
+@Composable
+private fun ErleuchtungSelectionHint() {
+    Spacer(modifier = Modifier.height(12.dp))
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = BlueSurface,
+    ) {
+        Text(
+            text = "Select any row or column to peek at face-down cards",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
     }
 }
 
@@ -607,39 +641,55 @@ private fun AxisSelectorRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             repeat(itemCount) { index ->
-                val axisName = when (selectionType) {
-                    ErleuchtungSelectionType.ROW -> "row"
-                    ErleuchtungSelectionType.COLUMN -> "column"
-                }
                 val selection = ErleuchtungSelection(
                     playerName = playerName,
                     type = selectionType,
                     index = index,
                 )
-                val selected = selectedSelection == selection
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = if (selected) PrimaryGreen else GreenSurface,
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (selected) PrimaryGreen else PrimaryGreen.copy(alpha = 0.35f),
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelection(selection) }
-                        .semantics { contentDescription = "Select $playerName $axisName ${index + 1}" },
-                ) {
-                    Text(
-                        text = "$itemPrefix${index + 1}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) SurfaceWhite else PrimaryGreen,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
+                AxisSelectorButton(
+                    label = "$itemPrefix${index + 1}",
+                    contentDescription = "Select $playerName ${selectionType.axisName()} ${index + 1}",
+                    selected = selectedSelection == selection,
+                    onClick = { onSelection(selection) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
+    }
+}
+
+private fun ErleuchtungSelectionType.axisName(): String = when (this) {
+    ErleuchtungSelectionType.ROW -> "row"
+    ErleuchtungSelectionType.COLUMN -> "column"
+}
+
+@Composable
+private fun AxisSelectorButton(
+    label: String,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = if (selected) PrimaryGreen else GreenSurface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) PrimaryGreen else PrimaryGreen.copy(alpha = 0.35f),
+        ),
+        modifier = modifier
+            .clickable { onClick() }
+            .semantics { this.contentDescription = contentDescription },
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) SurfaceWhite else PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
     }
 }
 
@@ -750,8 +800,8 @@ private fun CardGrid(
                     } ?: false
                     GameCardTile(
                         value = if (card.isFaceUp) card.value.toString() else null,
-                        highlighted = highlighted,
                         modifier = Modifier.weight(1f),
+                        highlighted = highlighted,
                     )
                 }
             }
@@ -762,8 +812,8 @@ private fun CardGrid(
 @Composable
 private fun GameCardTile(
     value: String?,
-    highlighted: Boolean = false,
     modifier: Modifier = Modifier,
+    highlighted: Boolean = false,
 ) {
     val isHidden = value == null
     val numValue = value?.toIntOrNull()
