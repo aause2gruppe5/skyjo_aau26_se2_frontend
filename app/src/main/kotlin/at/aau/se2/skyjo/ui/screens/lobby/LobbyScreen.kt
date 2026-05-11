@@ -18,8 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,16 +28,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.model.LobbyPlayer
 import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SkyjoCard
@@ -50,23 +48,17 @@ import at.aau.se2.skyjo.ui.theme.MutedText
 import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
-import at.aau.se2.skyjo.viewmodel.GameViewModel
-
-private data class DummyPlayer(val name: String, val isHost: Boolean = false)
-
-private val dummyPlayers = listOf(
-    DummyPlayer("Alice", isHost = true),
-    DummyPlayer("Bob"),
-)
 
 @Composable
 fun LobbyScreen(
-    onStartGame: () -> Unit,
+    players: List<LobbyPlayer> = emptyList(),
+    maxPlayers: Int = 6,
+    isHost: Boolean = false,
+    onStartGame: (maxRounds: Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedRounds by remember { mutableIntStateOf(5) }
-    var selectedMode by remember { mutableStateOf("Action") }
+    var selectedRounds by remember { mutableIntStateOf(3) }
 
     Column(
         modifier = modifier
@@ -117,7 +109,7 @@ fun LobbyScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Waiting for\nPlayers",
+                    text = if (players.isEmpty()) "Waiting for\nPlayers" else "Players Ready",
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -136,7 +128,7 @@ fun LobbyScreen(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = "${dummyPlayers.size} / 4",
+                            text = "${players.size} / $maxPlayers",
                             style = MaterialTheme.typography.titleMedium,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.ExtraBold,
@@ -153,7 +145,7 @@ fun LobbyScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(fraction = dummyPlayers.size / 4f)
+                                .fillMaxWidth(fraction = if (maxPlayers > 0) players.size.toFloat() / maxPlayers else 0f)
                                 .height(8.dp)
                                 .clip(MaterialTheme.shapes.extraLarge)
                                 .background(PrimaryGreen),
@@ -164,19 +156,14 @@ fun LobbyScreen(
 
             // ── Player Slots ─────────────────────────────────────────────
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                dummyPlayers.forEach { player ->
+                players.forEach { player ->
                     FilledPlayerSlot(player = player)
                 }
-                // Empty invite slot
-                EmptyPlayerSlot(
-                    icon = Icons.Default.PersonAdd,
-                    label = "Invite Friend",
-                )
-                // Open to public slot
-                EmptyPlayerSlot(
-                    icon = Icons.Default.Search,
-                    label = "Open to Public",
-                )
+                // Empty slots up to maxPlayers (show at most 2 empty slots)
+                val emptySlots = (maxPlayers - players.size).coerceIn(0, 2)
+                repeat(emptySlots) {
+                    EmptyPlayerSlot()
+                }
             }
 
             // ── Match Rules ──────────────────────────────────────────────
@@ -200,32 +187,19 @@ fun LobbyScreen(
                             ToggleChip(
                                 text = rounds.toString(),
                                 selected = selectedRounds == rounds,
-                                onClick = { selectedRounds = rounds },
+                                onClick = { if (isHost) selectedRounds = rounds },
                                 modifier = Modifier.weight(1f),
                             )
                         }
                     }
 
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 16.dp),
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-
-                    Text(
-                        text = "Game Mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MutedText,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Classic", "Action").forEach { mode ->
-                            ToggleChip(
-                                text = mode,
-                                selected = selectedMode == mode,
-                                onClick = { selectedMode = mode },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
+                    if (!isHost) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Only the host can change rules",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedText,
+                        )
                     }
                 }
             }
@@ -241,10 +215,14 @@ fun LobbyScreen(
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
-                PrimaryButton(text = "START GAME", onClick = onStartGame)
+                PrimaryButton(
+                    text = "START GAME",
+                    onClick = { onStartGame(selectedRounds) },
+                    enabled = isHost && players.size >= 2,
+                )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "All players must be ready to start",
+                    text = if (isHost) "Need at least 2 players to start" else "Waiting for host to start",
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedText,
                     modifier = Modifier.fillMaxWidth(),
@@ -256,7 +234,7 @@ fun LobbyScreen(
 }
 
 @Composable
-private fun FilledPlayerSlot(player: DummyPlayer) {
+private fun FilledPlayerSlot(player: LobbyPlayer) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = SurfaceWhite,
@@ -269,7 +247,7 @@ private fun FilledPlayerSlot(player: DummyPlayer) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AvatarBadge(
-                initial = player.name.first(),
+                initial = player.nickname.firstOrNull() ?: '?',
                 size = 44,
                 showOnlineIndicator = true,
                 backgroundColor = MintGreen,
@@ -278,7 +256,7 @@ private fun FilledPlayerSlot(player: DummyPlayer) {
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (player.isHost) "${player.name}  👑" else player.name,
+                    text = if (player.isHost) "${player.nickname}  👑" else player.nickname,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -305,10 +283,7 @@ private fun FilledPlayerSlot(player: DummyPlayer) {
 }
 
 @Composable
-private fun EmptyPlayerSlot(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-) {
+private fun EmptyPlayerSlot() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,14 +297,14 @@ private fun EmptyPlayerSlot(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = icon,
-                contentDescription = label,
+                imageVector = Icons.Default.Person,
+                contentDescription = "Empty slot",
                 tint = MutedText,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = label,
+                text = "Waiting for player...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MutedText,
             )
@@ -370,6 +345,15 @@ private fun ToggleChip(
 @Composable
 private fun LobbyScreenPreview() {
     SkyjoTheme {
-        LobbyScreen(onStartGame = {}, onBack = {})
+        LobbyScreen(
+            players = listOf(
+                LobbyPlayer("Alice", isHost = true),
+                LobbyPlayer("Bob", isHost = false),
+            ),
+            maxPlayers = 6,
+            isHost = true,
+            onStartGame = {},
+            onBack = {},
+        )
     }
 }
