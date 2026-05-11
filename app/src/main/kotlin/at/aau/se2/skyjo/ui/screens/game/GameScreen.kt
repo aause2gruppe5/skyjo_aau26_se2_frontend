@@ -70,7 +70,7 @@ private val myGrid = listOf(
     listOf(null, "5", null, "2"),
 )
 
-private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double")
+private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", "🃏 Draw")
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
@@ -163,39 +163,12 @@ fun GameScreen(
             }
 
             // ── Player Grid ───────────────────────────────────────────────
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = SurfaceWhite,
-                shadowElevation = 2.dp,
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Your Grid",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            color = GreenSurface,
-                        ) {
-                            Text(
-                                text = "Score: 12",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    CardGrid(cards = myGrid)
-                }
+            SectionCard(title = "Your Grid", badge = "Score: 12") {
+                CardGrid(cards = myGrid)
             }
+
+            // ── Hand Action Cards ─────────────────────────────────────────
+            HandActionCardsSection(cards = actionCards)
 
             // Bottom spacing
             Spacer(modifier = Modifier.height(8.dp))
@@ -284,40 +257,37 @@ private fun ActionMarketSection() {
                     color = PrimaryGreen,
                     fontWeight = FontWeight.Bold,
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "3 cards",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    )
-                }
             }
             Spacer(modifier = Modifier.height(14.dp))
 
             // Central action deck
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(PrimaryGreen, GreenDark),
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(PrimaryGreen, GreenDark),
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = MintGreen.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(14.dp),
                         ),
-                        shape = RoundedCornerShape(14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "⚡",
+                        style = MaterialTheme.typography.headlineMedium,
                     )
-                    .border(
-                        width = 2.dp,
-                        color = MintGreen.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "⚡",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "Action Draw Deck",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText,
                 )
             }
 
@@ -427,6 +397,95 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
                 color = MutedText,
                 textAlign = TextAlign.Center,
             )
+        }
+    }
+}
+
+@Composable
+private fun HandActionCardsSection(cards: List<String>) {
+    SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
+        if (cards.isEmpty()) {
+            Text(
+                text = "No action cards in hand",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MutedText,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                cards.forEach { card ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = GreenSurface,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(0.65f)
+                            .border(
+                                width = 1.dp,
+                                color = MintGreen.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(10.dp),
+                            ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = card,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PrimaryGreen,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    badge: String? = null,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceWhite,
+        shadowElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (badge != null) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = GreenSurface,
+                    ) {
+                        Text(
+                            text = badge,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryGreen,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
         }
     }
 }
