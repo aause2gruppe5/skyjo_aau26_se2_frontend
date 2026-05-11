@@ -165,6 +165,60 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `lobby invalid JSON is handled without crash`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        topicFlow.emit("not valid json {{{")
+        delay(300)
+
+        assert(client.lobbyState.value == null) { "lobbyState should remain null on parse error" }
+    }
+
+    @Test
+    fun `joinLobby handles send exception gracefully`() = runBlocking {
+        coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
+
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.joinLobby("Hans")
+        delay(300)
+
+        verify { Log.e("GameStompClient", match { it.contains("Join lobby error") }) }
+    }
+
+    @Test
+    fun `leaveLobby handles send exception gracefully`() = runBlocking {
+        coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
+
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.leaveLobby()
+        delay(300)
+
+        verify { Log.e("GameStompClient", match { it.contains("Leave lobby error") }) }
+    }
+
+    @Test
+    fun `sendAction handles send exception gracefully`() = runBlocking {
+        coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
+
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.sendAction(at.aau.se2.skyjo.model.GameAction(type = "DRAW", source = "DECK"))
+        delay(300)
+
+        verify { Log.e("GameStompClient", match { it.contains("Send action error") }) }
+    }
+
+    @Test
     fun `lobby update is emitted when valid JSON arrives`() = runBlocking {
         val client = GameStompClient()
         client.connect()

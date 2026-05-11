@@ -115,14 +115,148 @@ class GameScreenTest {
         assert(!backPressed)
     }
 
+    @Test
+    fun gameScreen_shows_game_over_banner() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(gameOver = true),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_round_finished_message() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "ROUND_FINISHED"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Round finished", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_drawn_card_when_awaiting_replacement() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        phase = "AWAITING_REPLACEMENT",
+                        drawnCard = Card(id = 2, value = 7, type = "NUMBER"),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("DRAWN CARD").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_replace_and_discard_buttons_when_awaiting_replacement() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_REPLACEMENT"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("REPLACE CARD").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Discard & Reveal").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_cleared_slot_in_board() {
+        val stateWithClearedSlot = makeGameState().copy(
+            players = listOf(
+                GamePlayerState(
+                    playerId = "p1",
+                    nickname = "Alice",
+                    board = listOf(
+                        listOf(
+                            BoardSlot(type = "CLEARED"),
+                            BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 3, "NUMBER")),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                        ),
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                    ),
+                ),
+                GamePlayerState(
+                    playerId = "p2",
+                    nickname = "Bob",
+                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithClearedSlot,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Your Grid").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_action_market_section() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("ACTION MARKET").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_hand_action_cards_section() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Your Action Cards").assertExists()
+    }
+
     private fun makeGameState(
         phase: String = "AWAITING_DRAW",
         currentPlayerId: String = "p1",
+        gameOver: Boolean = false,
+        drawnCard: Card? = null,
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
         roundNumber = 1,
-        gameOver = false,
+        gameOver = gameOver,
         totalScores = listOf(
             TotalScore("p1", "Alice", 0),
             TotalScore("p2", "Bob", 0),
@@ -140,5 +274,6 @@ class GameScreenTest {
             ),
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
+        drawnCard = drawnCard,
     )
 }
