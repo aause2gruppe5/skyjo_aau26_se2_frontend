@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.LobbyPlayer
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
 import org.junit.Test
@@ -45,18 +46,58 @@ class LobbyScreenTest {
     }
 
     @Test
-    fun lobbyScreen_start_game_triggers_callback() {
-        var started = false
+    fun lobbyScreen_start_game_triggers_callback_when_host_with_enough_players() {
+        var startedRounds = -1
         composeTestRule.setContent {
             SkyjoTheme {
                 LobbyScreen(
-                    onStartGame = { started = true },
+                    players = listOf(
+                        LobbyPlayer("Alice", isHost = true),
+                        LobbyPlayer("Bob", isHost = false),
+                    ),
+                    isHost = true,
+                    onStartGame = { rounds -> startedRounds = rounds },
                     onBack = {},
                 )
             }
         }
         composeTestRule.onNodeWithText("START GAME").performClick()
-        assert(started)
+        assert(startedRounds > 0) { "Expected onStartGame to be called with a valid round count" }
+    }
+
+    @Test
+    fun lobbyScreen_shows_host_player_name() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                LobbyScreen(
+                    players = listOf(
+                        LobbyPlayer("Alice", isHost = true),
+                    ),
+                    onStartGame = {},
+                    onBack = {},
+                )
+            }
+        }
+        // Use substring to avoid exact emoji matching issues
+        composeTestRule.onNodeWithText("Alice", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun lobbyScreen_shows_player_count() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                LobbyScreen(
+                    players = listOf(
+                        LobbyPlayer("Alice", isHost = true),
+                        LobbyPlayer("Bob", isHost = false),
+                    ),
+                    maxPlayers = 6,
+                    onStartGame = {},
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("2 / 6").assertIsDisplayed()
     }
 
     @Test

@@ -1,88 +1,179 @@
 package at.aau.se2.skyjo.viewmodel
 
-import at.aau.se2.skyjo.model.ServerMessage
+import at.aau.se2.skyjo.model.GameAction
+import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.LobbyPlayer
+import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.network.GameStompClient
 import io.mockk.clearAllMocks
+import io.mockk.coEvery
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockkConstructor
+import io.mockk.runs
 import io.mockk.verify
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
 class GameViewModelTest {
 
-    private val dummyFlow = MutableSharedFlow<ServerMessage>()
+    private val testDispatcher = UnconfinedTestDispatcher()
+
+    private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
+    private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
+    private val fakeErrorMessage = MutableSharedFlow<String>()
+    private val fakeConnectionError = MutableStateFlow<String?>(null)
 
     @Before
     fun setup() {
-        //Wir fangen jeden Aufruf von GameStompClient() ab
+        Dispatchers.setMain(testDispatcher)
         mockkConstructor(GameStompClient::class)
 
-        //Wenn das ViewModel auf die Properties des Clients zugreift, geben wir Dummys zurück, damit die App nicht abstürzt.
-        every { anyConstructed<GameStompClient>().messages } returns dummyFlow
+        every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
+        every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
+        every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
+        every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
 
-        //Methodenaufrufe (Unit/Void) abfangen, damit sie nichts echtes ausführen
-        every { anyConstructed<GameStompClient>().connect() } returns Unit
-        every { anyConstructed<GameStompClient>().joinGame(any()) } returns Unit
-        every { anyConstructed<GameStompClient>().leaveGame() } returns Unit
+        coEvery { anyConstructed<GameStompClient>().connect() } just runs
+        every { anyConstructed<GameStompClient>().joinLobby(any()) } just runs
+        every { anyConstructed<GameStompClient>().leaveLobby() } just runs
+        every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
+        every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
+        every { anyConstructed<GameStompClient>().disconnect() } just runs
     }
 
     @After
     fun tearDown() {
-        //Nach jedem Test räumen wir auf, damit sich die Tests nicht gegenseitig beeinflussen
+        Dispatchers.resetMain()
         clearAllMocks()
     }
 
     @Test
-    fun `init ruft connect auf`() {
-        //Wir erstellen das ViewModel (das triggert den init-Block)
+    fun `init does not connect automatically`() {
         GameViewModel()
-
-        //Wir prüfen, ob connect() beim konstruierten Client aufgerufen wurde
-        verify(exactly = 1) { anyConstructed<GameStompClient>().connect() }
+        verify(exactly = 0) { anyConstructed<GameStompClient>().joinLobby(any()) }
     }
 
     @Test
-    fun `messages stellt den Flow vom Client bereit`() {
-        // Arrange
+    fun `myPlayerName is empty initially`() {
         val viewModel = GameViewModel()
-
-        // Assert: Wir prüfen, ob das ViewModel genau unseren dummyFlow nach außen reicht
-        assertEquals(dummyFlow, viewModel.messages)
+        assertEquals("", viewModel.myPlayerName.value)
     }
 
     @Test
-    fun `joinGame ruft client joinGame mit richtigem Namen auf`() {
+    fun `connect sets playerName`() {
         val viewModel = GameViewModel()
-        val testName = "Spieler1"
-
-        viewModel.joinGame(testName)
-
-        verify(exactly = 1) { anyConstructed<GameStompClient>().joinGame(testName) }
+        viewModel.connect("TestPlayer")
+        assertEquals("TestPlayer", viewModel.myPlayerName.value)
     }
 
     @Test
-    fun `leaveGame ruft client leaveGame auf`() {
+    fun `isHost is false when lobby is empty`() {
         val viewModel = GameViewModel()
-
-        viewModel.leaveGame()
-
-        verify(exactly = 1) { anyConstructed<GameStompClient>().leaveGame() }
+        assertFalse(viewModel.isHost.value)
     }
 
     @Test
-    fun `onCleared ruft leaveGame auf`() {
+    fun `isHost is true when player is first in lobby`() {
         val viewModel = GameViewModel()
+        viewModel.connect("Alice")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        assertTrue(viewModel.isHost.value)
+    }
 
-        //Da 'onCleared()' in ViewModel 'protected' ist, können wir es nicht direkt aufrufen. Wir nutzen Kotlin Reflection, um die Methode für den Test sichtbar zu machen und auszuführen.
+    @Test
+    fun `isHost is false when player is not host`() {
+        val viewModel = GameViewModel()
+        viewModel.connect("Bob")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            players = listOf(
+                LobbyPlayer("Alice", isHost = true),
+                LobbyPlayer("Bob", isHost = false),
+            ),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        assertFalse(viewModel.isHost.value)
+    }
+
+    @Test
+    fun `leaveLobby delegates to client`() {
+        val viewModel = GameViewModel()
+        viewModel.leaveLobby()
+        verify(exactly = 1) { anyConstructed<GameStompClient>().leaveLobby() }
+    }
+
+    @Test
+    fun `startGame delegates to client with correct params`() {
+        val viewModel = GameViewModel()
+        viewModel.startGame(maxRounds = 5, targetScore = 100)
+        verify(exactly = 1) { anyConstructed<GameStompClient>().startGame(5, 100) }
+    }
+
+    @Test
+    fun `drawFromDeck sends DRAW DECK action`() {
+        val viewModel = GameViewModel()
+        viewModel.drawFromDeck()
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DRAW", source = "DECK")
+            )
+        }
+    }
+
+    @Test
+    fun `drawFromDiscard sends DRAW DISCARD action`() {
+        val viewModel = GameViewModel()
+        viewModel.drawFromDiscard()
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DRAW", source = "DISCARD")
+            )
+        }
+    }
+
+    @Test
+    fun `replaceCard sends REPLACE action with correct coordinates`() {
+        val viewModel = GameViewModel()
+        viewModel.replaceCard(row = 1, col = 2)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "REPLACE", row = 1, col = 2)
+            )
+        }
+    }
+
+    @Test
+    fun `discardAndReveal sends DISCARD_AND_REVEAL action`() {
+        val viewModel = GameViewModel()
+        viewModel.discardAndReveal(row = 0, col = 3)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DISCARD_AND_REVEAL", row = 0, col = 3)
+            )
+        }
+    }
+
+    @Test
+    fun `onCleared calls disconnect`() {
+        val viewModel = GameViewModel()
         val method = GameViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
-
-        //Da onCleared() leaveGame() aufruft, muss der Client dies registrieren
-        verify(exactly = 1) { anyConstructed<GameStompClient>().leaveGame() }
+        verify(exactly = 1) { anyConstructed<GameStompClient>().disconnect() }
     }
 }

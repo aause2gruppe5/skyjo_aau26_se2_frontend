@@ -59,6 +59,19 @@ class StartScreenTest {
     }
 
     @Test
+    fun startScreen_shows_name_input_field() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                StartScreen(
+                    onPlayClicked = {},
+                    onNavigate = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Your Name").assertExists()
+    }
+
+    @Test
     fun startScreen_navigate_callback_works() {
         var navigatedTo: AppDestination? = null
         composeTestRule.setContent {

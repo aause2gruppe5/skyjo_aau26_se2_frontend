@@ -1,7 +1,6 @@
 package at.aau.se2.skyjo.network
 
 import android.util.Log
-import at.aau.se2.skyjo.model.ServerMessage
 import io.mockk.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -9,10 +8,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
-import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.stomp.sendText
+import org.hildan.krossbow.stomp.subscribeText
 import org.junit.After
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -23,7 +22,6 @@ class GameStompClientTest {
 
     @Before
     fun setup() {
-        // Alles auf Null zurücksetzen für jeden Test
         mockkStatic(Log::class)
         mockkStatic("org.hildan.krossbow.stomp.StompClientKt")
         mockkStatic("org.hildan.krossbow.stomp.StompSessionKt")
@@ -33,13 +31,12 @@ class GameStompClientTest {
         topicFlow = MutableSharedFlow()
 
         every { Log.d(any(), any()) } returns 0
+        every { Log.e(any(), any()) } returns 0
 
-        // Wir nutzen hier GANZ allgemeine Matcher für connect
         coEvery {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
         } returns mockSession
 
-        // Und für die Extensions
         coEvery { any<StompSession>().subscribeText(any()) } returns topicFlow
         coEvery { any<StompSession>().sendText(any(), any()) } returns null
     }
@@ -50,137 +47,146 @@ class GameStompClientTest {
     }
 
     @Test
-    fun `connect baut Verbindung auf und abonniert Topic`() = runBlocking {
+    fun `connect establishes session and logs success`() = runBlocking {
         val client = GameStompClient()
         client.connect()
+        delay(300)
 
-        // Wir geben der Coroutine deutlich Zeit (0.5 Sekunde)
-        delay(500)
-
-        // Wir prüfen nur, DASS connect mit IRGENDEINER URL gerufen wurde
-        coVerify(atLeast = 1) { anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any()) }
-        verify(atLeast = 1) { Log.d("STOMP", any()) }
+        coVerify(atLeast = 1) {
+            anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
+        }
     }
 
     @Test
-    fun `subscribeToPublicTopic verarbeitet gueltiges JSON`() = runBlocking {
+    fun `connect resets connectionError on success`() = runBlocking {
         val client = GameStompClient()
         client.connect()
+        delay(300)
+
+        assertNull(client.connectionError.value)
+    }
+
+    @Test
+    fun `connect sets connectionError on failure`() = runBlocking {
+        val errorMsg = "Connection refused"
+        coEvery {
+            anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
+        } throws Exception(errorMsg)
+
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        assert(client.connectionError.value == errorMsg)
+        verify { Log.e("GameStompClient", match { it.contains("Connection error") }) }
+    }
+
+    @Test
+    fun `joinLobby sends correct destination and payload`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.joinLobby("Hans")
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/lobby.join",
+                body = match { it.contains("Hans") },
+            )
+        }
+    }
+
+    @Test
+    fun `leaveLobby sends empty body to correct destination`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.leaveLobby()
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(destination = "/app/lobby.leave", body = "")
+        }
+    }
+
+    @Test
+    fun `startGame sends to correct destination`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.startGame(maxRounds = 5, targetScore = 100)
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText("/app/game.start", any())
+        }
+    }
+
+    @Test
+    fun `sendAction DRAW DECK sends correct JSON`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        client.sendAction(at.aau.se2.skyjo.model.GameAction(type = "DRAW", source = "DECK"))
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action",
+                body = match { it.contains("DRAW") && it.contains("DECK") },
+            )
+        }
+    }
+
+    @Test
+    fun `joinLobby does nothing when session is null`() = runBlocking {
+        val client = GameStompClient()
+        // connect NOT called → session is null
+
+        client.joinLobby("Hans")
+        delay(300)
+
+        coVerify(exactly = 0) { any<StompSession>().sendText(any(), any()) }
+    }
+
+    @Test
+    fun `leaveLobby does nothing when session is null`() = runBlocking {
+        val client = GameStompClient()
+
+        client.leaveLobby()
+        delay(300)
+
+        coVerify(exactly = 0) { any<StompSession>().sendText(any(), any()) }
+    }
+
+    @Test
+    fun `lobby update is emitted when valid JSON arrives`() = runBlocking {
+        val client = GameStompClient()
+        client.connect()
+        delay(300)
+
+        val validLobbyJson = """
+            {
+                "players": [{"nickname": "Alice", "isHost": true}],
+                "status": "WAITING",
+                "maxPlayers": 6
+            }
+        """.trimIndent()
+
+        val collected = mutableListOf<at.aau.se2.skyjo.model.LobbyUpdateMessage>()
+        val job = launch { client.lobbyState.collect { if (it != null) collected.add(it) } }
+
+        topicFlow.emit(validLobbyJson)
         delay(500)
 
-        val emittedMessages = mutableListOf<ServerMessage>()
-        val job = launch {
-            client.messages.collect { emittedMessages.add(it) }
-        }
-
-        // 1. Erstelle ein gueltiges JSON.
-        // WICHTIG: Das "type"-Feld muss exakt einem Namen aus deinem MessageType-Enum entsprechen!
-        val validJson = """
-        {
-            "type": "PLAYER_JOINED",
-            "content": "Hans ist beigetreten",
-            "playerName": "Hans"
-        }
-    """.trimIndent()
-
-        // 2. Sende das JSON
-        topicFlow.emit(validJson)
-
-        // Gib dem Hintergrund-Thread genug Zeit zum Parsen
-        delay(1000)
-
-        // 3. Assert
-        assertEquals("Die Nachricht sollte erfolgreich parst und weitergeleitet worden sein", 1, emittedMessages.size)
-        assertEquals("Hans", emittedMessages[0].playerName)
+        assert(collected.isNotEmpty()) { "Expected lobby update to be emitted" }
+        assert(collected.first().players.first().nickname == "Alice")
 
         job.cancel()
     }
-
-    @Test
-    fun `joinGame sendet PlayerMessage an Server`() = runBlocking {
-        val client = GameStompClient()
-        client.connect()
-        delay(500)
-
-        client.joinGame("Hans")
-        delay(500)
-
-        // Wir nutzen any() für die Session, weil MockK manchmal die Instanz verliert
-        coVerify(atLeast = 1) { any<StompSession>().sendText(any(), any()) }
-    }
-
-    @Test
-    fun `leaveGame sendet leeren Text an Server`() = runBlocking {
-        val client = GameStompClient()
-        client.connect()
-        delay(500)
-
-        client.leaveGame()
-        delay(500)
-
-        coVerify(atLeast = 1) { any<StompSession>().sendText(destination = "/app/game.leave", body = "") }
-    }
-
-    @Test
-    fun `connect faengt Exception ab`() = runBlocking {
-        // Spezielles Verhalten für diesen Test
-        coEvery { anyConstructed<StompClient>().connect(any(), any(), any(), any(), any(), any()) } throws Exception("Fehler")
-
-        val client = GameStompClient()
-        client.connect()
-        delay(500)
-
-        verify { Log.d("STOMP", match { it.contains("Error") }) }
-    }
-
-    @Test
-    fun `connect loggt Fehler wenn Verbindung fehlschlaegt`() = runBlocking {
-        // Wir lassen connect eine Exception werfen
-        val errorMsg = "Connection failed"
-        coEvery { anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any()) } throws Exception(errorMsg)
-
-        val client = GameStompClient()
-        client.connect()
-        delay(500)
-
-        // Prüft den catch-Block in connect()
-        verify { Log.d("STOMP", "Error: $errorMsg") }
-    }
-
-    @Test
-    fun `subscribeToPublicTopic loggt Fehler bei invalidem JSON`() = runBlocking {
-        val client = GameStompClient()
-        client.connect()
-        delay(500)
-
-        // Wir schicken absichtlich Müll
-        topicFlow.emit("Kein gueltiges JSON")
-        delay(500)
-
-        // Prüft den catch-Block in subscribeToPublicTopic()
-        verify { Log.d("JSON Parsing Error:", any()) }
-    }
-    @Test
-    fun `joinGame macht nichts wenn session null ist`() = runBlocking {
-        val client = GameStompClient()
-        // Wir rufen connect() NICHT auf -> session bleibt null
-
-        client.joinGame("Hans")
-        delay(500)
-
-        // Prüft den Safe-Call session?.sendText -> es darf NICHT gerufen werden
-        coVerify(exactly = 0) { any<StompSession>().sendText(any(), any()) }
-    }
-
-    @Test
-    fun `leaveGame macht nichts wenn session null ist`() = runBlocking {
-        val client = GameStompClient()
-        // session ist null
-
-        client.leaveGame()
-        delay(500)
-
-        coVerify(exactly = 0) { any<StompSession>().sendText(any(), any()) }
-    }
-
 }

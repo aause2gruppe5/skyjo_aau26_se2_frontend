@@ -3,8 +3,12 @@ package at.aau.se2.skyjo.ui.screens.game
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.BoardSlot
+import at.aau.se2.skyjo.model.Card
+import at.aau.se2.skyjo.model.GamePlayerState
+import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
 import org.junit.Test
@@ -29,23 +33,74 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_shows_reveal_card_button() {
+    fun gameScreen_shows_connecting_when_no_state() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(onBack = {})
             }
         }
-        composeTestRule.onNodeWithText("REVEAL CARD").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Connecting...").assertIsDisplayed()
     }
 
     @Test
-    fun gameScreen_shows_action_market() {
+    fun gameScreen_shows_round_number_when_state_present() {
         composeTestRule.setContent {
             SkyjoTheme {
-                GameScreen(onBack = {})
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
             }
         }
-        composeTestRule.onNodeWithText("ACTION MARKET").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Round 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_my_grid_section_when_state_present() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Your Grid").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_draw_buttons_when_awaiting_draw_and_my_turn() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("DRAW FROM DECK").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_waiting_when_not_my_turn() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p2",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        // Use substring to avoid ellipsis character encoding issues
+        composeTestRule.onNodeWithText("Waiting for Alice", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -59,4 +114,31 @@ class GameScreenTest {
         composeTestRule.waitForIdle()
         assert(!backPressed)
     }
+
+    private fun makeGameState(
+        phase: String = "AWAITING_DRAW",
+        currentPlayerId: String = "p1",
+    ) = GameUpdateMessage(
+        phase = phase,
+        currentPlayerId = currentPlayerId,
+        roundNumber = 1,
+        gameOver = false,
+        totalScores = listOf(
+            TotalScore("p1", "Alice", 0),
+            TotalScore("p2", "Bob", 0),
+        ),
+        players = listOf(
+            GamePlayerState(
+                playerId = "p1",
+                nickname = "Alice",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+            ),
+            GamePlayerState(
+                playerId = "p2",
+                nickname = "Bob",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+            ),
+        ),
+        discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
+    )
 }
