@@ -31,7 +31,7 @@ data class TotalScore(
 )
 
 @Serializable
-data class RoundPlayerScore(
+data class PlayerRoundScore(
     val playerId: String,
     val rawScore: Int,
     val finalScore: Int,
@@ -40,13 +40,13 @@ data class RoundPlayerScore(
 @Serializable
 data class RoundResult(
     val finisherPlayerId: String,
-    val scores: List<RoundPlayerScore>,
+    val scores: List<PlayerRoundScore>,
 )
 
 @Serializable
 data class GameUpdateMessage(
     val phase: String,
-    val currentPlayerId: String,
+    val currentPlayerId: String?,
     val roundNumber: Int,
     val gameOver: Boolean,
     val totalScores: List<TotalScore>,
