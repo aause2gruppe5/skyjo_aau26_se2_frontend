@@ -102,6 +102,7 @@ class GameStompClient(context: Context) {
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Lobby subscribe error: ${e.message}")
             _isConnected.value = false
         }
@@ -119,6 +120,7 @@ class GameStompClient(context: Context) {
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Game subscribe error: ${e.message}")
             _isConnected.value = false
         }
@@ -151,6 +153,7 @@ class GameStompClient(context: Context) {
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Rejoin subscribe error: ${e.message}")
         }
     }
