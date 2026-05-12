@@ -8,6 +8,8 @@ import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.PlayerRoundScore
+import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
@@ -247,11 +249,68 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Your Action Cards").assertExists()
     }
 
+    @Test
+    fun gameScreen_shows_round_result_section_when_round_result_present() {
+        val roundResult = RoundResult(
+            finisherPlayerId = "p1",
+            scores = listOf(
+                PlayerRoundScore(playerId = "p1", rawScore = 5, finalScore = 5),
+                PlayerRoundScore(playerId = "p2", rawScore = 10, finalScore = 10),
+            ),
+        )
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "ROUND_FINISHED", roundResult = roundResult),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Round 1 Results").assertExists()
+    }
+
+    @Test
+    fun gameScreen_action_market_section_is_displayed() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromActionDeck = {},
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("ACTION MARKET").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_draw_from_action_deck_callback_is_wired() {
+        var called = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromActionDeck = { called = true },
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+        assert(!called)
+    }
+
     private fun makeGameState(
         phase: String = "AWAITING_DRAW",
         currentPlayerId: String = "p1",
         gameOver: Boolean = false,
         drawnCard: Card? = null,
+        roundResult: RoundResult? = null,
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -275,5 +334,6 @@ class GameScreenTest {
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
         drawnCard = drawnCard,
+        roundResult = roundResult,
     )
 }

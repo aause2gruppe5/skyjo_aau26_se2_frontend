@@ -8,6 +8,7 @@ import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.network.GameStompClient
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -37,6 +38,7 @@ class GameViewModelTest {
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
+    private val fakeHasRejoinedGame = MutableStateFlow(false)
 
     @Before
     fun setup() {
@@ -48,8 +50,10 @@ class GameViewModelTest {
         every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
         every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
+        every { anyConstructed<GameStompClient>().hasRejoinedGame } returns fakeHasRejoinedGame
 
         coEvery { anyConstructed<GameStompClient>().connect() } just runs
+        coEvery { anyConstructed<GameStompClient>().reconnect(any()) } just runs
         every { anyConstructed<GameStompClient>().joinLobby(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
@@ -172,6 +176,38 @@ class GameViewModelTest {
                 GameAction(type = "DISCARD_AND_REVEAL", row = 0, col = 3)
             )
         }
+    }
+
+    @Test
+    fun `drawFromActionDeck sends DRAW ACTION_DECK action`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.drawFromActionDeck()
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DRAW", source = "ACTION_DECK")
+            )
+        }
+    }
+
+    @Test
+    fun `reconnect is triggered when connection drops with player name set`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.connect("Alice")
+
+        fakeIsConnected.value = true
+        fakeIsConnected.value = false
+
+        coVerify(atLeast = 1) { anyConstructed<GameStompClient>().reconnect("Alice") }
+    }
+
+    @Test
+    fun `reconnect is not triggered when player name is empty`() {
+        GameViewModel(mockApplication)
+
+        fakeIsConnected.value = true
+        fakeIsConnected.value = false
+
+        coVerify(exactly = 0) { anyConstructed<GameStompClient>().reconnect(any()) }
     }
 
     @Test

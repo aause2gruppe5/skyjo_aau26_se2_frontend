@@ -235,6 +235,106 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `clearStoredGame removes stored game id from prefs`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.clearStoredGame()
+        verify { mockEditor.remove("game_id") }
+        verify { mockEditor.apply() }
+    }
+
+    @Test
+    fun `disconnect sets isConnected to false`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.disconnect()
+        delay(300)
+
+        assert(!client.isConnected.value)
+    }
+
+    @Test
+    fun `startGame handles send exception gracefully`() = runBlocking {
+        coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
+
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.startGame(maxRounds = 3, targetScore = 100)
+        delay(300)
+
+        verify { Log.e("GameStompClient", match { it.contains("Start game error") }) }
+    }
+
+    @Test
+    fun `game update is emitted when valid game JSON arrives`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val validGameJson = """
+            {
+                "phase": "AWAITING_DRAW",
+                "currentPlayerId": "p1",
+                "roundNumber": 1,
+                "gameOver": false,
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        val collected = mutableListOf<at.aau.se2.skyjo.model.GameUpdateMessage>()
+        val job = launch { client.gameState.collect { if (it != null) collected.add(it) } }
+
+        topicFlow.emit(validGameJson)
+        delay(500)
+
+        assert(collected.isNotEmpty()) { "Expected game update to be emitted" }
+        assert(collected.first().phase == "AWAITING_DRAW")
+
+        job.cancel()
+    }
+
+    @Test
+    fun `rejoin state sets hasRejoinedGame true when valid game JSON arrives`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val validGameJson = """
+            {
+                "phase": "AWAITING_DRAW",
+                "currentPlayerId": "p1",
+                "roundNumber": 2,
+                "gameOver": false,
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        topicFlow.emit(validGameJson)
+        delay(500)
+
+        assert(client.hasRejoinedGame.value) { "Expected hasRejoinedGame to be true after rejoin JSON" }
+    }
+
+    @Test
+    fun `game invalid JSON is handled without crash`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        topicFlow.emit("not valid game json {{{")
+        delay(300)
+
+        assert(client.gameState.value == null) { "gameState should remain null on parse error" }
+    }
+
+    @Test
     fun `lobby update is emitted when valid JSON arrives`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
