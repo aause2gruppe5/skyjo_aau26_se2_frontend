@@ -42,6 +42,15 @@ fun AppNavHost(
 
     val isConnected by gameViewModel.isConnected.collectAsState()
     val myPlayerName by gameViewModel.myPlayerName.collectAsState()
+    val gameState by gameViewModel.gameState.collectAsState()
+
+    LaunchedEffect(gameState) {
+        if (gameState != null && navController.currentDestination?.route != AppDestination.Game.route) {
+            navController.navigate(AppDestination.Game.route) {
+                popUpTo(AppDestination.Start.route) { inclusive = false }
+            }
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
