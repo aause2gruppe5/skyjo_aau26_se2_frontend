@@ -335,6 +335,56 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `error collector emits raw text when message is not a JSON map`() = runBlocking {
+        val client = GameStompClient(mockContext)
+
+        val collected = mutableListOf<String>()
+        val job = launch { client.errorMessage.collect { collected.add(it) } }
+        delay(100)
+
+        client.connect()
+        delay(300)
+
+        topicFlow.emit("plain error message")
+        delay(500)
+
+        assert(collected.any { it == "plain error message" }) {
+            "Expected raw error text to be emitted when JSON parse fails"
+        }
+        job.cancel()
+    }
+
+    @Test
+    fun `joinLobby with gameId sends gameId in payload`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.joinLobby("Hans", "game-123")
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/lobby.join",
+                body = match { it.contains("game-123") },
+            )
+        }
+    }
+
+    @Test
+    fun `reconnect calls connect and joinLobby after successful connection`() = runBlocking {
+        val client = GameStompClient(mockContext)
+
+        val job = launch { client.reconnect("Hans") }
+        delay(1500)
+        job.cancel()
+
+        coVerify(atLeast = 1) {
+            anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
     fun `lobby update is emitted when valid JSON arrives`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()

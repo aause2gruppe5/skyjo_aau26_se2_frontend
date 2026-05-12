@@ -250,6 +250,66 @@ class GameScreenTest {
     }
 
     @Test
+    fun gameScreen_shows_final_turns_draw_buttons() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "FINAL_TURNS"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("DRAW FROM DECK").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_game_finished_message_in_action_bar() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(gameOver = true),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Game finished!", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_winner_in_game_over_banner() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(gameOver = true),
+                    myPlayerId = "p2",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Winner:", substring = true).assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_other_players_section() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Other Players").assertExists()
+    }
+
+    @Test
     fun gameScreen_shows_round_result_section_when_round_result_present() {
         val roundResult = RoundResult(
             finisherPlayerId = "p1",
