@@ -3,6 +3,7 @@ package at.aau.se2.skyjo.ui.screens.game
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
@@ -363,6 +364,156 @@ class GameScreenTest {
         }
         composeTestRule.waitForIdle()
         assert(!called)
+    }
+
+    @Test
+    fun gameScreen_draw_from_deck_callback_fires_on_click() {
+        var called = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromDeck = { called = true },
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("DRAW FROM DECK").performClick()
+        assert(called) { "onDrawFromDeck should be called when button is clicked" }
+    }
+
+    @Test
+    fun gameScreen_draw_from_discard_callback_fires_on_click() {
+        var called = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromDiscard = { called = true },
+                    onBack = {},
+                )
+            }
+        }
+        // Discard button shows the card value (discardTopCard has value 4)
+        composeTestRule.onNodeWithText("Draw from Discard", substring = true).performClick()
+        assert(called) { "onDrawFromDiscard should be called when button is clicked" }
+    }
+
+    @Test
+    fun gameScreen_final_turns_draw_from_deck_fires_on_click() {
+        var called = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "FINAL_TURNS"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromDeck = { called = true },
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("DRAW FROM DECK").performClick()
+        assert(called) { "onDrawFromDeck should be called in FINAL_TURNS phase" }
+    }
+
+    @Test
+    fun gameScreen_final_turns_draw_from_discard_fires_on_click() {
+        var called = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "FINAL_TURNS"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawFromDiscard = { called = true },
+                    onBack = {},
+                )
+            }
+        }
+        // Discard button shows the card value (discardTopCard has value 4)
+        composeTestRule.onNodeWithText("Draw from Discard", substring = true).performClick()
+        assert(called) { "onDrawFromDiscard should be called in FINAL_TURNS phase" }
+    }
+
+    @Test
+    fun gameScreen_shows_disconnected_badge_for_disconnected_player() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState().copy(
+                        disconnectedPlayers = listOf("Bob"),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Disconnected").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_round_result_fallback_to_player_id_when_no_nickname_match() {
+        val roundResult = RoundResult(
+            finisherPlayerId = "unknown-id",
+            scores = listOf(
+                PlayerRoundScore(playerId = "unknown-id", rawScore = 8, finalScore = 8),
+            ),
+        )
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "ROUND_FINISHED", roundResult = roundResult),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Round 1 Results").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_faceup_slot_with_no_card() {
+        val stateWithNullCard = makeGameState().copy(
+            players = listOf(
+                GamePlayerState(
+                    playerId = "p1",
+                    nickname = "Alice",
+                    board = listOf(
+                        listOf(
+                            BoardSlot(type = "OCCUPIED", faceUp = true, card = null),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                        ),
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                    ),
+                ),
+                GamePlayerState(
+                    playerId = "p2",
+                    nickname = "Bob",
+                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithNullCard,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Your Grid").assertExists()
     }
 
     private fun makeGameState(

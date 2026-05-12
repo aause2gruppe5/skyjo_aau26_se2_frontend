@@ -255,6 +255,18 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `close sets isConnected to false`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.close()
+        delay(100)
+
+        assert(!client.isConnected.value)
+    }
+
+    @Test
     fun `startGame handles send exception gracefully`() = runBlocking {
         coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
 

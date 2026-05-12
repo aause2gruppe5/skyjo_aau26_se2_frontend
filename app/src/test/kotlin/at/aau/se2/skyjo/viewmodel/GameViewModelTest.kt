@@ -135,6 +135,13 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `startGame with default params uses correct defaults`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.startGame()
+        verify(exactly = 1) { anyConstructed<GameStompClient>().startGame(3, 100) }
+    }
+
+    @Test
     fun `drawFromDeck sends DRAW DECK action`() {
         val viewModel = GameViewModel(mockApplication)
         viewModel.drawFromDeck()
