@@ -42,4 +42,5 @@ data class GameUpdateMessage(
     val drawnCard: Card? = null,
     val roundResult: String? = null,
     val gameId: String? = null,
+    val disconnectedPlayers: List<String> = emptyList(),
 )

@@ -259,6 +259,7 @@ fun GameScreen(
                                     totalScore = gameState.totalScores
                                         .find { it.playerId == player.playerId }?.totalScore ?: 0,
                                     isCurrentPlayer = player.playerId == gameState.currentPlayerId,
+                                    isDisconnected = player.nickname in gameState.disconnectedPlayers,
                                 )
                             }
                         }
@@ -831,14 +832,33 @@ private fun OtherPlayerRow(
     player: GamePlayerState,
     totalScore: Int,
     isCurrentPlayer: Boolean,
+    isDisconnected: Boolean = false,
 ) {
+    val avatarBg = when {
+        isDisconnected -> Color(0xFFFFCDD2)
+        isCurrentPlayer -> MintGreen
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val avatarTextColor = when {
+        isDisconnected -> Color(0xFFB71C1C)
+        isCurrentPlayer -> PrimaryGreen
+        else -> MutedText
+    }
+    val surfaceColor = when {
+        isDisconnected -> Color(0xFFFFF8F8)
+        isCurrentPlayer -> at.aau.se2.skyjo.ui.theme.GreenSurface
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val border = when {
+        isDisconnected -> androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF9A9A))
+        isCurrentPlayer -> androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen)
+        else -> null
+    }
+
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = if (isCurrentPlayer) at.aau.se2.skyjo.ui.theme.GreenSurface
-        else MaterialTheme.colorScheme.surface,
-        border = if (isCurrentPlayer)
-            androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen)
-        else null,
+        color = surfaceColor,
+        border = border,
     ) {
         Row(
             modifier = Modifier
@@ -849,28 +869,38 @@ private fun OtherPlayerRow(
             Text(
                 text = player.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrentPlayer) PrimaryGreen else MutedText,
+                color = avatarTextColor,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .size(36.dp)
-                    .background(
-                        color = if (isCurrentPlayer) MintGreen else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                    )
+                    .background(color = avatarBg, shape = androidx.compose.foundation.shape.CircleShape)
                     .padding(8.dp),
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = player.nickname,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = player.nickname,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isDisconnected) Color(0xFFB71C1C) else MaterialTheme.colorScheme.onSurface,
+                )
+                if (isDisconnected) {
+                    Text(
+                        text = "Disconnected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFEF5350),
+                    )
+                }
+            }
             Text(
                 text = "$totalScore pts",
                 style = MaterialTheme.typography.labelLarge,
-                color = if (isCurrentPlayer) PrimaryGreen else MutedText,
+                color = when {
+                    isDisconnected -> Color(0xFFEF9A9A)
+                    isCurrentPlayer -> PrimaryGreen
+                    else -> MutedText
+                },
                 fontWeight = FontWeight.Bold,
             )
         }

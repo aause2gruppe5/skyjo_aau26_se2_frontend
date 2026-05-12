@@ -57,7 +57,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun leaveLobby() = gameClient.leaveLobby()
+    fun leaveLobby() {
+        gameClient.leaveLobby()
+        gameClient.disconnect()
+        _myPlayerName.value = ""
+    }
 
     fun startGame(maxRounds: Int = 3, targetScore: Int = 100) =
         gameClient.startGame(maxRounds, targetScore)
