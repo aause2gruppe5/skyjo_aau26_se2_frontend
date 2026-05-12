@@ -44,7 +44,11 @@ class GameStompClient(context: Context) {
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
+    private val _hasRejoinedGame = MutableStateFlow(false)
+    val hasRejoinedGame: StateFlow<Boolean> = _hasRejoinedGame.asStateFlow()
+
     suspend fun connect() {
+        _hasRejoinedGame.value = false
         cancelSubscriptions()
         try {
             session?.disconnect()
@@ -141,6 +145,7 @@ class GameStompClient(context: Context) {
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
                     _gameState.value = msg
+                    _hasRejoinedGame.value = true
                 } catch (e: Exception) {
                     Log.e(TAG, "Rejoin state parse error: ${e.message}")
                 }
@@ -216,7 +221,7 @@ class GameStompClient(context: Context) {
 
     companion object {
         private const val TAG = "GameStompClient"
-        private const val SERVER_URL = "ws://10.0.2.2:8080/ws"
+        private const val SERVER_URL = "ws://10.0.2.2:8765/ws"
         private const val PREF_GAME_ID = "game_id"
     }
 }

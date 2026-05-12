@@ -14,6 +14,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val lobbyState = gameClient.lobbyState
     val gameState = gameClient.gameState
+    val hasRejoinedGame = gameClient.hasRejoinedGame
     val errorMessage = gameClient.errorMessage
     val connectionError = gameClient.connectionError
     val isConnected = gameClient.isConnected
