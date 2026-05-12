@@ -41,6 +41,7 @@ fun AppNavHost(
     }
 
     val isConnected by gameViewModel.isConnected.collectAsState()
+    val myPlayerName by gameViewModel.myPlayerName.collectAsState()
 
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
@@ -110,7 +111,7 @@ fun AppNavHost(
             }
         }
 
-        if (!isConnected) {
+        if (!isConnected && myPlayerName.isNotEmpty()) {
             Text(
                 text = "Verbindung unterbrochen, versuche erneut…",
                 style = MaterialTheme.typography.labelMedium,
