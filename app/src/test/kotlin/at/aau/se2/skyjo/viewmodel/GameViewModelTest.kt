@@ -50,7 +50,7 @@ class GameViewModelTest {
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
 
         coEvery { anyConstructed<GameStompClient>().connect() } just runs
-        every { anyConstructed<GameStompClient>().joinLobby(any(), any<String?>()) } just runs
+        every { anyConstructed<GameStompClient>().joinLobby(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
@@ -67,7 +67,7 @@ class GameViewModelTest {
     @Test
     fun `init does not connect automatically`() {
         GameViewModel(mockApplication)
-        verify(exactly = 0) { anyConstructed<GameStompClient>().joinLobby(any(), any<String?>()) }
+        verify(exactly = 0) { anyConstructed<GameStompClient>().joinLobby(any(), any()) }
     }
 
     @Test
