@@ -76,6 +76,7 @@ fun GameScreen(
     isMyTurn: Boolean = false,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
+    onDrawFromActionDeck: () -> Unit = {},
     onReplaceCard: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
     onBack: () -> Unit,
@@ -195,7 +196,10 @@ fun GameScreen(
                 }
             } else {
                 // ── Action Market ─────────────────────────────────────────
-                ActionMarketSection()
+                ActionMarketSection(
+                    clickable = isMyTurn && currentPhase == PHASE_AWAITING_DRAW,
+                    onDrawFromActionDeck = onDrawFromActionDeck,
+                )
 
                 // ── Deck + Discard ────────────────────────────────────────
                 Row(
@@ -808,7 +812,10 @@ private fun RoundResultSection(
 }
 
 @Composable
-private fun ActionMarketSection() {
+private fun ActionMarketSection(
+    clickable: Boolean = false,
+    onDrawFromActionDeck: () -> Unit = {},
+) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = SurfaceWhite,
@@ -838,15 +845,17 @@ private fun ActionMarketSection() {
                         .size(72.dp)
                         .background(
                             brush = Brush.verticalGradient(
-                                colors = listOf(PrimaryGreen, GreenDark),
+                                colors = if (clickable) listOf(MintGreen, PrimaryGreen)
+                                else listOf(PrimaryGreen, GreenDark),
                             ),
                             shape = RoundedCornerShape(14.dp),
                         )
                         .border(
-                            width = 2.dp,
-                            color = MintGreen.copy(alpha = 0.5f),
+                            width = if (clickable) 2.dp else 2.dp,
+                            color = if (clickable) MintGreen else MintGreen.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(14.dp),
-                        ),
+                        )
+                        .then(if (clickable) Modifier.clickable(onClick = onDrawFromActionDeck) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -856,9 +865,10 @@ private fun ActionMarketSection() {
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Action Draw Deck",
+                    text = if (clickable) "TAP to draw action card" else "Action Draw Deck",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MutedText,
+                    color = if (clickable) PrimaryGreen else MutedText,
+                    fontWeight = if (clickable) FontWeight.Bold else FontWeight.Normal,
                 )
             }
 

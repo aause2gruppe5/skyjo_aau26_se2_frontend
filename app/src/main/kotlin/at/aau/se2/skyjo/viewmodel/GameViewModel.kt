@@ -68,6 +68,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun drawFromDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "DECK"))
 
+    fun drawFromActionDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "ACTION_DECK"))
+
     fun drawFromDiscard() = gameClient.sendAction(GameAction(type = "DRAW", source = "DISCARD"))
 
     fun replaceCard(row: Int, col: Int) =
