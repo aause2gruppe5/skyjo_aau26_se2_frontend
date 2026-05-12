@@ -31,6 +31,19 @@ data class TotalScore(
 )
 
 @Serializable
+data class RoundPlayerScore(
+    val playerId: String,
+    val rawScore: Int,
+    val finalScore: Int,
+)
+
+@Serializable
+data class RoundResult(
+    val finisherPlayerId: String,
+    val scores: List<RoundPlayerScore>,
+)
+
+@Serializable
 data class GameUpdateMessage(
     val phase: String,
     val currentPlayerId: String,
@@ -40,7 +53,7 @@ data class GameUpdateMessage(
     val players: List<GamePlayerState>,
     val discardTopCard: Card? = null,
     val drawnCard: Card? = null,
-    val roundResult: String? = null,
+    val roundResult: RoundResult? = null,
     val gameId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
 )

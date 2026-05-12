@@ -43,6 +43,7 @@ import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SecondaryButton
@@ -86,7 +87,11 @@ fun GameScreen(
     // Reset pending action when phase changes
     val currentPhase = gameState?.phase
     val myBoard = gameState?.players?.find { it.playerId == myPlayerId }?.board
-    val myScore = gameState?.totalScores?.find { it.playerId == myPlayerId }?.totalScore ?: 0
+    val myVisibleScore = myBoard
+        ?.flatten()
+        ?.filter { it.type == "OCCUPIED" && it.faceUp == true }
+        ?.mapNotNull { it.card?.value }
+        ?.sum() ?: 0
     val currentPlayerNickname = gameState?.players
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
@@ -227,7 +232,7 @@ fun GameScreen(
                 if (myBoard != null) {
                     SectionCard(
                         title = "Your Grid",
-                        badge = "Score: $myScore",
+                        badge = "Visible: $myVisibleScore",
                     ) {
                         CardGrid(
                             board = myBoard,
@@ -268,6 +273,15 @@ fun GameScreen(
 
                 // ── Hand Action Cards ─────────────────────────────────────
                 HandActionCardsSection(cards = actionCards)
+
+                // ── Round Result ──────────────────────────────────────────
+                if (gameState.roundResult != null) {
+                    RoundResultSection(
+                        roundResult = gameState.roundResult,
+                        players = gameState.players,
+                        roundNumber = gameState.roundNumber,
+                    )
+                }
 
                 // Game over banner
                 if (gameState.gameOver) {
@@ -693,6 +707,100 @@ private fun BoardSlotTile(
                     color = if (!isFaceUp) CardHiddenText else MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoundResultSection(
+    roundResult: RoundResult,
+    players: List<GamePlayerState>,
+    roundNumber: Int,
+) {
+    val finisherNickname = players.find { it.playerId == roundResult.finisherPlayerId }?.nickname
+        ?: roundResult.finisherPlayerId
+
+    SectionCard(title = "Round $roundNumber Results") {
+        if (finisherNickname.isNotEmpty()) {
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = "$finisherNickname finished the round",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Header row
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Player",
+                style = MaterialTheme.typography.labelSmall,
+                color = MutedText,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "Round",
+                style = MaterialTheme.typography.labelSmall,
+                color = MutedText,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(56.dp),
+            )
+            Text(
+                text = "Final",
+                style = MaterialTheme.typography.labelSmall,
+                color = MutedText,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(56.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        roundResult.scores.forEach { score ->
+            val nickname = players.find { it.playerId == score.playerId }?.nickname
+                ?: score.playerId
+            val isFinisher = score.playerId == roundResult.finisherPlayerId
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (isFinisher) "$nickname ★" else nickname,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isFinisher) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isFinisher) PrimaryGreen else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "${score.rawScore}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MutedText,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(56.dp),
+                )
+                Text(
+                    text = "${score.finalScore}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (score.finalScore <= 0) at.aau.se2.skyjo.ui.theme.CardNegativeBg
+                    else MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(56.dp),
                 )
             }
         }
