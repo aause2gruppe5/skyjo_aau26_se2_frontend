@@ -59,12 +59,22 @@ class GameStompClient(context: Context) {
             _connectionError.value = null
             _isConnected.value = true
             Log.d(TAG, "Connected successfully")
+
+            // Subscriptions synchron aufbauen — alle sind aktiv bevor connect() zurückgibt,
+            // damit joinLobby danach keine Nachrichten verpasst
+            val s = session!!
+            val lobbyFlow       = s.subscribeText("/topic/lobby")
+            val lobbyDirectFlow = s.subscribeText("/user/queue/lobby")
+            val gameFlow        = s.subscribeText("/topic/game")
+            val errorsFlow      = s.subscribeText("/user/queue/errors")
+            val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
+
             subscriptionJobs = listOf(
-                scope.launch { collectLobby() },
-                scope.launch { collectLobbyDirect() },
-                scope.launch { collectGame() },
-                scope.launch { collectErrors() },
-                scope.launch { collectRejoinState() },
+                scope.launch { collectLobby(lobbyFlow) },
+                scope.launch { collectLobbyDirect(lobbyDirectFlow) },
+                scope.launch { collectGame(gameFlow) },
+                scope.launch { collectErrors(errorsFlow) },
+                scope.launch { collectRejoinState(rejoinFlow) },
             )
         } catch (e: Exception) {
             Log.e(TAG, "Connection error: ${e.message}")
@@ -93,9 +103,9 @@ class GameStompClient(context: Context) {
         subscriptionJobs = emptyList()
     }
 
-    private suspend fun collectLobby() {
+    private suspend fun collectLobby(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
-            session?.subscribeText("/topic/lobby")?.collect { jsonText ->
+            flow.collect { jsonText ->
                 try {
                     _lobbyState.value = json.decodeFromString(jsonText)
                 } catch (e: Exception) {
@@ -109,9 +119,9 @@ class GameStompClient(context: Context) {
         }
     }
 
-    private suspend fun collectLobbyDirect() {
+    private suspend fun collectLobbyDirect(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
-            session?.subscribeText("/user/queue/lobby")?.collect { jsonText ->
+            flow.collect { jsonText ->
                 try {
                     _lobbyState.value = json.decodeFromString(jsonText)
                 } catch (e: Exception) {
@@ -124,9 +134,9 @@ class GameStompClient(context: Context) {
         }
     }
 
-    private suspend fun collectGame() {
+    private suspend fun collectGame(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
-            session?.subscribeText("/topic/game")?.collect { jsonText ->
+            flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
                     msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
@@ -142,9 +152,9 @@ class GameStompClient(context: Context) {
         }
     }
 
-    private suspend fun collectErrors() {
+    private suspend fun collectErrors(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
-            session?.subscribeText("/user/queue/errors")?.collect { jsonText ->
+            flow.collect { jsonText ->
                 try {
                     val errorMap = json.decodeFromString<Map<String, String>>(jsonText)
                     _errorMessage.tryEmit(errorMap["message"] ?: jsonText)
@@ -153,13 +163,14 @@ class GameStompClient(context: Context) {
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Error subscribe error: ${e.message}")
         }
     }
 
-    private suspend fun collectRejoinState() {
+    private suspend fun collectRejoinState(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
-            session?.subscribeText("/user/queue/gamestate")?.collect { jsonText ->
+            flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
                     _gameState.value = msg
