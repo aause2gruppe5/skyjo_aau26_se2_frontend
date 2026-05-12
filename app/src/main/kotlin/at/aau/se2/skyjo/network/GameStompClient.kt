@@ -61,6 +61,7 @@ class GameStompClient(context: Context) {
             Log.d(TAG, "Connected successfully")
             subscriptionJobs = listOf(
                 scope.launch { collectLobby() },
+                scope.launch { collectLobbyDirect() },
                 scope.launch { collectGame() },
                 scope.launch { collectErrors() },
                 scope.launch { collectRejoinState() },
@@ -105,6 +106,21 @@ class GameStompClient(context: Context) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Lobby subscribe error: ${e.message}")
             _isConnected.value = false
+        }
+    }
+
+    private suspend fun collectLobbyDirect() {
+        try {
+            session?.subscribeText("/user/queue/lobby")?.collect { jsonText ->
+                try {
+                    _lobbyState.value = json.decodeFromString(jsonText)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Lobby direct parse error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Lobby direct subscribe error: ${e.message}")
         }
     }
 
