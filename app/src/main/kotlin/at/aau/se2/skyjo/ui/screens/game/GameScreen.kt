@@ -82,10 +82,8 @@ fun GameScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Tracks which action mode is selected in AWAITING_REPLACEMENT
     var pendingAction by remember { mutableStateOf<String?>(null) }
 
-    // Reset pending action when phase changes
     val currentPhase = gameState?.phase
     val myBoard = gameState?.players?.find { it.playerId == myPlayerId }?.board
     val myVisibleScore = myBoard
@@ -103,75 +101,13 @@ fun GameScreen(
             .fillMaxSize()
             .background(BackgroundGray),
     ) {
-        // ── Header ───────────────────────────────────────────────────────
-        Surface(
-            color = SurfaceWhite,
-            shadowElevation = 2.dp,
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .height(52.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = PrimaryGreen,
-                        )
-                    }
-                    Text(
-                        text = "SKYJO ACTION",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PrimaryGreen,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = if (gameState != null) "Round ${gameState.roundNumber}" else "",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MutedText,
-                        modifier = Modifier.padding(end = 16.dp),
-                    )
-                }
-
-                // Player score pills
-                if (gameState != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        gameState.totalScores.forEach { score ->
-                            PlayerPill(
-                                score = score,
-                                isActive = score.playerId == gameState.currentPlayerId,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-
-                    // Status chips
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        StatChip(
-                            label = "Turn",
-                            value = if (isMyTurn) "You" else currentPlayerNickname,
-                        )
-                        StatChip(label = "Phase", value = currentPhase ?: "")
-                        if (gameState.gameOver) {
-                            StatChip(label = "Status", value = "Game Over")
-                        }
-                    }
-                }
-            }
-        }
+        GameScreenHeader(
+            gameState = gameState,
+            isMyTurn = isMyTurn,
+            currentPlayerNickname = currentPlayerNickname,
+            currentPhase = currentPhase,
+            onBack = onBack,
+        )
 
         Column(
             modifier = Modifier
@@ -181,229 +117,429 @@ fun GameScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (gameState == null) {
-                // Loading / connecting state
-                Box(
+                ConnectingPlaceholder()
+            } else {
+                GameContent(
+                    gameState = gameState,
+                    myPlayerId = myPlayerId,
+                    myBoard = myBoard,
+                    myVisibleScore = myVisibleScore,
+                    discardCard = discardCard,
+                    drawnCard = drawnCard,
+                    isMyTurn = isMyTurn,
+                    currentPhase = currentPhase,
+                    pendingAction = pendingAction,
+                    onPendingActionChange = { pendingAction = it },
+                    onDrawFromDeck = onDrawFromDeck,
+                    onDrawFromDiscard = onDrawFromDiscard,
+                    onDrawFromActionDeck = onDrawFromActionDeck,
+                    onReplaceCard = onReplaceCard,
+                    onDiscardAndReveal = onDiscardAndReveal,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        if (gameState != null) {
+            GameScreenActionBar(
+                gameState = gameState,
+                currentPhase = currentPhase,
+                isMyTurn = isMyTurn,
+                currentPlayerNickname = currentPlayerNickname,
+                discardCard = discardCard,
+                pendingAction = pendingAction,
+                onPendingActionChange = { pendingAction = it },
+                onDrawFromDeck = onDrawFromDeck,
+                onDrawFromDiscard = onDrawFromDiscard,
+            )
+        }
+    }
+}
+
+// ── Top-level section composables ────────────────────────────────────────────
+
+@Composable
+private fun GameScreenHeader(
+    gameState: GameUpdateMessage?,
+    isMyTurn: Boolean,
+    currentPlayerNickname: String,
+    currentPhase: String?,
+    onBack: () -> Unit,
+) {
+    Surface(
+        color = SurfaceWhite,
+        shadowElevation = 2.dp,
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .height(52.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = PrimaryGreen,
+                    )
+                }
+                Text(
+                    text = "SKYJO ACTION",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PrimaryGreen,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = if (gameState != null) "Round ${gameState.roundNumber}" else "",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MutedText,
+                    modifier = Modifier.padding(end = 16.dp),
+                )
+            }
+
+            if (gameState != null) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center,
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "Connecting...",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MutedText,
-                    )
-                }
-            } else {
-                // ── Action Market ─────────────────────────────────────────
-                ActionMarketSection(
-                    clickable = isMyTurn && currentPhase == PHASE_AWAITING_DRAW,
-                    onDrawFromActionDeck = onDrawFromActionDeck,
-                )
-
-                // ── Deck + Discard ────────────────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    DeckCard(
-                        label = "Draw Pile",
-                        clickable = isMyTurn && currentPhase == PHASE_AWAITING_DRAW,
-                        onClick = {
-                            pendingAction = null
-                            onDrawFromDeck()
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                    DiscardCard(
-                        card = discardCard,
-                        label = "Discard Pile",
-                        clickable = isMyTurn && currentPhase == PHASE_AWAITING_DRAW && discardCard != null,
-                        onClick = {
-                            pendingAction = null
-                            onDrawFromDiscard()
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                // ── Drawn Card ────────────────────────────────────────────
-                if (drawnCard != null && currentPhase == PHASE_AWAITING_REPLACEMENT && isMyTurn) {
-                    DrawnCardSection(card = drawnCard)
-                }
-
-                // ── Player Grid ───────────────────────────────────────────
-                if (myBoard != null) {
-                    SectionCard(
-                        title = "Your Grid",
-                        badge = "Visible: $myVisibleScore",
-                    ) {
-                        CardGrid(
-                            board = myBoard,
-                            selectable = isMyTurn && currentPhase == PHASE_AWAITING_REPLACEMENT && pendingAction != null,
-                            onCardClick = { row, col ->
-                                when (pendingAction) {
-                                    "REPLACE" -> {
-                                        onReplaceCard(row, col)
-                                        pendingAction = null
-                                    }
-                                    "DISCARD_AND_REVEAL" -> {
-                                        onDiscardAndReveal(row, col)
-                                        pendingAction = null
-                                    }
-                                }
-                            },
+                    gameState.totalScores.forEach { score ->
+                        PlayerPill(
+                            score = score,
+                            isActive = score.playerId == gameState.currentPlayerId,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
 
-                // ── Other Players ─────────────────────────────────────────
-                val others = gameState.players.filter { it.playerId != myPlayerId }
-                if (others.isNotEmpty()) {
-                    SectionCard(title = "Other Players") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            others.forEach { player ->
-                                OtherPlayerRow(
-                                    player = player,
-                                    totalScore = gameState.totalScores
-                                        .find { it.playerId == player.playerId }?.totalScore ?: 0,
-                                    isCurrentPlayer = player.playerId == gameState.currentPlayerId,
-                                    isDisconnected = player.nickname in gameState.disconnectedPlayers,
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ── Hand Action Cards ─────────────────────────────────────
-                HandActionCardsSection(cards = actionCards)
-
-                // ── Round Result ──────────────────────────────────────────
-                if (gameState.roundResult != null) {
-                    RoundResultSection(
-                        roundResult = gameState.roundResult,
-                        players = gameState.players,
-                        roundNumber = gameState.roundNumber,
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StatChip(
+                        label = "Turn",
+                        value = if (isMyTurn) "You" else currentPlayerNickname,
                     )
-                }
-
-                // Game over banner
-                if (gameState.gameOver) {
-                    val winner = gameState.totalScores.minByOrNull { it.totalScore }
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = PrimaryGreen,
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                text = "GAME OVER",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = SurfaceWhite,
-                                fontWeight = FontWeight.ExtraBold,
-                            )
-                            if (winner != null) {
-                                Text(
-                                    text = "Winner: ${winner.nickname} (${winner.totalScore} pts)",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MintGreen,
-                                )
-                            }
-                        }
+                    StatChip(label = "Phase", value = currentPhase ?: "")
+                    if (gameState.gameOver) {
+                        StatChip(label = "Status", value = "Game Over")
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
+    }
+}
 
-        // ── Bottom Action Bar ─────────────────────────────────────────────
-        if (gameState != null) {
-            Surface(
-                color = SurfaceWhite,
-                shadowElevation = 8.dp,
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    when {
-                        gameState.gameOver -> {
-                            Text(
-                                text = "Game finished!",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center,
-                            )
-                        }
+@Composable
+private fun ConnectingPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Connecting...",
+            style = MaterialTheme.typography.titleLarge,
+            color = MutedText,
+        )
+    }
+}
 
-                        currentPhase == PHASE_ROUND_FINISHED -> {
-                            Text(
-                                text = "Round finished – next round starting…",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MutedText,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center,
-                            )
-                        }
+@Composable
+private fun GameContent(
+    gameState: GameUpdateMessage,
+    myPlayerId: String?,
+    myBoard: List<List<BoardSlot>>?,
+    myVisibleScore: Int,
+    discardCard: Card?,
+    drawnCard: Card?,
+    isMyTurn: Boolean,
+    currentPhase: String?,
+    pendingAction: String?,
+    onPendingActionChange: (String?) -> Unit,
+    onDrawFromDeck: () -> Unit,
+    onDrawFromDiscard: () -> Unit,
+    onDrawFromActionDeck: () -> Unit,
+    onReplaceCard: (row: Int, col: Int) -> Unit,
+    onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+) {
+    val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
+    val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
 
-                        !isMyTurn -> {
-                            Surface(
-                                shape = MaterialTheme.shapes.extraLarge,
-                                color = BlueSurface,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(
-                                    text = "Waiting for $currentPlayerNickname…",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                )
-                            }
-                        }
+    ActionMarketSection(
+        clickable = isMyTurn && isDrawPhase,
+        onDrawFromActionDeck = onDrawFromActionDeck,
+    )
 
-                        currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS -> {
-                            PrimaryButton(
-                                text = "DRAW FROM DECK",
-                                onClick = {
-                                    pendingAction = null
-                                    onDrawFromDeck()
-                                },
-                            )
-                            SecondaryButton(
-                                text = if (discardCard != null)
-                                    "Draw from Discard (${discardCard.value})"
-                                else "Draw from Discard",
-                                onClick = {
-                                    pendingAction = null
-                                    onDrawFromDiscard()
-                                },
-                            )
-                        }
+    DrawPileRow(
+        isMyTurn = isMyTurn,
+        isDrawPhase = isDrawPhase,
+        discardCard = discardCard,
+        onPendingActionChange = onPendingActionChange,
+        onDrawFromDeck = onDrawFromDeck,
+        onDrawFromDiscard = onDrawFromDiscard,
+    )
 
-                        currentPhase == PHASE_AWAITING_REPLACEMENT -> {
-                            Text(
-                                text = "Choose an action, then tap a card on your grid:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MutedText,
-                            )
-                            PrimaryButton(
-                                text = if (pendingAction == "REPLACE") "✓ Replace Mode — tap a card" else "REPLACE CARD",
-                                onClick = { pendingAction = "REPLACE" },
-                            )
-                            SecondaryButton(
-                                text = if (pendingAction == "DISCARD_AND_REVEAL") "✓ Reveal Mode — tap a card" else "Discard & Reveal",
-                                onClick = { pendingAction = "DISCARD_AND_REVEAL" },
-                            )
-                        }
+    if (drawnCard != null && isReplacementPhase && isMyTurn) {
+        DrawnCardSection(card = drawnCard)
+    }
+
+    if (myBoard != null) {
+        PlayerGridSection(
+            myBoard = myBoard,
+            myVisibleScore = myVisibleScore,
+            isMyTurn = isMyTurn,
+            isReplacementPhase = isReplacementPhase,
+            pendingAction = pendingAction,
+            onPendingActionChange = onPendingActionChange,
+            onReplaceCard = onReplaceCard,
+            onDiscardAndReveal = onDiscardAndReveal,
+        )
+    }
+
+    val others = gameState.players.filter { it.playerId != myPlayerId }
+    if (others.isNotEmpty()) {
+        OtherPlayersSection(
+            players = others,
+            totalScores = gameState.totalScores,
+            currentPlayerId = gameState.currentPlayerId,
+            disconnectedPlayers = gameState.disconnectedPlayers,
+        )
+    }
+
+    HandActionCardsSection(cards = actionCards)
+
+    if (gameState.roundResult != null) {
+        RoundResultSection(
+            roundResult = gameState.roundResult,
+            players = gameState.players,
+            roundNumber = gameState.roundNumber,
+        )
+    }
+
+    if (gameState.gameOver) {
+        GameOverBanner(totalScores = gameState.totalScores)
+    }
+}
+
+@Composable
+private fun DrawPileRow(
+    isMyTurn: Boolean,
+    isDrawPhase: Boolean,
+    discardCard: Card?,
+    onPendingActionChange: (String?) -> Unit,
+    onDrawFromDeck: () -> Unit,
+    onDrawFromDiscard: () -> Unit,
+) {
+    val deckClickable = isMyTurn && isDrawPhase
+    val discardClickable = isMyTurn && isDrawPhase && discardCard != null
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        DeckCard(
+            label = "Draw Pile",
+            clickable = deckClickable,
+            onClick = {
+                onPendingActionChange(null)
+                onDrawFromDeck()
+            },
+            modifier = Modifier.weight(1f),
+        )
+        DiscardCard(
+            card = discardCard,
+            label = "Discard Pile",
+            clickable = discardClickable,
+            onClick = {
+                onPendingActionChange(null)
+                onDrawFromDiscard()
+            },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun PlayerGridSection(
+    myBoard: List<List<BoardSlot>>,
+    myVisibleScore: Int,
+    isMyTurn: Boolean,
+    isReplacementPhase: Boolean,
+    pendingAction: String?,
+    onPendingActionChange: (String?) -> Unit,
+    onReplaceCard: (row: Int, col: Int) -> Unit,
+    onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+) {
+    SectionCard(
+        title = "Your Grid",
+        badge = "Visible: $myVisibleScore",
+    ) {
+        CardGrid(
+            board = myBoard,
+            selectable = isMyTurn && isReplacementPhase && pendingAction != null,
+            onCardClick = { row, col ->
+                when (pendingAction) {
+                    "REPLACE" -> {
+                        onReplaceCard(row, col)
+                        onPendingActionChange(null)
                     }
+                    "DISCARD_AND_REVEAL" -> {
+                        onDiscardAndReveal(row, col)
+                        onPendingActionChange(null)
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun OtherPlayersSection(
+    players: List<GamePlayerState>,
+    totalScores: List<TotalScore>,
+    currentPlayerId: String?,
+    disconnectedPlayers: List<String>,
+) {
+    SectionCard(title = "Other Players") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            players.forEach { player ->
+                OtherPlayerRow(
+                    player = player,
+                    totalScore = totalScores.find { it.playerId == player.playerId }?.totalScore ?: 0,
+                    isCurrentPlayer = player.playerId == currentPlayerId,
+                    isDisconnected = player.nickname in disconnectedPlayers,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameOverBanner(totalScores: List<TotalScore>) {
+    val winner = totalScores.minByOrNull { it.totalScore }
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = PrimaryGreen,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "GAME OVER",
+                style = MaterialTheme.typography.titleLarge,
+                color = SurfaceWhite,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            if (winner != null) {
+                Text(
+                    text = "Winner: ${winner.nickname} (${winner.totalScore} pts)",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MintGreen,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameScreenActionBar(
+    gameState: GameUpdateMessage,
+    currentPhase: String?,
+    isMyTurn: Boolean,
+    currentPlayerNickname: String,
+    discardCard: Card?,
+    pendingAction: String?,
+    onPendingActionChange: (String?) -> Unit,
+    onDrawFromDeck: () -> Unit,
+    onDrawFromDiscard: () -> Unit,
+) {
+    Surface(
+        color = SurfaceWhite,
+        shadowElevation = 8.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when {
+                gameState.gameOver -> {
+                    Text(
+                        text = "Game finished!",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = PrimaryGreen,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                currentPhase == PHASE_ROUND_FINISHED -> {
+                    Text(
+                        text = "Round finished – next round starting…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MutedText,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                !isMyTurn -> {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = BlueSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "Waiting for $currentPlayerNickname…",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+
+                currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS -> {
+                    PrimaryButton(
+                        text = "DRAW FROM DECK",
+                        onClick = {
+                            onPendingActionChange(null)
+                            onDrawFromDeck()
+                        },
+                    )
+                    SecondaryButton(
+                        text = if (discardCard != null)
+                            "Draw from Discard (${discardCard.value})"
+                        else "Draw from Discard",
+                        onClick = {
+                            onPendingActionChange(null)
+                            onDrawFromDiscard()
+                        },
+                    )
+                }
+
+                currentPhase == PHASE_AWAITING_REPLACEMENT -> {
+                    Text(
+                        text = "Choose an action, then tap a card on your grid:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedText,
+                    )
+                    PrimaryButton(
+                        text = if (pendingAction == "REPLACE") "✓ Replace Mode — tap a card" else "REPLACE CARD",
+                        onClick = { onPendingActionChange("REPLACE") },
+                    )
+                    SecondaryButton(
+                        text = if (pendingAction == "DISCARD_AND_REVEAL") "✓ Reveal Mode — tap a card" else "Discard & Reveal",
+                        onClick = { onPendingActionChange("DISCARD_AND_REVEAL") },
+                    )
                 }
             }
         }
@@ -745,7 +881,6 @@ private fun RoundResultSection(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // Header row
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Player",
