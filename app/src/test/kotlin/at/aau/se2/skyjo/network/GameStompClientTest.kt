@@ -1,5 +1,7 @@
 package at.aau.se2.skyjo.network
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import io.mockk.*
 import kotlinx.coroutines.delay
@@ -19,6 +21,9 @@ class GameStompClientTest {
 
     private lateinit var mockSession: StompSession
     private lateinit var topicFlow: MutableSharedFlow<String>
+    private lateinit var mockContext: Context
+    private lateinit var mockPrefs: SharedPreferences
+    private lateinit var mockEditor: SharedPreferences.Editor
 
     @Before
     fun setup() {
@@ -29,6 +34,17 @@ class GameStompClientTest {
 
         mockSession = mockk(relaxed = true)
         topicFlow = MutableSharedFlow()
+
+        mockContext = mockk(relaxed = true)
+        mockPrefs = mockk(relaxed = true)
+        mockEditor = mockk(relaxed = true)
+
+        every { mockContext.getSharedPreferences(any(), any()) } returns mockPrefs
+        every { mockPrefs.getString(any(), any()) } returns null
+        every { mockPrefs.edit() } returns mockEditor
+        every { mockEditor.putString(any(), any()) } returns mockEditor
+        every { mockEditor.remove(any()) } returns mockEditor
+        every { mockEditor.apply() } just runs
 
         every { Log.d(any(), any()) } returns 0
         every { Log.e(any(), any()) } returns 0
@@ -48,7 +64,7 @@ class GameStompClientTest {
 
     @Test
     fun `connect establishes session and logs success`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -59,7 +75,7 @@ class GameStompClientTest {
 
     @Test
     fun `connect resets connectionError on success`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -73,7 +89,7 @@ class GameStompClientTest {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
         } throws Exception(errorMsg)
 
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -83,7 +99,7 @@ class GameStompClientTest {
 
     @Test
     fun `joinLobby sends correct destination and payload`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -100,7 +116,7 @@ class GameStompClientTest {
 
     @Test
     fun `leaveLobby sends empty body to correct destination`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -114,7 +130,7 @@ class GameStompClientTest {
 
     @Test
     fun `startGame sends to correct destination`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -128,7 +144,7 @@ class GameStompClientTest {
 
     @Test
     fun `sendAction DRAW DECK sends correct JSON`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -145,7 +161,7 @@ class GameStompClientTest {
 
     @Test
     fun `joinLobby does nothing when session is null`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         // connect NOT called → session is null
 
         client.joinLobby("Hans")
@@ -156,7 +172,7 @@ class GameStompClientTest {
 
     @Test
     fun `leaveLobby does nothing when session is null`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
 
         client.leaveLobby()
         delay(300)
@@ -166,7 +182,7 @@ class GameStompClientTest {
 
     @Test
     fun `lobby invalid JSON is handled without crash`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -180,7 +196,7 @@ class GameStompClientTest {
     fun `joinLobby handles send exception gracefully`() = runBlocking {
         coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
 
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -194,7 +210,7 @@ class GameStompClientTest {
     fun `leaveLobby handles send exception gracefully`() = runBlocking {
         coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
 
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -208,7 +224,7 @@ class GameStompClientTest {
     fun `sendAction handles send exception gracefully`() = runBlocking {
         coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
 
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
@@ -220,7 +236,7 @@ class GameStompClientTest {
 
     @Test
     fun `lobby update is emitted when valid JSON arrives`() = runBlocking {
-        val client = GameStompClient()
+        val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 

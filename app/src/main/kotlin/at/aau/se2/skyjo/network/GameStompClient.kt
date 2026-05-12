@@ -1,5 +1,7 @@
 package at.aau.se2.skyjo.network
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import at.aau.se2.skyjo.model.*
 import kotlinx.coroutines.*
@@ -12,10 +14,15 @@ import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
 
-class GameStompClient {
+class GameStompClient(context: Context) {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("skyjo_prefs", Context.MODE_PRIVATE)
+
     private val stompClient = StompClient(OkHttpWebSocketClient())
     private var session: StompSession? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var subscriptionJobs: List<Job> = emptyList()
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -34,18 +41,51 @@ class GameStompClient {
     private val _connectionError = MutableStateFlow<String?>(null)
     val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
 
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
     suspend fun connect() {
+        cancelSubscriptions()
         try {
-            session = stompClient.connect("ws://10.0.2.2:8080/ws")
+            session?.disconnect()
+        } catch (_: Exception) {}
+
+        try {
+            session = stompClient.connect(SERVER_URL)
             _connectionError.value = null
+            _isConnected.value = true
             Log.d(TAG, "Connected successfully")
-            scope.launch { collectLobby() }
-            scope.launch { collectGame() }
-            scope.launch { collectErrors() }
+            subscriptionJobs = listOf(
+                scope.launch { collectLobby() },
+                scope.launch { collectGame() },
+                scope.launch { collectErrors() },
+                scope.launch { collectRejoinState() },
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Connection error: ${e.message}")
+            _isConnected.value = false
             _connectionError.value = e.message ?: "Connection failed"
         }
+    }
+
+    private val retryDelays = listOf(1_000L, 3_000L, 9_000L)
+
+    suspend fun reconnect(playerName: String) {
+        val storedGameId = prefs.getString(PREF_GAME_ID, null)
+        for (delay in retryDelays) {
+            delay(delay)
+            connect()
+            if (_isConnected.value) {
+                joinLobby(playerName, storedGameId)
+                return
+            }
+        }
+        _connectionError.value = "Verbindung getrennt"
+    }
+
+    private fun cancelSubscriptions() {
+        subscriptionJobs.forEach { it.cancel() }
+        subscriptionJobs = emptyList()
     }
 
     private suspend fun collectLobby() {
@@ -59,6 +99,7 @@ class GameStompClient {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Lobby subscribe error: ${e.message}")
+            _isConnected.value = false
         }
     }
 
@@ -66,13 +107,16 @@ class GameStompClient {
         try {
             session?.subscribeText("/topic/game")?.collect { jsonText ->
                 try {
-                    _gameState.value = json.decodeFromString(jsonText)
+                    val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
+                    msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                    _gameState.value = msg
                 } catch (e: Exception) {
                     Log.e(TAG, "Game parse error: ${e.message}")
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Game subscribe error: ${e.message}")
+            _isConnected.value = false
         }
     }
 
@@ -91,12 +135,31 @@ class GameStompClient {
         }
     }
 
-    fun joinLobby(playerName: String) {
+    private suspend fun collectRejoinState() {
+        try {
+            session?.subscribeText("/user/queue/gamestate")?.collect { jsonText ->
+                try {
+                    val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
+                    _gameState.value = msg
+                } catch (e: Exception) {
+                    Log.e(TAG, "Rejoin state parse error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Rejoin subscribe error: ${e.message}")
+        }
+    }
+
+    fun joinLobby(playerName: String, gameId: String? = null) {
         scope.launch {
             try {
-                session?.sendText("/app/lobby.join", json.encodeToString(JoinLobbyMessage(playerName)))
+                session?.sendText(
+                    "/app/lobby.join",
+                    json.encodeToString(JoinLobbyMessage(playerName, gameId))
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Join lobby error: ${e.message}")
+                _isConnected.value = false
             }
         }
     }
@@ -134,11 +197,26 @@ class GameStompClient {
         }
     }
 
+    fun clearStoredGame() {
+        prefs.edit().remove(PREF_GAME_ID).apply()
+    }
+
     fun disconnect() {
+        cancelSubscriptions()
+        scope.launch {
+            try { session?.disconnect() } catch (_: Exception) {}
+        }
+        _isConnected.value = false
+    }
+
+    fun close() {
+        disconnect()
         scope.cancel()
     }
 
     companion object {
         private const val TAG = "GameStompClient"
+        private const val SERVER_URL = "ws://10.0.2.2:8080/ws"
+        private const val PREF_GAME_ID = "game_id"
     }
 }

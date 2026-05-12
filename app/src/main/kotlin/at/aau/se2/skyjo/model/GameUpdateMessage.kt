@@ -40,5 +40,6 @@ data class GameUpdateMessage(
     val players: List<GamePlayerState>,
     val discardTopCard: Card? = null,
     val drawnCard: Card? = null,
-    val roundResult: String? = null
+    val roundResult: String? = null,
+    val gameId: String? = null,
 )

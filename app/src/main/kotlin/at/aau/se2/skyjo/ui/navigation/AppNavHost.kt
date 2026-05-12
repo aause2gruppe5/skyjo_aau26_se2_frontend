@@ -1,10 +1,21 @@
 package at.aau.se2.skyjo.ui.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,71 +40,88 @@ fun AppNavHost(
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = AppDestination.Start.route,
-        modifier = modifier,
-    ) {
-        composable(AppDestination.Start.route) {
-            StartScreen(
-                onPlayClicked = { playerName ->
-                    gameViewModel.connect(playerName)
-                    navController.navigate(AppDestination.Lobby.route)
-                },
-                onNavigate = navigateMain,
-            )
-        }
+    val isConnected by gameViewModel.isConnected.collectAsState()
 
-        composable(AppDestination.Lobby.route) {
-            val lobbyState by gameViewModel.lobbyState.collectAsState()
-            val isHost by gameViewModel.isHost.collectAsState()
-
-            // Auto-navigate when the host starts the game
-            LaunchedEffect(lobbyState?.status) {
-                if (lobbyState?.status == "IN_GAME") {
-                    navController.navigate(AppDestination.Game.route) {
-                        popUpTo(AppDestination.Lobby.route) { inclusive = true }
-                    }
-                }
+    Box(modifier = modifier.fillMaxSize()) {
+        NavHost(
+            navController = navController,
+            startDestination = AppDestination.Start.route,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            composable(AppDestination.Start.route) {
+                StartScreen(
+                    onPlayClicked = { playerName ->
+                        gameViewModel.connect(playerName)
+                        navController.navigate(AppDestination.Lobby.route)
+                    },
+                    onNavigate = navigateMain,
+                )
             }
 
-            LobbyScreen(
-                players = lobbyState?.players ?: emptyList(),
-                maxPlayers = lobbyState?.maxPlayers ?: 6,
-                isHost = isHost,
-                onStartGame = { maxRounds ->
-                    gameViewModel.startGame(maxRounds = maxRounds)
-                },
-                onBack = {
-                    gameViewModel.leaveLobby()
-                    navController.popBackStack()
-                },
+            composable(AppDestination.Lobby.route) {
+                val lobbyState by gameViewModel.lobbyState.collectAsState()
+                val isHost by gameViewModel.isHost.collectAsState()
+
+                LaunchedEffect(lobbyState?.status) {
+                    if (lobbyState?.status == "IN_GAME") {
+                        navController.navigate(AppDestination.Game.route) {
+                            popUpTo(AppDestination.Lobby.route) { inclusive = true }
+                        }
+                    }
+                }
+
+                LobbyScreen(
+                    players = lobbyState?.players ?: emptyList(),
+                    maxPlayers = lobbyState?.maxPlayers ?: 6,
+                    isHost = isHost,
+                    onStartGame = { maxRounds ->
+                        gameViewModel.startGame(maxRounds = maxRounds)
+                    },
+                    onBack = {
+                        gameViewModel.leaveLobby()
+                        navController.popBackStack()
+                    },
+                )
+            }
+
+            composable(AppDestination.Game.route) {
+                val gameState by gameViewModel.gameState.collectAsState()
+                val myPlayerId by gameViewModel.myPlayerId.collectAsState()
+                val isMyTurn by gameViewModel.isMyTurn.collectAsState()
+
+                GameScreen(
+                    gameState = gameState,
+                    myPlayerId = myPlayerId,
+                    isMyTurn = isMyTurn,
+                    onDrawFromDeck = { gameViewModel.drawFromDeck() },
+                    onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
+                    onReplaceCard = { row, col -> gameViewModel.replaceCard(row, col) },
+                    onDiscardAndReveal = { row, col -> gameViewModel.discardAndReveal(row, col) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(AppDestination.Friends.route) {
+                FriendsScreen(onNavigate = navigateMain)
+            }
+
+            composable(AppDestination.Settings.route) {
+                SettingsScreen(onNavigate = navigateMain)
+            }
+        }
+
+        if (!isConnected) {
+            Text(
+                text = "Verbindung unterbrochen, versuche erneut…",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .background(Color(0xFFB00020))
+                    .padding(vertical = 6.dp, horizontal = 16.dp),
             )
-        }
-
-        composable(AppDestination.Game.route) {
-            val gameState by gameViewModel.gameState.collectAsState()
-            val myPlayerId by gameViewModel.myPlayerId.collectAsState()
-            val isMyTurn by gameViewModel.isMyTurn.collectAsState()
-
-            GameScreen(
-                gameState = gameState,
-                myPlayerId = myPlayerId,
-                isMyTurn = isMyTurn,
-                onDrawFromDeck = { gameViewModel.drawFromDeck() },
-                onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
-                onReplaceCard = { row, col -> gameViewModel.replaceCard(row, col) },
-                onDiscardAndReveal = { row, col -> gameViewModel.discardAndReveal(row, col) },
-                onBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(AppDestination.Friends.route) {
-            FriendsScreen(onNavigate = navigateMain)
-        }
-
-        composable(AppDestination.Settings.route) {
-            SettingsScreen(onNavigate = navigateMain)
         }
     }
 }
