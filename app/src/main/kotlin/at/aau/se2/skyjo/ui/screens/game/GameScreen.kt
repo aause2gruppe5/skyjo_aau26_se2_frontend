@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,9 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SecondaryButton
@@ -57,6 +61,8 @@ import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
 private data class GamePlayer(val name: String, val score: Int, val isActive: Boolean = false)
 
+private data class ActionCardUiModel(val label: String, val isDefense: Boolean = false)
+
 private val dummyPlayers = listOf(
     GamePlayer("Alice", 12, isActive = true),
     GamePlayer("Bob", 8),
@@ -70,7 +76,12 @@ private val myGrid = listOf(
     listOf(null, "5", null, "2"),
 )
 
-private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", "🃏 Draw")
+private val actionCards = listOf(
+    ActionCardUiModel("Peek"),
+    ActionCardUiModel("Trade"),
+    ActionCardUiModel("Defense + Turn", isDefense = true),
+    ActionCardUiModel("Draw"),
+)
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
@@ -78,6 +89,7 @@ private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", "🃏 
 fun GameScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onPlayDefense: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -137,6 +149,7 @@ fun GameScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     StatChip(label = "Turn", value = "Alice")
+                    StatChip(label = "Defense", value = "Protected")
                     StatChip(label = "Target", value = "≤ 100")
                     StatChip(label = "Cards", value = "24 left")
                 }
@@ -168,7 +181,7 @@ fun GameScreen(
             }
 
             // ── Hand Action Cards ─────────────────────────────────────────
-            HandActionCardsSection(cards = actionCards)
+            HandActionCardsSection(cards = actionCards, onPlayDefense = onPlayDefense)
 
             // Bottom spacing
             Spacer(modifier = Modifier.height(8.dp))
@@ -305,7 +318,7 @@ private fun ActionMarketSection() {
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(
-                            text = action,
+                            text = action.label,
                             style = MaterialTheme.typography.labelMedium,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.SemiBold,
@@ -402,7 +415,7 @@ private fun DiscardCard(value: String, label: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun HandActionCardsSection(cards: List<String>) {
+private fun HandActionCardsSection(cards: List<ActionCardUiModel>, onPlayDefense: () -> Unit) {
     SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
         if (cards.isEmpty()) {
             Text(
@@ -418,21 +431,39 @@ private fun HandActionCardsSection(cards: List<String>) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 cards.forEach { card ->
+                    val cardModifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(0.65f)
+                        .border(
+                            width = 1.dp,
+                            color = MintGreen.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        .then(
+                            if (card.isDefense) {
+                                Modifier
+                                    .testTag("play_defense_action_card")
+                                    .clickable(onClick = onPlayDefense)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .semantics {
+                            contentDescription = if (card.isDefense) {
+                                "Play Defense action card"
+                            } else {
+                                card.label
+                            }
+                        }
+
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = GreenSurface,
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(0.65f)
-                            .border(
-                                width = 1.dp,
-                                color = MintGreen.copy(alpha = 0.4f),
-                                shape = RoundedCornerShape(10.dp),
-                            ),
+                        modifier = cardModifier,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = card,
+                                text = card.label,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = PrimaryGreen,
                                 fontWeight = FontWeight.SemiBold,
