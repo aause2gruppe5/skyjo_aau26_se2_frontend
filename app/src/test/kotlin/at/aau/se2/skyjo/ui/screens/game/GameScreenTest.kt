@@ -60,7 +60,7 @@ class GameScreenTest {
                 GameScreen(onBack = {})
             }
         }
-        composeTestRule.onAllNodesWithText("Defense + Turn").assertCountEquals(2)
+        composeTestRule.onAllNodesWithText("🛡 Defense + Turn").assertCountEquals(2)
         composeTestRule.onNodeWithText("Protected").assertIsDisplayed()
     }
 
