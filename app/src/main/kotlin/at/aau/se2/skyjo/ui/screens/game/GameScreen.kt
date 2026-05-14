@@ -77,10 +77,10 @@ private val myGrid = listOf(
 )
 
 private val actionCards = listOf(
-    ActionCardUiModel("Peek"),
-    ActionCardUiModel("Trade"),
-    ActionCardUiModel("Defense + Turn", isDefense = true),
-    ActionCardUiModel("Draw"),
+    ActionCardUiModel("👁 Peek"),
+    ActionCardUiModel("🔄 Trade"),
+    ActionCardUiModel("🛡 Defense + Turn", isDefense = true),
+    ActionCardUiModel("🃏 Draw"),
 )
 
 // ── Screen ──────────────────────────────────────────────────────────────────
