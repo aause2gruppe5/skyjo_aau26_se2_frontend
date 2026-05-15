@@ -1014,7 +1014,7 @@ private fun ActionMarketSection(
                             shape = RoundedCornerShape(14.dp),
                         )
                         .border(
-                            width = if (deckClickable) 2.dp else 2.dp,
+                            width = 2.dp,
                             color = if (deckClickable) MintGreen else MintGreen.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(14.dp),
                         )
@@ -1092,85 +1092,149 @@ private fun HandActionCardsSection(
 ) {
     SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
         if (cards.isEmpty()) {
-            Text(
-                text = "No action cards in hand",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MutedText,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
+            EmptyActionCardHandMessage()
         } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                cards.forEachIndexed { index, card ->
-                    val cardModifier = Modifier
-                        .aspectRatio(0.65f)
-                        .border(
-                            width = 1.dp,
-                            color = MintGreen.copy(alpha = 0.4f),
-                            shape = RoundedCornerShape(10.dp),
-                        )
-                        .then(
-                            if (canUseCards) {
-                                Modifier
-                                    .testTag("play_action_card_$index")
-                                    .clickable { onPlayActionCard(index) }
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .semantics {
-                            contentDescription = "Play ${actionCardDisplayLabel(card)} action card"
-                        }
+            HandActionCardsRow(
+                cards = cards,
+                canUseCards = canUseCards,
+                onPlayActionCard = onPlayActionCard,
+                onDiscardActionCard = onDiscardActionCard,
+            )
+        }
+    }
+}
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = at.aau.se2.skyjo.ui.theme.GreenSurface,
-                            modifier = cardModifier,
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = actionCardDisplayLabel(card),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = PrimaryGreen,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(4.dp),
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = SurfaceWhite,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("discard_action_card_$index")
-                                .then(
-                                    if (canUseCards) {
-                                        Modifier.clickable { onDiscardActionCard(index) }
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                        ) {
-                            Text(
-                                text = "Discard",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (canUseCards) PrimaryGreen else MutedText,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 6.dp),
-                            )
-                        }
-                    }
-                }
+@Composable
+private fun EmptyActionCardHandMessage() {
+    Text(
+        text = "No action cards in hand",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MutedText,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun HandActionCardsRow(
+    cards: List<ActionCard>,
+    canUseCards: Boolean,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        cards.forEachIndexed { index, card ->
+            HandActionCardItem(
+                index = index,
+                card = card,
+                canUseCards = canUseCards,
+                onPlayActionCard = onPlayActionCard,
+                onDiscardActionCard = onDiscardActionCard,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HandActionCardItem(
+    index: Int,
+    card: ActionCard,
+    canUseCards: Boolean,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+            modifier = actionCardModifier(
+                index = index,
+                card = card,
+                canUseCards = canUseCards,
+                onPlayActionCard = onPlayActionCard,
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = actionCardDisplayLabel(card),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(4.dp),
+                )
             }
         }
+        Spacer(modifier = Modifier.height(6.dp))
+        DiscardActionCardButton(
+            index = index,
+            canUseCards = canUseCards,
+            onDiscardActionCard = onDiscardActionCard,
+        )
+    }
+}
+
+private fun actionCardModifier(
+    index: Int,
+    card: ActionCard,
+    canUseCards: Boolean,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+): Modifier {
+    val clickModifier = if (canUseCards) {
+        Modifier
+            .testTag("play_action_card_$index")
+            .clickable { onPlayActionCard(index) }
+    } else {
+        Modifier
+    }
+
+    return Modifier
+        .aspectRatio(0.65f)
+        .border(
+            width = 1.dp,
+            color = MintGreen.copy(alpha = 0.4f),
+            shape = RoundedCornerShape(10.dp),
+        )
+        .then(clickModifier)
+        .semantics {
+            contentDescription = "Play ${actionCardDisplayLabel(card)} action card"
+        }
+}
+
+@Composable
+private fun DiscardActionCardButton(
+    index: Int,
+    canUseCards: Boolean,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+) {
+    val clickModifier = if (canUseCards) {
+        Modifier.clickable { onDiscardActionCard(index) }
+    } else {
+        Modifier
+    }
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = SurfaceWhite,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("discard_action_card_$index")
+            .then(clickModifier),
+    ) {
+        Text(
+            text = "Discard",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (canUseCards) PrimaryGreen else MutedText,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
     }
 }
 
