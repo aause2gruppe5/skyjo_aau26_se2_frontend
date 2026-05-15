@@ -1067,12 +1067,8 @@ private fun ActionMarketSection(
                                     },
                                 ),
                         ) {
-                            Text(
-                                text = actionCardDisplayLabel(action),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
+                            ActionCardFaceContent(
+                                card = action,
                                 modifier = Modifier.padding(vertical = 10.dp),
                             )
                         }
@@ -1160,12 +1156,8 @@ private fun HandActionCardItem(
             ),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = actionCardDisplayLabel(card),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
+                ActionCardFaceContent(
+                    card = card,
                     modifier = Modifier.padding(4.dp),
                 )
             }
@@ -1202,7 +1194,7 @@ private fun actionCardModifier(
         )
         .then(clickModifier)
         .semantics {
-            contentDescription = "Play ${actionCardDisplayLabel(card)} action card"
+            contentDescription = "Play ${actionCardAccessibilityLabel(card)} action card"
         }
 }
 
@@ -1328,9 +1320,34 @@ private fun cardDisplayValue(card: Card): String =
 
 private fun actionCardDisplayLabel(card: ActionCard): String =
     when (card.kind) {
-        "DEFENSE" -> "Defense + Turn"
+        "DEFENSE" -> "🛡️"
         else -> "Action"
     }
+
+private fun actionCardAccessibilityLabel(card: ActionCard): String =
+    when (card.kind) {
+        "DEFENSE" -> "Defense"
+        else -> "Action"
+    }
+
+@Composable
+private fun ActionCardFaceContent(
+    card: ActionCard,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = actionCardDisplayLabel(card),
+        style = if (card.kind == "DEFENSE") {
+            MaterialTheme.typography.headlineSmall
+        } else {
+            MaterialTheme.typography.labelMedium
+        },
+        color = PrimaryGreen,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        modifier = modifier,
+    )
+}
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

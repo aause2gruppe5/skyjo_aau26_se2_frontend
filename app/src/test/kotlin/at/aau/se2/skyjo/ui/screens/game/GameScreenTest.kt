@@ -269,7 +269,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onAllNodesWithText("Defense + Turn").assertCountEquals(2)
+        composeTestRule.onAllNodesWithText("🛡️").assertCountEquals(2)
     }
 
     @Test
