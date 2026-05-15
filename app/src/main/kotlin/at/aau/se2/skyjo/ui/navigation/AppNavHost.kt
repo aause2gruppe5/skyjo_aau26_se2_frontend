@@ -108,6 +108,10 @@ fun AppNavHost(
                     onDrawFromActionDeck = { gameViewModel.drawFromActionDeck() },
                     onReplaceCard = { row, col -> gameViewModel.replaceCard(row, col) },
                     onDiscardAndReveal = { row, col -> gameViewModel.discardAndReveal(row, col) },
+                    onPlayPlayerSwapCard = { cardIdx, p1Id, p1Row, p1Col, p2Id, p2Row, p2Col ->
+                        gameViewModel.playPlayerSwapCard(cardIdx, p1Id, p1Row, p1Col, p2Id, p2Row, p2Col)
+                    },
+                    onDiscardActionCard = { cardIdx -> gameViewModel.discardActionCard(cardIdx) },
                     onBack = { navController.popBackStack() },
                 )
             }
