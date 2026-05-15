@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
@@ -619,7 +620,7 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertExists()
     }
@@ -650,7 +651,7 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Cancel").performClick()
         composeTestRule.waitForIdle()
@@ -685,7 +686,7 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Discard").performClick()
+        composeTestRule.onNodeWithText("Discard").performScrollTo().performClick()
         composeTestRule.waitForIdle()
         assertEquals(0, discardedIndex)
     }
@@ -716,7 +717,7 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Tap a card to swap").assertExists()
     }
@@ -750,13 +751,13 @@ class GameScreenTest {
             }
         }
         // Enter swap mode
-        composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
         composeTestRule.waitForIdle()
-        // Select first card from own board — tap first "3" card
-        composeTestRule.onAllNodesWithText("3").onFirst().performClick()
+        // Select first card from own board — tap first "3" card (Alice's board, selectable in AwaitingFirst)
+        composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
         // Now in AwaitingSecond — select a card from Bob's board
-        composeTestRule.onAllNodesWithText("5").onFirst().performClick()
+        composeTestRule.onAllNodesWithText("5").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
         assert(swapCalled) { "onPlayPlayerSwapCard should be called after two slot selections" }
     }

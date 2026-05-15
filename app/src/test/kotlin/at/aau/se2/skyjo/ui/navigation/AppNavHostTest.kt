@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.BoardSlot
@@ -148,7 +149,6 @@ class AppNavHostTest {
         val viewModel = GameViewModel(mockApplication)
         fakeGameState.value = makeGameState()
         viewModel.connect("Alice")
-        fakeHasRejoinedGame.value = true
 
         composeTestRule.setContent {
             SkyjoTheme {
@@ -157,8 +157,12 @@ class AppNavHostTest {
         }
         composeTestRule.waitForIdle()
 
+        // Trigger navigation to game screen
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
         // On game screen — click Discard on the action card
-        composeTestRule.onNodeWithText("Discard").performClick()
+        composeTestRule.onNodeWithText("Discard").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         verify {
@@ -173,7 +177,6 @@ class AppNavHostTest {
         val viewModel = GameViewModel(mockApplication)
         fakeGameState.value = makeGameState()
         viewModel.connect("Alice")
-        fakeHasRejoinedGame.value = true
 
         composeTestRule.setContent {
             SkyjoTheme {
@@ -182,16 +185,20 @@ class AppNavHostTest {
         }
         composeTestRule.waitForIdle()
 
+        // Trigger navigation to game screen
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
         // Enter swap mode
-        composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         // Select first card from own board
-        composeTestRule.onAllNodesWithText("3").onFirst().performClick()
+        composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         // Select second card from Bob's board
-        composeTestRule.onAllNodesWithText("5").onFirst().performClick()
+        composeTestRule.onAllNodesWithText("5").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         verify {
