@@ -5,11 +5,15 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.PlayerRoundScore
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
@@ -518,35 +522,11 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_shows_enlightenment_as_unsupported_without_local_reveal() {
-        val stateWithHiddenCardValues = makeGameState().copy(
-            players = listOf(
-                GamePlayerState(
-                    playerId = "p1",
-                    nickname = "Alice",
-                    board = listOf(
-                        listOf(
-                            BoardSlot(type = "OCCUPIED", faceUp = false, card = Card(10, 11, "NUMBER")),
-                            BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(11, 3, "NUMBER")),
-                            BoardSlot(type = "OCCUPIED", faceUp = false),
-                            BoardSlot(type = "OCCUPIED", faceUp = false),
-                        ),
-                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
-                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
-                    ),
-                ),
-                GamePlayerState(
-                    playerId = "p2",
-                    nickname = "Bob",
-                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                ),
-            ),
-        )
-
+    fun gameScreen_selecting_enlightenment_opens_row_column_selection() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = stateWithHiddenCardValues,
+                    gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onBack = {},
@@ -554,41 +534,161 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onAllNodesWithText("Enlightenment")[0].assertExists()
-        composeTestRule
-            .onNodeWithText("Action-card play is waiting for backend WebSocket support")
-            .assertExists()
-        assertTextAbsent("Select a row or column on your grid")
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+
+        composeTestRule.onNodeWithText("Select a target player, then a row or column").assertExists()
+        composeTestRule.onNodeWithText("Alice (You)").assertExists()
+        composeTestRule.onNodeWithText("Target Bob").assertExists()
+        composeTestRule.onNodeWithText("Row 0").assertExists()
+        composeTestRule.onNodeWithText("Column 0").assertExists()
+    }
+
+    @Test
+    fun gameScreen_enlightenment_does_not_open_when_not_my_turn() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(currentPlayerId = "p2"),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().assertExists()
+
+        assertTextAbsent("Select a target player, then a row or column")
+        assertTextAbsent("Row 0")
+    }
+
+    @Test
+    fun gameScreen_selecting_row_zero_sends_enlightenment_row_target() {
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { sentCommand = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
+
+        assert(sentCommand?.actionCardIndex == 0)
+        assert(sentCommand?.parameters?.targetPlayerId == "p1")
+        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.ROW)
+        assert(sentCommand?.parameters?.lineIndex == 0)
+    }
+
+    @Test
+    fun gameScreen_selecting_column_zero_sends_enlightenment_column_target() {
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { sentCommand = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Column 0").performScrollTo().performClick()
+
+        assert(sentCommand?.actionCardIndex == 0)
+        assert(sentCommand?.parameters?.targetPlayerId == "p1")
+        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.COLUMN)
+        assert(sentCommand?.parameters?.lineIndex == 0)
+    }
+
+    @Test
+    fun gameScreen_selecting_other_player_sends_target_player_id() {
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { sentCommand = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Target Bob").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Target: Bob").assertExists()
+        composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
+
+        assert(sentCommand?.actionCardIndex == 0)
+        assert(sentCommand?.parameters?.targetPlayerId == "p2")
+        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.ROW)
+        assert(sentCommand?.parameters?.lineIndex == 0)
+    }
+
+    @Test
+    fun gameScreen_private_enlightenment_result_shows_inspected_values() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = ActionCardResultMessage(
+                        type = "ENLIGHTENMENT",
+                        actionCardIndex = 0,
+                        targetPlayerId = "p1",
+                        targetType = BoardLineTargetType.ROW,
+                        lineIndex = 0,
+                        inspectedValues = listOf(2, null, 6, 8),
+                    ),
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Private Peek").assertExists()
+        composeTestRule.onNodeWithText("Values: 2, ?, 6, 8").assertExists()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("No action cards in hand").assertExists()
+    }
+
+    @Test
+    fun gameScreen_hidden_shared_state_values_are_not_revealed_before_private_result() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+
         assertTextAbsent("11")
         composeTestRule.onNodeWithText("3").assertExists()
     }
 
     @Test
-    fun gameScreen_does_not_mutate_board_state_for_unsupported_enlightenment() {
-        val originalBoard = listOf(
-            listOf(
-                BoardSlot(type = "OCCUPIED", faceUp = false, card = Card(10, 11, "NUMBER")),
-                BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(11, 3, "NUMBER")),
-                BoardSlot(type = "OCCUPIED", faceUp = false),
-                BoardSlot(type = "OCCUPIED", faceUp = false),
-            ),
-            List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
-            List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
-        )
-        val stateWithHiddenCardValues = makeGameState().copy(
-            players = listOf(
-                GamePlayerState(
-                    playerId = "p1",
-                    nickname = "Alice",
-                    board = originalBoard,
-                ),
-                GamePlayerState(
-                    playerId = "p2",
-                    nickname = "Bob",
-                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                ),
-            ),
-        )
+    fun gameScreen_does_not_mutate_board_state_for_enlightenment() {
+        val originalBoard = hiddenValueBoard()
+        val stateWithHiddenCardValues = makeGameStateWithHiddenCardValues(originalBoard)
 
         composeTestRule.setContent {
             SkyjoTheme {
@@ -596,11 +696,14 @@ class GameScreenTest {
                     gameState = stateWithHiddenCardValues,
                     myPlayerId = "p1",
                     isMyTurn = true,
+                    onPlayActionCard = {},
                     onBack = {},
                 )
             }
         }
-        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
         val currentBoard = stateWithHiddenCardValues.players.first { it.playerId == "p1" }.board
         assert(currentBoard == originalBoard)
@@ -612,6 +715,35 @@ class GameScreenTest {
         val matches = composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes()
         assert(matches.isEmpty()) { "Expected no visible text matching \"$text\"" }
     }
+
+    private fun hiddenValueBoard() = listOf(
+        listOf(
+            BoardSlot(type = "OCCUPIED", faceUp = false, card = Card(10, 11, "NUMBER")),
+            BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(11, 3, "NUMBER")),
+            BoardSlot(type = "OCCUPIED", faceUp = false),
+            BoardSlot(type = "OCCUPIED", faceUp = false),
+        ),
+        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+    )
+
+    private fun makeGameStateWithHiddenCardValues(
+        board: List<List<BoardSlot>> = hiddenValueBoard(),
+        currentPlayerId: String = "p1",
+    ) = makeGameState(currentPlayerId = currentPlayerId).copy(
+        players = listOf(
+            GamePlayerState(
+                playerId = "p1",
+                nickname = "Alice",
+                board = board,
+            ),
+            GamePlayerState(
+                playerId = "p2",
+                nickname = "Bob",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+            ),
+        ),
+    )
 
     private fun makeGameState(
         phase: String = "AWAITING_DRAW",

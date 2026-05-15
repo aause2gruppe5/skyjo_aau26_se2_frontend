@@ -11,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.ui.screens.friends.FriendsScreen
 import at.aau.se2.skyjo.ui.screens.game.GameScreen
 import at.aau.se2.skyjo.ui.screens.lobby.LobbyScreen
@@ -98,16 +102,28 @@ fun AppNavHost(
                 val gameState by gameViewModel.gameState.collectAsState()
                 val myPlayerId by gameViewModel.myPlayerId.collectAsState()
                 val isMyTurn by gameViewModel.isMyTurn.collectAsState()
+                var privateActionCardResult by remember {
+                    mutableStateOf<ActionCardResultMessage?>(null)
+                }
+
+                LaunchedEffect(Unit) {
+                    gameViewModel.actionCardResults.collect { result ->
+                        privateActionCardResult = result
+                    }
+                }
 
                 GameScreen(
                     gameState = gameState,
                     myPlayerId = myPlayerId,
                     isMyTurn = isMyTurn,
+                    privateActionCardResult = privateActionCardResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
                     onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
                     onDrawFromActionDeck = { gameViewModel.drawFromActionDeck() },
                     onReplaceCard = { row, col -> gameViewModel.replaceCard(row, col) },
                     onDiscardAndReveal = { row, col -> gameViewModel.discardAndReveal(row, col) },
+                    onPlayActionCard = { command -> gameViewModel.playActionCard(command) },
+                    onDismissActionCardResult = { privateActionCardResult = null },
                     onBack = { navController.popBackStack() },
                 )
             }

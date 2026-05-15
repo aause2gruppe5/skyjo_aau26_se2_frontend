@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -25,7 +26,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,10 +42,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.components.PrimaryButton
@@ -63,9 +70,9 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
 private const val ACTION_CARD_ENLIGHTENMENT = "Enlightenment"
-private const val ACTION_CARD_API_PENDING_TEXT = "Action-card play is waiting for backend WebSocket support"
+private const val ACTION_CARD_RESULT_ENLIGHTENMENT = "ENLIGHTENMENT"
 
-private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", ACTION_CARD_ENLIGHTENMENT, "🃏 Draw")
+private val actionCards = listOf(ACTION_CARD_ENLIGHTENMENT)
 
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
@@ -77,15 +84,22 @@ fun GameScreen(
     gameState: GameUpdateMessage? = null,
     myPlayerId: String? = null,
     isMyTurn: Boolean = false,
+    privateActionCardResult: ActionCardResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
     onReplaceCard: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
+    onPlayActionCard: (PlayActionCardCommand) -> Unit = {},
+    onDismissActionCardResult: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
+    var pendingActionCardIndex by remember { mutableStateOf<Int?>(null) }
+    var consumedActionCardIndices by remember(gameState?.gameId, gameState?.roundNumber) {
+        mutableStateOf(emptySet<Int>())
+    }
 
     val currentPhase = gameState?.phase
     val myBoard = gameState?.players?.find { it.playerId == myPlayerId }?.board
@@ -98,6 +112,12 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
+
+    LaunchedEffect(privateActionCardResult) {
+        if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) {
+            consumedActionCardIndices = consumedActionCardIndices + privateActionCardResult.actionCardIndex
+        }
+    }
 
     Column(
         modifier = modifier
@@ -132,12 +152,16 @@ fun GameScreen(
                     isMyTurn = isMyTurn,
                     currentPhase = currentPhase,
                     pendingAction = pendingAction,
+                    pendingActionCardIndex = pendingActionCardIndex,
+                    consumedActionCardIndices = consumedActionCardIndices,
                     onPendingActionChange = { pendingAction = it },
+                    onPendingActionCardIndexChange = { pendingActionCardIndex = it },
                     onDrawFromDeck = onDrawFromDeck,
                     onDrawFromDiscard = onDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
                     onReplaceCard = onReplaceCard,
                     onDiscardAndReveal = onDiscardAndReveal,
+                    onPlayActionCard = onPlayActionCard,
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -156,6 +180,13 @@ fun GameScreen(
                 onDrawFromDiscard = onDrawFromDiscard,
             )
         }
+    }
+
+    if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) {
+        EnlightenmentResultDialog(
+            result = privateActionCardResult,
+            onDismiss = onDismissActionCardResult,
+        )
     }
 }
 
@@ -264,15 +295,21 @@ private fun GameContent(
     isMyTurn: Boolean,
     currentPhase: String?,
     pendingAction: String?,
+    pendingActionCardIndex: Int?,
+    consumedActionCardIndices: Set<Int>,
     onPendingActionChange: (String?) -> Unit,
+    onPendingActionCardIndexChange: (Int?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
     onDrawFromActionDeck: () -> Unit,
     onReplaceCard: (row: Int, col: Int) -> Unit,
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+    onPlayActionCard: (PlayActionCardCommand) -> Unit,
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
+    val actionCardsPlayable = isMyTurn &&
+        (currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS)
 
     ActionMarketSection(
         clickable = isMyTurn && isDrawPhase,
@@ -315,7 +352,39 @@ private fun GameContent(
         )
     }
 
-    HandActionCardsSection(cards = actionCards)
+    HandActionCardsSection(
+        cards = actionCards,
+        selectedActionCardIndex = pendingActionCardIndex,
+        consumedActionCardIndices = consumedActionCardIndices,
+        actionCardsPlayable = actionCardsPlayable,
+        onActionCardClick = { index, card ->
+            if (card == ACTION_CARD_ENLIGHTENMENT) {
+                onPendingActionChange(null)
+                onPendingActionCardIndexChange(index)
+            }
+        },
+    )
+
+    if (actionCardsPlayable && pendingActionCardIndex != null && myPlayerId != null) {
+        EnlightenmentTargetPicker(
+            players = gameState.players,
+            myPlayerId = myPlayerId,
+            onTargetSelected = { targetPlayerId, targetType, lineIndex ->
+                onPlayActionCard(
+                    PlayActionCardCommand(
+                        actionCardIndex = pendingActionCardIndex,
+                        parameters = ActionCardParameters.BoardLineTarget(
+                            targetPlayerId = targetPlayerId,
+                            targetType = targetType,
+                            lineIndex = lineIndex,
+                        ),
+                    )
+                )
+                onPendingActionCardIndexChange(null)
+            },
+            onCancel = { onPendingActionCardIndexChange(null) },
+        )
+    }
 
     if (gameState.roundResult != null) {
         RoundResultSection(
@@ -1009,38 +1078,21 @@ private fun ActionMarketSection(
                     fontWeight = if (clickable) FontWeight.Bold else FontWeight.Normal,
                 )
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                actionCards.forEach { action ->
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = at.aau.se2.skyjo.ui.theme.GreenSurface,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(
-                            text = action,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = PrimaryGreen,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp),
-                        )
-                    }
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun HandActionCardsSection(cards: List<String>) {
-    SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
-        if (cards.isEmpty()) {
+private fun HandActionCardsSection(
+    cards: List<String>,
+    selectedActionCardIndex: Int?,
+    consumedActionCardIndices: Set<Int>,
+    actionCardsPlayable: Boolean,
+    onActionCardClick: (index: Int, card: String) -> Unit,
+) {
+    val availableCards = cards.filterIndexed { index, _ -> index !in consumedActionCardIndices }
+    SectionCard(title = "Your Action Cards", badge = "${availableCards.size} cards") {
+        if (availableCards.isEmpty()) {
             Text(
                 text = "No action cards in hand",
                 style = MaterialTheme.typography.bodyMedium,
@@ -1049,32 +1101,32 @@ private fun HandActionCardsSection(cards: List<String>) {
                 textAlign = TextAlign.Center,
             )
         } else {
-            if (ACTION_CARD_ENLIGHTENMENT in cards) {
-                Text(
-                    text = ACTION_CARD_API_PENDING_TEXT,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MutedText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    textAlign = TextAlign.Center,
-                )
-            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                cards.forEach { card ->
+                cards.forEachIndexed { index, card ->
+                    if (index in consumedActionCardIndices) {
+                        return@forEachIndexed
+                    }
+                    val isSelected = index == selectedActionCardIndex
+                    val isPlayable = actionCardsPlayable && card == ACTION_CARD_ENLIGHTENMENT
+                    val playCard = { onActionCardClick(index, card) }
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+                        color = if (isSelected) MintGreen else at.aau.se2.skyjo.ui.theme.GreenSurface,
                         modifier = Modifier
                             .weight(1f)
                             .aspectRatio(0.65f)
                             .border(
-                                width = 1.dp,
-                                color = MintGreen.copy(alpha = 0.4f),
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) PrimaryGreen else MintGreen.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(10.dp),
+                            )
+                            .then(
+                                if (isPlayable) Modifier.clickable {
+                                    playCard()
+                                } else Modifier
                             ),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1084,7 +1136,13 @@ private fun HandActionCardsSection(cards: List<String>) {
                                 color = PrimaryGreen,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(4.dp),
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .then(
+                                        if (isPlayable) Modifier.clickable {
+                                            playCard()
+                                        } else Modifier
+                                    ),
                             )
                         }
                     }
@@ -1092,6 +1150,157 @@ private fun HandActionCardsSection(cards: List<String>) {
             }
         }
     }
+}
+
+@Composable
+private fun EnlightenmentTargetPicker(
+    players: List<GamePlayerState>,
+    myPlayerId: String,
+    onTargetSelected: (targetPlayerId: String, targetType: BoardLineTargetType, lineIndex: Int) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var selectedTargetPlayerId by remember { mutableStateOf(myPlayerId) }
+    val selectedPlayer = players.firstOrNull { it.playerId == selectedTargetPlayerId }
+        ?: players.firstOrNull()
+    val board = selectedPlayer?.board ?: emptyList()
+    val columnCount = board.maxOfOrNull { it.size } ?: 0
+
+    SectionCard(title = "Enlightenment") {
+        Text(
+            text = "Select a target player, then a row or column",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedText,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Target Player",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            players.forEach { player ->
+                SecondaryButton(
+                    text = if (player.playerId == myPlayerId) {
+                        "${player.nickname} (You)"
+                    } else {
+                        "Target ${player.nickname}"
+                    },
+                    onClick = { selectedTargetPlayerId = player.playerId },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        if (selectedPlayer != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Target: ${selectedPlayer.nickname}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedText,
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Rows",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            board.indices.forEach { rowIndex ->
+                SecondaryButton(
+                    text = "Row $rowIndex",
+                    onClick = {
+                        selectedPlayer?.let {
+                            onTargetSelected(it.playerId, BoardLineTargetType.ROW, rowIndex)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Columns",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            repeat(columnCount) { colIndex ->
+                SecondaryButton(
+                    text = "Column $colIndex",
+                    onClick = {
+                        selectedPlayer?.let {
+                            onTargetSelected(it.playerId, BoardLineTargetType.COLUMN, colIndex)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        TextButton(onClick = onCancel) {
+            Text(text = "Cancel")
+        }
+    }
+}
+
+@Composable
+private fun EnlightenmentResultDialog(
+    result: ActionCardResultMessage,
+    onDismiss: () -> Unit,
+) {
+    val targetLabel = when (result.targetType) {
+        BoardLineTargetType.ROW -> "Row ${result.lineIndex}"
+        BoardLineTargetType.COLUMN -> "Column ${result.lineIndex}"
+    }
+    val valuesLabel = if (result.inspectedValues.isEmpty()) {
+        "No cards inspected"
+    } else {
+        "Values: ${result.inspectedValues.joinToString { it?.toString() ?: "?" }}"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Private Peek")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Enlightenment result for $targetLabel",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = valuesLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "OK")
+            }
+        },
+    )
 }
 
 @Composable

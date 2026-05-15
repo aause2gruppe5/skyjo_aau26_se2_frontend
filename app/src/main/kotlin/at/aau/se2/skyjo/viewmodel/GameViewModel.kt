@@ -3,8 +3,11 @@ package at.aau.se2.skyjo.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import at.aau.se2.skyjo.model.ActionCardParameters
 import at.aau.se2.skyjo.model.GameAction
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.network.GameStompClient
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -14,6 +17,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val lobbyState = gameClient.lobbyState
     val gameState = gameClient.gameState
+    val actionCardResults = gameClient.actionCardResults
     val hasRejoinedGame = gameClient.hasRejoinedGame
     val errorMessage = gameClient.errorMessage
     val connectionError = gameClient.connectionError
@@ -77,6 +81,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun discardAndReveal(row: Int, col: Int) =
         gameClient.sendAction(GameAction(type = "DISCARD_AND_REVEAL", row = row, col = col))
+
+    fun playActionCard(command: PlayActionCardCommand) =
+        gameClient.playActionCard(command)
+
+    fun playEnlightenment(
+        actionCardIndex: Int,
+        targetPlayerId: String,
+        targetType: BoardLineTargetType,
+        lineIndex: Int,
+    ) = gameClient.playActionCard(
+        PlayActionCardCommand(
+            actionCardIndex = actionCardIndex,
+            parameters = ActionCardParameters.BoardLineTarget(
+                targetPlayerId = targetPlayerId,
+                targetType = targetType,
+                lineIndex = lineIndex,
+            ),
+        )
+    )
 
     override fun onCleared() {
         super.onCleared()
