@@ -17,9 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -48,10 +53,12 @@ private val onlinePlayers = listOf('K', 'M', 'R', 'T')
 
 @Composable
 fun StartScreen(
-    onPlayClicked: () -> Unit,
+    onPlayClicked: (playerName: String) -> Unit,
     onNavigate: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var playerName by remember { mutableStateOf("") }
+
     SkyjoDrawerScaffold(
         currentDestination = AppDestination.Start,
         onNavigate = onNavigate,
@@ -133,10 +140,25 @@ fun StartScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Player name input
+                    OutlinedTextField(
+                        value = playerName,
+                        onValueChange = { playerName = it },
+                        label = { Text("Your Name") },
+                        placeholder = { Text("Enter your name") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     // CTA button
                     PrimaryButton(
                         text = "START NEW SESSION",
-                        onClick = onPlayClicked,
+                        onClick = { if (playerName.isNotBlank()) onPlayClicked(playerName.trim()) },
+                        enabled = playerName.isNotBlank(),
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )
                 }
@@ -163,7 +185,7 @@ fun StartScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AvatarBadge(
-                        initial = 'A',
+                        initial = if (playerName.isNotBlank()) playerName.first() else 'A',
                         size = 52,
                         showOnlineIndicator = true,
                         backgroundColor = MintGreen,
@@ -173,7 +195,7 @@ fun StartScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "AcePlayer",
+                                text = if (playerName.isNotBlank()) playerName else "AcePlayer",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
