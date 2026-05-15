@@ -56,12 +56,10 @@ class GameStompClient(context: Context) {
 
         try {
             session = stompClient.connect(SERVER_URL)
-            _connectionError.value = null
-            _isConnected.value = true
             Log.d(TAG, "Connected successfully")
 
-            // Subscriptions synchron aufbauen — alle sind aktiv bevor connect() zurückgibt,
-            // damit joinLobby danach keine Nachrichten verpasst
+            // Build all subscriptions before declaring connected so that a failed
+            // subscribeText() never creates a spurious true→false transition on _isConnected.
             val s = session!!
             val lobbyFlow       = s.subscribeText("/topic/lobby")
             val lobbyDirectFlow = s.subscribeText("/user/queue/lobby")
@@ -76,6 +74,8 @@ class GameStompClient(context: Context) {
                 scope.launch { collectErrors(errorsFlow) },
                 scope.launch { collectRejoinState(rejoinFlow) },
             )
+            _connectionError.value = null
+            _isConnected.value = true
         } catch (e: Exception) {
             Log.e(TAG, "Connection error: ${e.message}")
             _isConnected.value = false
@@ -194,7 +194,8 @@ class GameStompClient(context: Context) {
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Join lobby error: ${e.message}")
-                _isConnected.value = false
+                // A failed send does not mean the WebSocket is gone; the subscription
+                // collectors will set _isConnected = false if the session truly closes.
             }
         }
     }

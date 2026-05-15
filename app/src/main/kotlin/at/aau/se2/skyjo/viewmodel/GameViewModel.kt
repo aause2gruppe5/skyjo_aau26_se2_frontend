@@ -58,9 +58,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun leaveLobby() {
+        // Clear name first so the reconnect watcher sees an empty name when
+        // disconnect() sets _isConnected = false, preventing a spurious reconnect.
+        _myPlayerName.value = ""
         gameClient.leaveLobby()
         gameClient.disconnect()
-        _myPlayerName.value = ""
     }
 
     fun startGame(maxRounds: Int = 3, targetScore: Int = 100) =

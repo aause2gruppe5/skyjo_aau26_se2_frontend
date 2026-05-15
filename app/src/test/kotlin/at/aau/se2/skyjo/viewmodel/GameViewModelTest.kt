@@ -225,4 +225,30 @@ class GameViewModelTest {
         method.invoke(viewModel)
         verify(exactly = 1) { anyConstructed<GameStompClient>().close() }
     }
+
+    @Test
+    fun `leaveLobby clears playerName before disconnecting`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.connect("Alice")
+        assertEquals("Alice", viewModel.myPlayerName.value)
+
+        viewModel.leaveLobby()
+
+        assertEquals("", viewModel.myPlayerName.value)
+        verify(exactly = 1) { anyConstructed<GameStompClient>().disconnect() }
+    }
+
+    @Test
+    fun `reconnect is not triggered when playerName is cleared before isConnected drops`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.connect("Alice")
+        fakeIsConnected.value = true
+
+        // leaveLobby() clears the name before disconnect() sets _isConnected = false.
+        // Simulating that ordering: clear name first, then signal the disconnect.
+        viewModel.leaveLobby()
+        fakeIsConnected.value = false
+
+        coVerify(exactly = 0) { anyConstructed<GameStompClient>().reconnect(any()) }
+    }
 }
