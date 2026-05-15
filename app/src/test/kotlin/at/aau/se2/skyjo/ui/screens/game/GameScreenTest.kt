@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.BoardLineTargetType
@@ -253,6 +254,72 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Your Action Cards").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_server_provided_action_cards_in_hand() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        player1ActionCards = listOf(
+                            enlightenmentActionCard(),
+                            placeholderActionCard(),
+                        ),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().assertExists()
+        composeTestRule.onNodeWithText("Placeholder").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun gameScreen_placeholder_action_card_plays_without_target_picker() {
+        var sentCommand: PlayActionCardCommand? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(player1ActionCards = listOf(placeholderActionCard())),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { sentCommand = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Placeholder").performScrollTo().performClick()
+
+        assert(sentCommand?.actionCardIndex == 0)
+        assert(sentCommand?.parameters == null)
+        assertTextAbsent("Select a target player, then a row or column")
+    }
+
+    @Test
+    fun gameScreen_visible_action_card_callback_is_wired() {
+        var selectedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        visibleActionCards = listOf(enlightenmentActionCard(id = 201)),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawVisibleActionCard = { selectedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+
+        assert(selectedIndex == 0)
     }
 
     @Test
@@ -736,6 +803,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = board,
+                actionCards = listOf(enlightenmentActionCard()),
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -751,6 +819,9 @@ class GameScreenTest {
         gameOver: Boolean = false,
         drawnCard: Card? = null,
         roundResult: RoundResult? = null,
+        player1ActionCards: List<ActionCard> = emptyList(),
+        visibleActionCards: List<ActionCard> = emptyList(),
+        actionDrawPileCount: Int = 16,
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -765,6 +836,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                actionCards = player1ActionCards,
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -774,6 +846,22 @@ class GameScreenTest {
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
         drawnCard = drawnCard,
+        visibleActionCards = visibleActionCards,
+        actionDrawPileCount = actionDrawPileCount,
         roundResult = roundResult,
+    )
+
+    private fun enlightenmentActionCard(id: Int = 151) = ActionCard(
+        id = id,
+        kind = "ENLIGHTENMENT",
+        label = "Enlightenment",
+        value = 10,
+    )
+
+    private fun placeholderActionCard(id: Int = 152) = ActionCard(
+        id = id,
+        kind = "PLACEHOLDER",
+        label = "Action",
+        value = 10,
     )
 }

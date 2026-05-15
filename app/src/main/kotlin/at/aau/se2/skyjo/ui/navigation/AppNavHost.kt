@@ -120,6 +120,7 @@ fun AppNavHost(
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
                     onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
                     onDrawFromActionDeck = { gameViewModel.drawFromActionDeck() },
+                    onDrawVisibleActionCard = { index -> gameViewModel.drawVisibleActionCard(index) },
                     onReplaceCard = { row, col -> gameViewModel.replaceCard(row, col) },
                     onDiscardAndReveal = { row, col -> gameViewModel.discardAndReveal(row, col) },
                     onPlayActionCard = { command -> gameViewModel.playActionCard(command) },

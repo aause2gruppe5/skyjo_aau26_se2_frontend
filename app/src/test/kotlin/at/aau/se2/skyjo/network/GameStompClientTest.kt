@@ -164,6 +164,23 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `sendAction DRAW_VISIBLE_ACTION_CARD sends index JSON`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.sendAction(at.aau.se2.skyjo.model.GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = 1))
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action",
+                body = match { it.contains("DRAW_VISIBLE_ACTION_CARD") && it.contains("\"actionCardIndex\":1") },
+            )
+        }
+    }
+
+    @Test
     fun `connect subscribes to private action card results queue`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
@@ -200,6 +217,25 @@ class GameStompClientTest {
                         it.contains("\"targetPlayerId\":\"p1\"") &&
                         it.contains("\"targetType\":\"ROW\"") &&
                         it.contains("\"lineIndex\":0")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `playActionCard without parameters omits parameters from JSON`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.playActionCard(PlayActionCardCommand(actionCardIndex = 1))
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action-card",
+                body = match {
+                    it.contains("\"actionCardIndex\":1") && !it.contains("parameters")
                 },
             )
         }

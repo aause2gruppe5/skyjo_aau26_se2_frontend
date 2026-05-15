@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PlayActionCardCommand(
     val actionCardIndex: Int,
-    val parameters: ActionCardParameters.BoardLineTarget,
+    val parameters: ActionCardParameters.BoardLineTarget? = null,
 )
 
 sealed interface ActionCardParameters {

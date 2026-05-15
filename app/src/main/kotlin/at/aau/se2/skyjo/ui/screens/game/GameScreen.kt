@@ -28,7 +28,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.ActionCardParameters
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
@@ -69,10 +69,8 @@ import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
-private const val ACTION_CARD_ENLIGHTENMENT = "Enlightenment"
+private const val ACTION_CARD_KIND_ENLIGHTENMENT = "ENLIGHTENMENT"
 private const val ACTION_CARD_RESULT_ENLIGHTENMENT = "ENLIGHTENMENT"
-
-private val actionCards = listOf(ACTION_CARD_ENLIGHTENMENT)
 
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
@@ -88,6 +86,7 @@ fun GameScreen(
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
+    onDrawVisibleActionCard: (index: Int) -> Unit = {},
     onReplaceCard: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPlayActionCard: (PlayActionCardCommand) -> Unit = {},
@@ -97,12 +96,11 @@ fun GameScreen(
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
     var pendingActionCardIndex by remember { mutableStateOf<Int?>(null) }
-    var consumedActionCardIndices by remember(gameState?.gameId, gameState?.roundNumber) {
-        mutableStateOf(emptySet<Int>())
-    }
 
     val currentPhase = gameState?.phase
-    val myBoard = gameState?.players?.find { it.playerId == myPlayerId }?.board
+    val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
+    val myBoard = myPlayer?.board
+    val myActionCards = myPlayer?.actionCards.orEmpty()
     val myVisibleScore = myBoard
         ?.flatten()
         ?.filter { it.type == "OCCUPIED" && it.faceUp == true }
@@ -112,12 +110,6 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
-
-    LaunchedEffect(privateActionCardResult) {
-        if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) {
-            consumedActionCardIndices = consumedActionCardIndices + privateActionCardResult.actionCardIndex
-        }
-    }
 
     Column(
         modifier = modifier
@@ -153,12 +145,13 @@ fun GameScreen(
                     currentPhase = currentPhase,
                     pendingAction = pendingAction,
                     pendingActionCardIndex = pendingActionCardIndex,
-                    consumedActionCardIndices = consumedActionCardIndices,
+                    actionCards = myActionCards,
                     onPendingActionChange = { pendingAction = it },
                     onPendingActionCardIndexChange = { pendingActionCardIndex = it },
                     onDrawFromDeck = onDrawFromDeck,
                     onDrawFromDiscard = onDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
+                    onDrawVisibleActionCard = onDrawVisibleActionCard,
                     onReplaceCard = onReplaceCard,
                     onDiscardAndReveal = onDiscardAndReveal,
                     onPlayActionCard = onPlayActionCard,
@@ -296,12 +289,13 @@ private fun GameContent(
     currentPhase: String?,
     pendingAction: String?,
     pendingActionCardIndex: Int?,
-    consumedActionCardIndices: Set<Int>,
+    actionCards: List<ActionCard>,
     onPendingActionChange: (String?) -> Unit,
     onPendingActionCardIndexChange: (Int?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
     onDrawFromActionDeck: () -> Unit,
+    onDrawVisibleActionCard: (index: Int) -> Unit,
     onReplaceCard: (row: Int, col: Int) -> Unit,
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
     onPlayActionCard: (PlayActionCardCommand) -> Unit,
@@ -313,7 +307,10 @@ private fun GameContent(
 
     ActionMarketSection(
         clickable = isMyTurn && isDrawPhase,
+        visibleActionCards = gameState.visibleActionCards,
+        actionDrawPileCount = gameState.actionDrawPileCount,
         onDrawFromActionDeck = onDrawFromActionDeck,
+        onDrawVisibleActionCard = onDrawVisibleActionCard,
     )
 
     DrawPileRow(
@@ -355,12 +352,14 @@ private fun GameContent(
     HandActionCardsSection(
         cards = actionCards,
         selectedActionCardIndex = pendingActionCardIndex,
-        consumedActionCardIndices = consumedActionCardIndices,
         actionCardsPlayable = actionCardsPlayable,
         onActionCardClick = { index, card ->
-            if (card == ACTION_CARD_ENLIGHTENMENT) {
-                onPendingActionChange(null)
+            onPendingActionChange(null)
+            if (card.kind == ACTION_CARD_KIND_ENLIGHTENMENT) {
                 onPendingActionCardIndexChange(index)
+            } else {
+                onPendingActionCardIndexChange(null)
+                onPlayActionCard(PlayActionCardCommand(actionCardIndex = index))
             }
         },
     )
@@ -1021,7 +1020,10 @@ private fun RoundResultSection(
 @Composable
 private fun ActionMarketSection(
     clickable: Boolean = false,
+    visibleActionCards: List<ActionCard> = emptyList(),
+    actionDrawPileCount: Int = 0,
     onDrawFromActionDeck: () -> Unit = {},
+    onDrawVisibleActionCard: (index: Int) -> Unit = {},
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -1043,8 +1045,33 @@ private fun ActionMarketSection(
                     color = PrimaryGreen,
                     fontWeight = FontWeight.Bold,
                 )
+                Text(
+                    text = "$actionDrawPileCount in deck",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText,
+                )
             }
             Spacer(modifier = Modifier.height(14.dp))
+
+            if (visibleActionCards.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    visibleActionCards.forEachIndexed { index, card ->
+                        ActionCardTile(
+                            card = card,
+                            selected = false,
+                            playable = clickable,
+                            onClick = { onDrawVisibleActionCard(index) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(0.65f),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
@@ -1062,7 +1089,13 @@ private fun ActionMarketSection(
                             color = if (clickable) MintGreen else MintGreen.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(14.dp),
                         )
-                        .then(if (clickable) Modifier.clickable(onClick = onDrawFromActionDeck) else Modifier),
+                        .then(
+                            if (clickable && actionDrawPileCount > 0) {
+                                Modifier.clickable(onClick = onDrawFromActionDeck)
+                            } else {
+                                Modifier
+                            }
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1072,10 +1105,10 @@ private fun ActionMarketSection(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (clickable) "TAP to draw action card" else "Action Draw Deck",
+                    text = if (clickable && actionDrawPileCount > 0) "TAP to draw action card" else "Action Draw Deck",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (clickable) PrimaryGreen else MutedText,
-                    fontWeight = if (clickable) FontWeight.Bold else FontWeight.Normal,
+                    color = if (clickable && actionDrawPileCount > 0) PrimaryGreen else MutedText,
+                    fontWeight = if (clickable && actionDrawPileCount > 0) FontWeight.Bold else FontWeight.Normal,
                 )
             }
         }
@@ -1084,15 +1117,13 @@ private fun ActionMarketSection(
 
 @Composable
 private fun HandActionCardsSection(
-    cards: List<String>,
+    cards: List<ActionCard>,
     selectedActionCardIndex: Int?,
-    consumedActionCardIndices: Set<Int>,
     actionCardsPlayable: Boolean,
-    onActionCardClick: (index: Int, card: String) -> Unit,
+    onActionCardClick: (index: Int, card: ActionCard) -> Unit,
 ) {
-    val availableCards = cards.filterIndexed { index, _ -> index !in consumedActionCardIndices }
-    SectionCard(title = "Your Action Cards", badge = "${availableCards.size} cards") {
-        if (availableCards.isEmpty()) {
+    SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
+        if (cards.isEmpty()) {
             Text(
                 text = "No action cards in hand",
                 style = MaterialTheme.typography.bodyMedium,
@@ -1106,48 +1137,60 @@ private fun HandActionCardsSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 cards.forEachIndexed { index, card ->
-                    if (index in consumedActionCardIndices) {
-                        return@forEachIndexed
-                    }
                     val isSelected = index == selectedActionCardIndex
-                    val isPlayable = actionCardsPlayable && card == ACTION_CARD_ENLIGHTENMENT
-                    val playCard = { onActionCardClick(index, card) }
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) MintGreen else at.aau.se2.skyjo.ui.theme.GreenSurface,
+                    val isPlayable = actionCardsPlayable
+                    ActionCardTile(
+                        card = card,
+                        selected = isSelected,
+                        playable = isPlayable,
+                        onClick = { onActionCardClick(index, card) },
                         modifier = Modifier
                             .weight(1f)
-                            .aspectRatio(0.65f)
-                            .border(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) PrimaryGreen else MintGreen.copy(alpha = 0.4f),
-                                shape = RoundedCornerShape(10.dp),
-                            )
-                            .then(
-                                if (isPlayable) Modifier.clickable {
-                                    playCard()
-                                } else Modifier
-                            ),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = card,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryGreen,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .padding(4.dp)
-                                    .then(
-                                        if (isPlayable) Modifier.clickable {
-                                            playCard()
-                                        } else Modifier
-                                    ),
-                            )
-                        }
-                    }
+                            .aspectRatio(0.65f),
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ActionCardTile(
+    card: ActionCard,
+    selected: Boolean,
+    playable: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isEnlightenment = card.kind == ACTION_CARD_KIND_ENLIGHTENMENT
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = when {
+            selected -> MintGreen
+            isEnlightenment -> at.aau.se2.skyjo.ui.theme.GreenSurface
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        modifier = modifier
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = when {
+                    selected -> PrimaryGreen
+                    isEnlightenment -> MintGreen.copy(alpha = 0.4f)
+                    else -> BorderColor
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+            .then(if (playable) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = actionCardDisplayLabel(card),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isEnlightenment) PrimaryGreen else MutedText,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(4.dp),
+            )
         }
     }
 }
@@ -1390,6 +1433,13 @@ private fun cardColor(value: Int): Color = when {
 
 private fun cardDisplayValue(card: Card): String =
     if (card.type == "ACTION") "A" else card.value.toString()
+
+private fun actionCardDisplayLabel(card: ActionCard): String =
+    when (card.kind) {
+        ACTION_CARD_KIND_ENLIGHTENMENT -> "Enlightenment"
+        "PLACEHOLDER" -> "Placeholder"
+        else -> card.label.ifBlank { "Action" }
+    }
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

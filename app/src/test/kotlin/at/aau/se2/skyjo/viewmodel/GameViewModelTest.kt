@@ -204,6 +204,17 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `drawVisibleActionCard sends DRAW_VISIBLE_ACTION_CARD action with index`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.drawVisibleActionCard(2)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = 2)
+            )
+        }
+    }
+
+    @Test
     fun `playActionCard delegates command to client`() {
         val command = PlayActionCardCommand(
             actionCardIndex = 0,
