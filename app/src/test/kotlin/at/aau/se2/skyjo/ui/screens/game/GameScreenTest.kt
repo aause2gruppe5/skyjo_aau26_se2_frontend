@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -514,6 +515,102 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Your Grid").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_enlightenment_as_unsupported_without_local_reveal() {
+        val stateWithHiddenCardValues = makeGameState().copy(
+            players = listOf(
+                GamePlayerState(
+                    playerId = "p1",
+                    nickname = "Alice",
+                    board = listOf(
+                        listOf(
+                            BoardSlot(type = "OCCUPIED", faceUp = false, card = Card(10, 11, "NUMBER")),
+                            BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(11, 3, "NUMBER")),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                        ),
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                    ),
+                ),
+                GamePlayerState(
+                    playerId = "p2",
+                    nickname = "Bob",
+                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                ),
+            ),
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithHiddenCardValues,
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithText("Enlightenment")[0].assertExists()
+        composeTestRule
+            .onNodeWithText("Action-card play is waiting for backend WebSocket support")
+            .assertExists()
+        assertTextAbsent("Select a row or column on your grid")
+        assertTextAbsent("11")
+        composeTestRule.onNodeWithText("3").assertExists()
+    }
+
+    @Test
+    fun gameScreen_does_not_mutate_board_state_for_unsupported_enlightenment() {
+        val originalBoard = listOf(
+            listOf(
+                BoardSlot(type = "OCCUPIED", faceUp = false, card = Card(10, 11, "NUMBER")),
+                BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(11, 3, "NUMBER")),
+                BoardSlot(type = "OCCUPIED", faceUp = false),
+                BoardSlot(type = "OCCUPIED", faceUp = false),
+            ),
+            List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+            List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+        )
+        val stateWithHiddenCardValues = makeGameState().copy(
+            players = listOf(
+                GamePlayerState(
+                    playerId = "p1",
+                    nickname = "Alice",
+                    board = originalBoard,
+                ),
+                GamePlayerState(
+                    playerId = "p2",
+                    nickname = "Bob",
+                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                ),
+            ),
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithHiddenCardValues,
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        val currentBoard = stateWithHiddenCardValues.players.first { it.playerId == "p1" }.board
+        assert(currentBoard == originalBoard)
+        assert(currentBoard[0][0].faceUp == false)
+        assert(currentBoard[0][0].card?.value == 11)
+    }
+
+    private fun assertTextAbsent(text: String) {
+        val matches = composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes()
+        assert(matches.isEmpty()) { "Expected no visible text matching \"$text\"" }
     }
 
     private fun makeGameState(

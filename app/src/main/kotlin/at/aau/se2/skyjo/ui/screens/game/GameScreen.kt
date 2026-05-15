@@ -62,7 +62,10 @@ import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
-private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", "🃏 Draw")
+private const val ACTION_CARD_ENLIGHTENMENT = "Enlightenment"
+private const val ACTION_CARD_API_PENDING_TEXT = "Action-card play is waiting for backend WebSocket support"
+
+private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", ACTION_CARD_ENLIGHTENMENT, "🃏 Draw")
 
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
@@ -1046,6 +1049,17 @@ private fun HandActionCardsSection(cards: List<String>) {
                 textAlign = TextAlign.Center,
             )
         } else {
+            if (ACTION_CARD_ENLIGHTENMENT in cards) {
+                Text(
+                    text = ACTION_CARD_API_PENDING_TEXT,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
