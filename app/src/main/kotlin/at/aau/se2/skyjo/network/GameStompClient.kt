@@ -55,19 +55,17 @@ class GameStompClient(context: Context) {
         } catch (_: Exception) {}
 
         try {
-            session = stompClient.connect(SERVER_URL)
+            val newSession = stompClient.connect(SERVER_URL)
+            session = newSession
             _connectionError.value = null
             _isConnected.value = true
             Log.d(TAG, "Connected successfully")
 
-            // Subscriptions synchron aufbauen — alle sind aktiv bevor connect() zurückgibt,
-            // damit joinLobby danach keine Nachrichten verpasst
-            val s = session!!
-            val lobbyFlow       = s.subscribeText("/topic/lobby")
-            val lobbyDirectFlow = s.subscribeText("/user/queue/lobby")
-            val gameFlow        = s.subscribeText("/topic/game")
-            val errorsFlow      = s.subscribeText("/user/queue/errors")
-            val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
+            val lobbyFlow       = newSession.subscribeText("/topic/lobby")
+            val lobbyDirectFlow = newSession.subscribeText("/user/queue/lobby")
+            val gameFlow        = newSession.subscribeText("/topic/game")
+            val errorsFlow      = newSession.subscribeText("/user/queue/errors")
+            val rejoinFlow      = newSession.subscribeText("/user/queue/gamestate")
 
             subscriptionJobs = listOf(
                 scope.launch { collectLobby(lobbyFlow) },
@@ -245,13 +243,14 @@ class GameStompClient(context: Context) {
     }
 
     fun close() {
-        disconnect()
+        cancelSubscriptions()
+        _isConnected.value = false
         scope.cancel()
     }
 
     companion object {
         private const val TAG = "GameStompClient"
-        private const val SERVER_URL = "ws://10.0.2.2:8765/ws"
+        private const val SERVER_URL = "ws://10.0.2.2:8080/ws"
         private const val PREF_GAME_ID = "game_id"
     }
 }
