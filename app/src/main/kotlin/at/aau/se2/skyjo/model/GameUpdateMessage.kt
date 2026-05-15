@@ -20,7 +20,8 @@ data class BoardSlot(
 data class GamePlayerState(
     val playerId: String,
     val nickname: String,
-    val board: List<List<BoardSlot>>
+    val board: List<List<BoardSlot>>,
+    val actionCardTypes: List<String> = emptyList(),
 )
 
 @Serializable
