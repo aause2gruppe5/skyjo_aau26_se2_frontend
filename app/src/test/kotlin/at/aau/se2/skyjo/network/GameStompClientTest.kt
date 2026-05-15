@@ -160,6 +160,28 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `sendAction PLAY_ACTION_CARD sends action card index`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.sendAction(
+            at.aau.se2.skyjo.model.GameAction(
+                type = "PLAY_ACTION_CARD",
+                actionCardIndex = 2,
+            ),
+        )
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action",
+                body = match { it.contains("PLAY_ACTION_CARD") && it.contains("\"actionCardIndex\":2") },
+            )
+        }
+    }
+
+    @Test
     fun `joinLobby does nothing when session is null`() = runBlocking {
         val client = GameStompClient(mockContext)
         // connect NOT called → session is null

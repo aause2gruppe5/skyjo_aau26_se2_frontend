@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
@@ -17,7 +18,7 @@ import at.aau.se2.skyjo.model.PlayerRoundScore
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -272,26 +273,72 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_defense_card_click_triggers_callback() {
-        var defensePlayed = false
+    fun gameScreen_action_card_click_triggers_play_callback() {
+        var playedIndex: Int? = null
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onPlayDefense = { defensePlayed = true },
+                    onPlayActionCard = { playedIndex = it },
                     onBack = {},
                 )
             }
         }
 
         composeTestRule
-            .onNodeWithTag("play_defense_action_card")
+            .onNodeWithTag("play_action_card_0")
             .performScrollTo()
             .performClick()
 
-        assertTrue(defensePlayed)
+        assertEquals(0, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_action_card_discard_triggers_callback() {
+        var discardedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDiscardActionCard = { discardedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("discard_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, discardedIndex)
+    }
+
+    @Test
+    fun gameScreen_visible_action_card_click_triggers_callback() {
+        var drawnIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawVisibleActionCard = { drawnIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("draw_visible_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, drawnIndex)
     }
 
     @Test
@@ -580,6 +627,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                actionCards = listOf(ActionCard(id = 151, kind = "DEFENSE")),
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -589,6 +637,11 @@ class GameScreenTest {
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
         drawnCard = drawnCard,
+        visibleActionCards = listOf(
+            ActionCard(id = 151, kind = "DEFENSE"),
+            ActionCard(id = 152, kind = "PLACEHOLDER"),
+        ),
+        actionDrawPileCount = 16,
         roundResult = roundResult,
     )
 }
