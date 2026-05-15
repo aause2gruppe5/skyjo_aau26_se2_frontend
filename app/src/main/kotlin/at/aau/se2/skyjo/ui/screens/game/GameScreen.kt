@@ -1,7 +1,6 @@
 package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,13 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,9 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,132 +64,10 @@ import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
 private val actionCards = listOf("👁 Peek", "🔄 Trade", "⚡ Double", "🃏 Draw")
 
-<<<<<<< HEAD
-internal data class SkyjoCardState(val value: Int, val isFaceUp: Boolean)
-
-internal enum class ErleuchtungSelectionType {
-    ROW,
-    COLUMN,
-}
-
-internal data class ErleuchtungSelection(
-    val playerName: String,
-    val type: ErleuchtungSelectionType,
-    val index: Int,
-)
-
-private data class ErleuchtungReveal(
-    val selection: ErleuchtungSelection,
-    val values: List<Int>,
-)
-
-private data class GamePlayer(
-    val name: String,
-    val score: Int,
-    val isActive: Boolean = false,
-    val grid: List<List<SkyjoCardState>>,
-)
-
-internal fun erleuchtungPeekValues(
-    grid: List<List<SkyjoCardState>>,
-    selectionType: ErleuchtungSelectionType,
-    index: Int,
-): List<Int> {
-    val selectedCards = when (selectionType) {
-        ErleuchtungSelectionType.ROW -> grid.getOrNull(index).orEmpty()
-        ErleuchtungSelectionType.COLUMN -> grid.mapNotNull { row -> row.getOrNull(index) }
-    }
-
-    return selectedCards
-        .filter { card -> !card.isFaceUp }
-        .map { card -> card.value }
-}
-
-private val dummyPlayers = listOf(
-    GamePlayer(
-        name = "Alice",
-        score = 12,
-        isActive = true,
-        grid = listOf(
-            listOf(
-                SkyjoCardState(9, isFaceUp = false),
-                SkyjoCardState(3, isFaceUp = true),
-                SkyjoCardState(-1, isFaceUp = false),
-                SkyjoCardState(8, isFaceUp = true),
-            ),
-            listOf(
-                SkyjoCardState(7, isFaceUp = true),
-                SkyjoCardState(12, isFaceUp = false),
-                SkyjoCardState(11, isFaceUp = true),
-                SkyjoCardState(4, isFaceUp = false),
-            ),
-            listOf(
-                SkyjoCardState(6, isFaceUp = false),
-                SkyjoCardState(5, isFaceUp = true),
-                SkyjoCardState(0, isFaceUp = false),
-                SkyjoCardState(2, isFaceUp = true),
-            ),
-        ),
-    ),
-    GamePlayer(
-        name = "Bob",
-        score = 8,
-        grid = listOf(
-            listOf(
-                SkyjoCardState(1, isFaceUp = true),
-                SkyjoCardState(10, isFaceUp = false),
-                SkyjoCardState(-2, isFaceUp = false),
-                SkyjoCardState(5, isFaceUp = true),
-            ),
-            listOf(
-                SkyjoCardState(6, isFaceUp = false),
-                SkyjoCardState(2, isFaceUp = true),
-                SkyjoCardState(8, isFaceUp = false),
-                SkyjoCardState(0, isFaceUp = true),
-            ),
-            listOf(
-                SkyjoCardState(11, isFaceUp = true),
-                SkyjoCardState(7, isFaceUp = false),
-                SkyjoCardState(4, isFaceUp = true),
-                SkyjoCardState(3, isFaceUp = false),
-            ),
-        ),
-    ),
-    GamePlayer(
-        name = "Charlie",
-        score = 15,
-        grid = listOf(
-            listOf(
-                SkyjoCardState(12, isFaceUp = false),
-                SkyjoCardState(4, isFaceUp = true),
-                SkyjoCardState(1, isFaceUp = false),
-                SkyjoCardState(7, isFaceUp = true),
-            ),
-            listOf(
-                SkyjoCardState(3, isFaceUp = true),
-                SkyjoCardState(9, isFaceUp = false),
-                SkyjoCardState(6, isFaceUp = true),
-                SkyjoCardState(-1, isFaceUp = false),
-            ),
-            listOf(
-                SkyjoCardState(2, isFaceUp = false),
-                SkyjoCardState(5, isFaceUp = true),
-                SkyjoCardState(10, isFaceUp = false),
-                SkyjoCardState(8, isFaceUp = true),
-            ),
-        ),
-    ),
-)
-
-// ── Screen ──────────────────────────────────────────────────────────────────
-=======
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
 private const val PHASE_FINAL_TURNS = "FINAL_TURNS"
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
-
-private val actionCards = listOf("Peek", "Trade", "Double", "Erleuchtung")
 
 @Composable
 fun GameScreen(
@@ -207,18 +82,6 @@ fun GameScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-<<<<<<< HEAD
-    val activePlayer = dummyPlayers.firstOrNull { player -> player.isActive } ?: dummyPlayers.first()
-    var isErleuchtungSelecting by remember { mutableStateOf(false) }
-    var selectedErleuchtungSelection by remember { mutableStateOf<ErleuchtungSelection?>(null) }
-    var erleuchtungReveal by remember { mutableStateOf<ErleuchtungReveal?>(null) }
-
-    fun closeErleuchtungReveal() {
-        erleuchtungReveal = null
-        selectedErleuchtungSelection = null
-        isErleuchtungSelecting = false
-    }
-=======
     var pendingAction by remember { mutableStateOf<String?>(null) }
 
     val currentPhase = gameState?.phase
@@ -232,73 +95,12 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(BackgroundGray),
     ) {
-<<<<<<< HEAD
-        // ── Header ───────────────────────────────────────────────────────
-        Surface(
-            color = SurfaceWhite,
-            shadowElevation = 2.dp,
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .height(52.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = PrimaryGreen,
-                        )
-                    }
-                    Text(
-                        text = "SKYJO ACTION",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PrimaryGreen,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "Round 1",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MutedText,
-                        modifier = Modifier.padding(end = 16.dp),
-                    )
-                }
-
-                // Player pills
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    dummyPlayers.forEach { player ->
-                        PlayerPill(player = player, modifier = Modifier.weight(1f))
-                    }
-                }
-
-                // Status chips
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    StatChip(label = "Turn", value = activePlayer.name)
-                    StatChip(label = "Target", value = "≤ 100")
-                    StatChip(label = "Cards", value = "24 left")
-                }
-            }
-        }
-=======
         GameScreenHeader(
             gameState = gameState,
             isMyTurn = isMyTurn,
@@ -306,7 +108,6 @@ fun GameScreen(
             currentPhase = currentPhase,
             onBack = onBack,
         )
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
 
         Column(
             modifier = Modifier
@@ -315,49 +116,6 @@ fun GameScreen(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-<<<<<<< HEAD
-            // ── Action Market ─────────────────────────────────────────────
-            ActionMarketSection(
-                isErleuchtungSelecting = isErleuchtungSelecting,
-                onErleuchtungClick = {
-                    isErleuchtungSelecting = true
-                    erleuchtungReveal = null
-                    selectedErleuchtungSelection = null
-                },
-            )
-
-            // ── Deck + Discard ────────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                DeckCard(label = "Draw Deck", modifier = Modifier.weight(1f))
-                DiscardCard(value = "4", label = "Discard Pile", modifier = Modifier.weight(1f))
-            }
-
-            // ── Player Grid ───────────────────────────────────────────────
-            dummyPlayers.forEach { player ->
-                PlayerGridSection(
-                    player = player,
-                    isOwnGrid = player.name == activePlayer.name,
-                    isErleuchtungSelecting = isErleuchtungSelecting,
-                    selectedSelection = selectedErleuchtungSelection,
-                    onErleuchtungSelection = { selection ->
-                        selectedErleuchtungSelection = selection
-                        erleuchtungReveal = ErleuchtungReveal(
-                            selection = selection,
-                            values = erleuchtungPeekValues(
-                                grid = player.grid,
-                                selectionType = selection.type,
-                                index = selection.index,
-                            ),
-                        )
-                    },
-                )
-            }
-
-            // Bottom spacing
-=======
             if (gameState == null) {
                 ConnectingPlaceholder()
             } else {
@@ -379,7 +137,6 @@ fun GameScreen(
                     onDiscardAndReveal = onDiscardAndReveal,
                 )
             }
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
             Spacer(modifier = Modifier.height(8.dp))
         }
 
@@ -787,13 +544,6 @@ private fun GameScreenActionBar(
             }
         }
     }
-
-    erleuchtungReveal?.let { reveal ->
-        ErleuchtungRevealDialog(
-            reveal = reveal,
-            onDismiss = { closeErleuchtungReveal() },
-        )
-    }
 }
 
 // ── Subcomponents ────────────────────────────────────────────────────────────
@@ -806,15 +556,8 @@ private fun PlayerPill(
 ) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-<<<<<<< HEAD
-        color = if (player.isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
-        border = if (!player.isActive)
-            BorderStroke(1.dp, BorderColor)
-        else null,
-=======
         color = if (isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
         border = if (!isActive) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
         modifier = modifier,
     ) {
         Column(
@@ -838,11 +581,6 @@ private fun PlayerPill(
 }
 
 @Composable
-<<<<<<< HEAD
-private fun ActionMarketSection(
-    isErleuchtungSelecting: Boolean,
-    onErleuchtungClick: () -> Unit,
-=======
 private fun DeckCard(
     label: String,
     clickable: Boolean,
@@ -1212,7 +950,6 @@ private fun RoundResultSection(
 private fun ActionMarketSection(
     clickable: Boolean = false,
     onDrawFromActionDeck: () -> Unit = {},
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -1223,192 +960,17 @@ private fun ActionMarketSection(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ActionMarketHeader()
-            Spacer(modifier = Modifier.height(14.dp))
-            ActionDeckPreview()
-            Spacer(modifier = Modifier.height(14.dp))
-            ActionCardChips(
-                isErleuchtungSelecting = isErleuchtungSelecting,
-                onErleuchtungClick = onErleuchtungClick,
-            )
-            if (isErleuchtungSelecting) {
-                ErleuchtungSelectionHint()
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionMarketHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "ACTION MARKET",
-            style = MaterialTheme.typography.labelMedium,
-            color = PrimaryGreen,
-            fontWeight = FontWeight.Bold,
-        )
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = GreenSurface,
-        ) {
-            Text(
-                text = "${actionCards.size} cards",
-                style = MaterialTheme.typography.labelSmall,
-                color = PrimaryGreen,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionDeckPreview() {
-    Box(
-        modifier = Modifier
-            .size(72.dp)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(PrimaryGreen, GreenDark),
-                ),
-                shape = RoundedCornerShape(14.dp),
-            )
-            .border(
-                width = 2.dp,
-                color = MintGreen.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(14.dp),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "⚡",
-            style = MaterialTheme.typography.headlineMedium,
-        )
-    }
-}
-
-@Composable
-private fun ActionCardChips(
-    isErleuchtungSelecting: Boolean,
-    onErleuchtungClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        actionCards.forEach { action ->
-            ActionCardChip(
-                action = action,
-                isErleuchtungSelecting = isErleuchtungSelecting,
-                onErleuchtungClick = onErleuchtungClick,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionCardChip(
-    action: String,
-    isErleuchtungSelecting: Boolean,
-    onErleuchtungClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val isErleuchtung = action == "Erleuchtung"
-    val isSelected = isErleuchtung && isErleuchtungSelecting
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = if (isSelected) PrimaryGreen else GreenSurface,
-        border = if (isErleuchtung && !isSelected) {
-            BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.45f))
-        } else {
-            null
-        },
-        modifier = modifier.clickable(enabled = isErleuchtung) { onErleuchtungClick() },
-    ) {
-        Text(
-            text = action,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (isSelected) SurfaceWhite else PrimaryGreen,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(vertical = 10.dp),
-        )
-    }
-}
-
-@Composable
-private fun ErleuchtungSelectionHint() {
-    Spacer(modifier = Modifier.height(12.dp))
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = BlueSurface,
-    ) {
-        Text(
-            text = "Select any row or column to peek at face-down cards",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        )
-    }
-}
-
-@Composable
-private fun PlayerGridSection(
-    player: GamePlayer,
-    isOwnGrid: Boolean,
-    isErleuchtungSelecting: Boolean,
-    selectedSelection: ErleuchtungSelection?,
-    onErleuchtungSelection: (ErleuchtungSelection) -> Unit,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = SurfaceWhite,
-        shadowElevation = 2.dp,
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (isOwnGrid) "Your Grid" else "${player.name}'s Grid",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "ACTION MARKET",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PrimaryGreen,
                     fontWeight = FontWeight.Bold,
                 )
-<<<<<<< HEAD
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "Score: ${player.score}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PrimaryGreen,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            CardGrid(
-                playerName = player.name,
-                cards = player.grid,
-                selectedSelection = selectedSelection,
-            )
-            if (isErleuchtungSelecting) {
-                Spacer(modifier = Modifier.height(12.dp))
-                ErleuchtungAxisSelector(
-                    player = player,
-                    selectedSelection = selectedSelection,
-                    onSelection = onErleuchtungSelection,
-=======
             }
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -1442,83 +1004,11 @@ private fun PlayerGridSection(
                     style = MaterialTheme.typography.labelSmall,
                     color = if (clickable) PrimaryGreen else MutedText,
                     fontWeight = if (clickable) FontWeight.Bold else FontWeight.Normal,
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
                 )
             }
-        }
-    }
-}
 
-@Composable
-private fun ErleuchtungAxisSelector(
-    player: GamePlayer,
-    selectedSelection: ErleuchtungSelection?,
-    onSelection: (ErleuchtungSelection) -> Unit,
-) {
-    val columnCount = player.grid.maxOfOrNull { row -> row.size } ?: 0
+            Spacer(modifier = Modifier.height(14.dp))
 
-<<<<<<< HEAD
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AxisSelectorRow(
-            label = "Rows",
-            itemCount = player.grid.size,
-            itemPrefix = "R",
-            playerName = player.name,
-            selectionType = ErleuchtungSelectionType.ROW,
-            selectedSelection = selectedSelection,
-            onSelection = onSelection,
-        )
-        AxisSelectorRow(
-            label = "Columns",
-            itemCount = columnCount,
-            itemPrefix = "C",
-            playerName = player.name,
-            selectionType = ErleuchtungSelectionType.COLUMN,
-            selectedSelection = selectedSelection,
-            onSelection = onSelection,
-        )
-    }
-}
-
-@Composable
-private fun AxisSelectorRow(
-    label: String,
-    itemCount: Int,
-    itemPrefix: String,
-    playerName: String,
-    selectionType: ErleuchtungSelectionType,
-    selectedSelection: ErleuchtungSelection?,
-    onSelection: (ErleuchtungSelection) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MutedText,
-            modifier = Modifier.width(58.dp),
-        )
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            repeat(itemCount) { index ->
-                val selection = ErleuchtungSelection(
-                    playerName = playerName,
-                    type = selectionType,
-                    index = index,
-                )
-                AxisSelectorButton(
-                    label = "$itemPrefix${index + 1}",
-                    contentDescription = "Select $playerName ${selectionType.axisName()} ${index + 1}",
-                    selected = selectedSelection == selection,
-                    onClick = { onSelection(selection) },
-                    modifier = Modifier.weight(1f),
-                )
-=======
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1539,44 +1029,8 @@ private fun AxisSelectorRow(
                         )
                     }
                 }
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
             }
         }
-    }
-}
-
-private fun ErleuchtungSelectionType.axisName(): String = when (this) {
-    ErleuchtungSelectionType.ROW -> "row"
-    ErleuchtungSelectionType.COLUMN -> "column"
-}
-
-@Composable
-private fun AxisSelectorButton(
-    label: String,
-    contentDescription: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = if (selected) PrimaryGreen else GreenSurface,
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (selected) PrimaryGreen else PrimaryGreen.copy(alpha = 0.35f),
-        ),
-        modifier = modifier
-            .clickable { onClick() }
-            .semantics { this.contentDescription = contentDescription },
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) SurfaceWhite else PrimaryGreen,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
     }
 }
 
@@ -1591,89 +1045,11 @@ private fun HandActionCardsSection(cards: List<String>) {
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
             )
-<<<<<<< HEAD
-        }
-    }
-}
-
-@Composable
-private fun DiscardCard(value: String, label: String, modifier: Modifier = Modifier) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = SurfaceWhite,
-        shadowElevation = 2.dp,
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.75f)
-                    .background(
-                        color = CardPositiveBg,
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = BorderColor,
-                        shape = MaterialTheme.shapes.medium,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MutedText,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CardGrid(
-    playerName: String,
-    cards: List<List<SkyjoCardState>>,
-    selectedSelection: ErleuchtungSelection?,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        cards.forEachIndexed { rowIndex, row ->
-=======
         } else {
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-<<<<<<< HEAD
-                row.forEachIndexed { columnIndex, card ->
-                    val highlighted = selectedSelection?.let { selection ->
-                        selection.playerName == playerName &&
-                            when (selection.type) {
-                                ErleuchtungSelectionType.ROW -> selection.index == rowIndex
-                                ErleuchtungSelectionType.COLUMN -> selection.index == columnIndex
-                            }
-                    } ?: false
-                    GameCardTile(
-                        value = if (card.isFaceUp) card.value.toString() else null,
-                        modifier = Modifier.weight(1f),
-                        highlighted = highlighted,
-                    )
-=======
                 cards.forEach { card ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -1698,7 +1074,6 @@ private fun CardGrid(
                             )
                         }
                     }
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
                 }
             }
         }
@@ -1706,19 +1081,6 @@ private fun CardGrid(
 }
 
 @Composable
-<<<<<<< HEAD
-private fun GameCardTile(
-    value: String?,
-    modifier: Modifier = Modifier,
-    highlighted: Boolean = false,
-) {
-    val isHidden = value == null
-    val numValue = value?.toIntOrNull()
-    val bgColor = when {
-        isHidden -> CardHiddenBg
-        numValue != null && numValue <= 0 -> CardNegativeBg
-        else -> CardPositiveBg
-=======
 private fun OtherPlayerRow(
     player: GamePlayerState,
     totalScore: Int,
@@ -1729,7 +1091,6 @@ private fun OtherPlayerRow(
         isDisconnected -> Color(0xFFFFCDD2)
         isCurrentPlayer -> MintGreen
         else -> MaterialTheme.colorScheme.surfaceVariant
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
     }
     val avatarTextColor = when {
         isDisconnected -> Color(0xFFB71C1C)
@@ -1747,27 +1108,10 @@ private fun OtherPlayerRow(
         else -> null
     }
 
-<<<<<<< HEAD
-    Box(
-        modifier = modifier
-            .aspectRatio(0.65f)
-            .background(color = bgColor, shape = RoundedCornerShape(10.dp))
-            .border(
-                width = if (highlighted) 2.dp else 1.dp,
-                color = when {
-                    highlighted -> PrimaryGreen
-                    isHidden -> MintGreen.copy(alpha = 0.4f)
-                    else -> BorderColor
-                },
-                shape = RoundedCornerShape(10.dp),
-            ),
-        contentAlignment = Alignment.Center,
-=======
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = surfaceColor,
         border = border,
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
     ) {
         Row(
             modifier = Modifier
@@ -1816,112 +1160,6 @@ private fun OtherPlayerRow(
     }
 }
 
-<<<<<<< HEAD
-@Composable
-private fun ErleuchtungRevealDialog(
-    reveal: ErleuchtungReveal,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceWhite,
-        title = {
-            Column {
-                Text(
-                    text = "Erleuchtung",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    text = reveal.selection.displayText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MutedText,
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (reveal.values.isEmpty()) {
-                    Text(
-                        text = "No face-down cards in this selection.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MutedText,
-                    )
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        reveal.values.forEach { value ->
-                            PeekValueCard(
-                                value = value,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = GreenSurface,
-                ) {
-                    Text(
-                        text = "Private peek only. These cards stay face-down.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = "Done",
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        },
-    )
-}
-
-@Composable
-private fun PeekValueCard(value: Int, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .aspectRatio(0.78f)
-            .background(
-                color = if (value <= 0) CardNegativeBg else CardPositiveBg,
-                shape = RoundedCornerShape(10.dp),
-            )
-            .border(
-                width = 1.dp,
-                color = BorderColor,
-                shape = RoundedCornerShape(10.dp),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-private fun ErleuchtungSelection.displayText(): String {
-    val axis = when (type) {
-        ErleuchtungSelectionType.ROW -> "Row"
-        ErleuchtungSelectionType.COLUMN -> "Column"
-    }
-
-    return "$playerName $axis ${index + 1}"
-}
-=======
 private fun cardColor(value: Int): Color = when {
     value <= 0 -> CardNegativeBg
     else -> CardPositiveBg
@@ -1929,7 +1167,6 @@ private fun cardColor(value: Int): Color = when {
 
 private fun cardDisplayValue(card: Card): String =
     if (card.type == "ACTION") "A" else card.value.toString()
->>>>>>> 4fb0f05a528e004f1c7e840fdd6eb2c7953dbfc5
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
