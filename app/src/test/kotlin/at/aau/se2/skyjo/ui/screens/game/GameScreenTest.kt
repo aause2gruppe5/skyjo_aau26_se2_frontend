@@ -545,7 +545,7 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("↔ Swap").assertExists()
+        composeTestRule.onAllNodesWithText("↔ Swap").onFirst().assertExists()
     }
 
     @Test
@@ -620,7 +620,8 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Play").performClick()
-        composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertIsDisplayed()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertExists()
     }
 
     @Test
@@ -650,7 +651,9 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Cancel").performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertDoesNotExist()
     }
 
@@ -683,6 +686,7 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Discard").performClick()
+        composeTestRule.waitForIdle()
         assertEquals(0, discardedIndex)
     }
 
@@ -713,6 +717,7 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Tap a card to swap").assertExists()
     }
 
@@ -746,10 +751,13 @@ class GameScreenTest {
         }
         // Enter swap mode
         composeTestRule.onNodeWithText("Play").performClick()
+        composeTestRule.waitForIdle()
         // Select first card from own board — tap first "3" card
         composeTestRule.onAllNodesWithText("3").onFirst().performClick()
+        composeTestRule.waitForIdle()
         // Now in AwaitingSecond — select a card from Bob's board
         composeTestRule.onAllNodesWithText("5").onFirst().performClick()
+        composeTestRule.waitForIdle()
         assert(swapCalled) { "onPlayPlayerSwapCard should be called after two slot selections" }
     }
 

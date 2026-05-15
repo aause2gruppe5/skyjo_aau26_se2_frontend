@@ -147,6 +147,7 @@ class AppNavHostTest {
     fun appNavHost_game_screen_discard_action_card_reaches_viewmodel() {
         val viewModel = GameViewModel(mockApplication)
         fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
         fakeHasRejoinedGame.value = true
 
         composeTestRule.setContent {
@@ -171,6 +172,7 @@ class AppNavHostTest {
     fun appNavHost_game_screen_play_swap_card_reaches_viewmodel() {
         val viewModel = GameViewModel(mockApplication)
         fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
         fakeHasRejoinedGame.value = true
 
         composeTestRule.setContent {
