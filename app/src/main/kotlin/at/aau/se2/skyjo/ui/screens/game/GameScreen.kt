@@ -98,7 +98,9 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
-    var swapState by remember { mutableStateOf<SwapSelectionState?>(null) }
+    // Keyed on turn/round so a half-finished swap selection is discarded
+    // when the player's turn ends or a new round starts (stale cardIndex guard).
+    var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
     val myActionCardTypes = gameState?.players?.find { it.playerId == myPlayerId }?.actionCardTypes ?: emptyList()
 
     val currentPhase = gameState?.phase
