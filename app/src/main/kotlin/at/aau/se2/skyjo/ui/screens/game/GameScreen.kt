@@ -89,7 +89,7 @@ fun GameScreen(
     val myVisibleScore = myBoard
         ?.flatten()
         ?.filter { it.type == "OCCUPIED" && it.faceUp == true }
-        ?.mapNotNull { it.card?.value }
+        ?.mapNotNull { slot -> slot.card?.takeIf { it.type != "ACTION" }?.value }
         ?.sum() ?: 0
     val currentPlayerNickname = gameState?.players
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""

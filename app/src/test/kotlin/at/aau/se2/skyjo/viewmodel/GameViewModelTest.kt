@@ -59,6 +59,7 @@ class GameViewModelTest {
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
         every { anyConstructed<GameStompClient>().disconnect() } just runs
+        every { anyConstructed<GameStompClient>().clearStoredGame() } just runs
         every { anyConstructed<GameStompClient>().close() } just runs
     }
 
@@ -235,6 +236,7 @@ class GameViewModelTest {
         viewModel.leaveLobby()
 
         assertEquals("", viewModel.myPlayerName.value)
+        verify(exactly = 1) { anyConstructed<GameStompClient>().clearStoredGame() }
         verify(exactly = 1) { anyConstructed<GameStompClient>().disconnect() }
     }
 

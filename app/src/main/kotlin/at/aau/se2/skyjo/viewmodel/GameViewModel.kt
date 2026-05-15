@@ -62,6 +62,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         // disconnect() sets _isConnected = false, preventing a spurious reconnect.
         _myPlayerName.value = ""
         gameClient.leaveLobby()
+        gameClient.clearStoredGame()
         gameClient.disconnect()
     }
 

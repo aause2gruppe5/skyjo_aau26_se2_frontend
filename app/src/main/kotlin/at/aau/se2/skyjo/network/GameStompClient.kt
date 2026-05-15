@@ -6,6 +6,8 @@ import android.util.Log
 import at.aau.se2.skyjo.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.hildan.krossbow.stomp.StompClient
@@ -23,6 +25,13 @@ class GameStompClient(context: Context) {
     private var session: StompSession? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var subscriptionJobs: List<Job> = emptyList()
+
+    // Serializes connect/reconnect so concurrent callers can't race on `session`
+    // and `subscriptionJobs` (which would leak sockets and double-join the lobby).
+    private val connectMutex = Mutex()
+
+    @Volatile
+    private var reconnecting = false
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -47,7 +56,9 @@ class GameStompClient(context: Context) {
     private val _hasRejoinedGame = MutableStateFlow(false)
     val hasRejoinedGame: StateFlow<Boolean> = _hasRejoinedGame.asStateFlow()
 
-    suspend fun connect() {
+    suspend fun connect() = connectMutex.withLock { connectInternal() }
+
+    private suspend fun connectInternal() {
         _hasRejoinedGame.value = false
         cancelSubscriptions()
         try {
@@ -84,18 +95,30 @@ class GameStompClient(context: Context) {
     }
 
     private val retryDelays = listOf(1_000L, 3_000L, 9_000L)
+    private val maxRetryDelay = 9_000L
 
     suspend fun reconnect(playerName: String) {
-        val storedGameId = prefs.getString(PREF_GAME_ID, null)
-        for (delay in retryDelays) {
-            delay(delay)
-            connect()
-            if (_isConnected.value) {
-                joinLobby(playerName, storedGameId)
-                return
+        // Single-flight: never run two reconnect loops at once.
+        if (reconnecting) return
+        reconnecting = true
+        try {
+            val storedGameId = prefs.getString(PREF_GAME_ID, null)
+            var attempt = 0
+            // Retry indefinitely with capped backoff so the app recovers whenever
+            // the server comes back, instead of giving up after 3 tries forever.
+            while (true) {
+                delay(retryDelays.getOrElse(attempt) { maxRetryDelay })
+                connect()
+                if (_isConnected.value) {
+                    joinLobby(playerName, storedGameId)
+                    return
+                }
+                _connectionError.value = "Verbindung getrennt, versuche erneut…"
+                attempt++
             }
+        } finally {
+            reconnecting = false
         }
-        _connectionError.value = "Verbindung getrennt"
     }
 
     private fun cancelSubscriptions() {
@@ -139,7 +162,11 @@ class GameStompClient(context: Context) {
             flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
-                    msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                    if (msg.gameOver) {
+                        clearStoredGame()
+                    } else {
+                        msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                    }
                     _gameState.value = msg
                 } catch (e: Exception) {
                     Log.e(TAG, "Game parse error: ${e.message}")
