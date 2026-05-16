@@ -70,6 +70,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun drawFromActionDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "ACTION_DECK"))
 
+    fun drawVisibleActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = actionCardIndex))
+
     fun drawFromDiscard() = gameClient.sendAction(GameAction(type = "DRAW", source = "DISCARD"))
 
     fun replaceCard(row: Int, col: Int) =
@@ -77,6 +80,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun discardAndReveal(row: Int, col: Int) =
         gameClient.sendAction(GameAction(type = "DISCARD_AND_REVEAL", row = row, col = col))
+
+    fun playActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = actionCardIndex))
+
+    fun discardActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = actionCardIndex))
 
     override fun onCleared() {
         super.onCleared()

@@ -7,5 +7,6 @@ data class GameAction(
     val type: String,
     val source: String? = null,
     val row: Int? = null,
-    val col: Int? = null
+    val col: Int? = null,
+    val actionCardIndex: Int? = null,
 )
