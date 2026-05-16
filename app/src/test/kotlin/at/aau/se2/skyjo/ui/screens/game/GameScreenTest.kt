@@ -296,6 +296,30 @@ class GameScreenTest {
     }
 
     @Test
+    fun gameScreen_player_swap_action_card_enters_selection_mode() {
+        var playedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP"))),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { playedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText("Tap a card to swap").performScrollTo().assertIsDisplayed()
+        assertEquals(null, playedIndex)
+    }
+
+    @Test
     fun gameScreen_action_card_discard_triggers_callback() {
         var discardedIndex: Int? = null
         composeTestRule.setContent {
@@ -613,6 +637,7 @@ class GameScreenTest {
         gameOver: Boolean = false,
         drawnCard: Card? = null,
         roundResult: RoundResult? = null,
+        handActionCards: List<ActionCard> = listOf(ActionCard(id = 151, kind = "DEFENSE")),
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -627,7 +652,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                actionCards = listOf(ActionCard(id = 151, kind = "DEFENSE")),
+                actionCards = handActionCards,
             ),
             GamePlayerState(
                 playerId = "p2",

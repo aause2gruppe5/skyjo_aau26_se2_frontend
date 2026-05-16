@@ -258,4 +258,74 @@ class GameViewModelTest {
         method.invoke(viewModel)
         verify(exactly = 1) { anyConstructed<GameStompClient>().close() }
     }
+
+    @Test
+    fun `playPlayerSwapCard sends PLAY_ACTION_CARD action with all swap fields`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.playPlayerSwapCard(
+            actionCardIndex = 0,
+            player1Id = "p1", player1Row = 1, player1Col = 2,
+            player2Id = "p2", player2Row = 0, player2Col = 3,
+        )
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(
+                    type = "PLAY_ACTION_CARD",
+                    actionCardIndex = 0,
+                    targetPlayer1Id = "p1",
+                    targetPlayer1Row = 1,
+                    targetPlayer1Col = 2,
+                    targetPlayer2Id = "p2",
+                    targetPlayer2Row = 0,
+                    targetPlayer2Col = 3,
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `discardActionCard sends DISCARD_ACTION_CARD action with correct index`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.discardActionCard(actionCardIndex = 2)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 2)
+            )
+        }
+    }
+
+    @Test
+    fun `playPlayerSwapCard with same player IDs still sends action (backend validates same-player rule)`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.playPlayerSwapCard(
+            actionCardIndex = 1,
+            player1Id = "p1", player1Row = 0, player1Col = 0,
+            player2Id = "p1", player2Row = 0, player2Col = 1,
+        )
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(
+                    type = "PLAY_ACTION_CARD",
+                    actionCardIndex = 1,
+                    targetPlayer1Id = "p1",
+                    targetPlayer1Row = 0,
+                    targetPlayer1Col = 0,
+                    targetPlayer2Id = "p1",
+                    targetPlayer2Row = 0,
+                    targetPlayer2Col = 1,
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `discardActionCard with index zero sends correct action`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.discardActionCard(actionCardIndex = 0)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 0)
+            )
+        }
+    }
 }

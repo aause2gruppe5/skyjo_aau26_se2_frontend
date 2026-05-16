@@ -66,6 +66,16 @@ import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 
+private sealed class SwapSelectionState {
+    data class AwaitingFirst(val cardIndex: Int) : SwapSelectionState()
+    data class AwaitingSecond(
+        val cardIndex: Int,
+        val player1Id: String,
+        val player1Row: Int,
+        val player1Col: Int,
+    ) : SwapSelectionState()
+}
+
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
@@ -82,12 +92,14 @@ fun GameScreen(
     onDrawVisibleActionCard: (actionCardIndex: Int) -> Unit = {},
     onReplaceCard: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
+    onPlayPlayerSwapCard: (actionCardIndex: Int, p1Id: String, p1Row: Int, p1Col: Int, p2Id: String, p2Row: Int, p2Col: Int) -> Unit = { _, _, _, _, _, _, _ -> },
     onPlayActionCard: (actionCardIndex: Int) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
+    var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -136,7 +148,9 @@ fun GameScreen(
                     isMyTurn = isMyTurn,
                     currentPhase = currentPhase,
                     pendingAction = pendingAction,
+                    swapState = swapState,
                     onPendingActionChange = { pendingAction = it },
+                    onSwapStateChange = { swapState = it },
                     onDrawFromDeck = onDrawFromDeck,
                     onDrawFromDiscard = onDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
@@ -144,6 +158,7 @@ fun GameScreen(
                     onReplaceCard = onReplaceCard,
                     onDiscardAndReveal = onDiscardAndReveal,
                     myActionCards = myActionCards,
+                    onPlayPlayerSwapCard = onPlayPlayerSwapCard,
                     onPlayActionCard = onPlayActionCard,
                     onDiscardActionCard = onDiscardActionCard,
                 )
@@ -272,7 +287,9 @@ private fun GameContent(
     isMyTurn: Boolean,
     currentPhase: String?,
     pendingAction: String?,
+    swapState: SwapSelectionState?,
     onPendingActionChange: (String?) -> Unit,
+    onSwapStateChange: (SwapSelectionState?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
     onDrawFromActionDeck: () -> Unit,
@@ -280,6 +297,7 @@ private fun GameContent(
     onReplaceCard: (row: Int, col: Int) -> Unit,
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
     myActionCards: List<ActionCard>,
+    onPlayPlayerSwapCard: (Int, String, Int, Int, String, Int, Int) -> Unit,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
@@ -314,9 +332,35 @@ private fun GameContent(
             isMyTurn = isMyTurn,
             isReplacementPhase = isReplacementPhase,
             pendingAction = pendingAction,
+            swapState = swapState,
+            myPlayerId = myPlayerId ?: "",
             onPendingActionChange = onPendingActionChange,
             onReplaceCard = onReplaceCard,
             onDiscardAndReveal = onDiscardAndReveal,
+            onSwapSlotSelected = { row, col ->
+                if (myPlayerId != null) {
+                    when (val state = swapState) {
+                        is SwapSelectionState.AwaitingFirst -> {
+                            onSwapStateChange(SwapSelectionState.AwaitingSecond(state.cardIndex, myPlayerId, row, col))
+                        }
+                        is SwapSelectionState.AwaitingSecond -> {
+                            if (myPlayerId != state.player1Id) {
+                                onPlayPlayerSwapCard(
+                                    state.cardIndex,
+                                    state.player1Id,
+                                    state.player1Row,
+                                    state.player1Col,
+                                    myPlayerId,
+                                    row,
+                                    col,
+                                )
+                                onSwapStateChange(null)
+                            }
+                        }
+                        null -> Unit
+                    }
+                }
+            },
         )
     }
 
@@ -327,14 +371,47 @@ private fun GameContent(
             totalScores = gameState.totalScores,
             currentPlayerId = gameState.currentPlayerId,
             disconnectedPlayers = gameState.disconnectedPlayers,
+            swapState = swapState,
+            onSlotSelected = { playerId, row, col ->
+                when (val state = swapState) {
+                    is SwapSelectionState.AwaitingFirst -> {
+                        onSwapStateChange(SwapSelectionState.AwaitingSecond(state.cardIndex, playerId, row, col))
+                    }
+                    is SwapSelectionState.AwaitingSecond -> {
+                        if (playerId != state.player1Id) {
+                            onPlayPlayerSwapCard(
+                                state.cardIndex,
+                                state.player1Id,
+                                state.player1Row,
+                                state.player1Col,
+                                playerId,
+                                row,
+                                col,
+                            )
+                            onSwapStateChange(null)
+                        }
+                    }
+                    null -> Unit
+                }
+            },
         )
     }
 
     HandActionCardsSection(
         cards = myActionCards,
         canUseCards = isMyTurn && isDrawPhase,
-        onPlayActionCard = onPlayActionCard,
-        onDiscardActionCard = onDiscardActionCard,
+        swapState = swapState,
+        onPlayActionCard = { index ->
+            if (myActionCards.getOrNull(index)?.kind == "PLAYER_SWAP") {
+                onSwapStateChange(SwapSelectionState.AwaitingFirst(index))
+            } else {
+                onPlayActionCard(index)
+            }
+        },
+        onDiscardActionCard = { index ->
+            onDiscardActionCard(index)
+            onSwapStateChange(null)
+        },
     )
 
     if (gameState.roundResult != null) {
@@ -394,26 +471,39 @@ private fun PlayerGridSection(
     isMyTurn: Boolean,
     isReplacementPhase: Boolean,
     pendingAction: String?,
+    swapState: SwapSelectionState?,
+    myPlayerId: String,
     onPendingActionChange: (String?) -> Unit,
     onReplaceCard: (row: Int, col: Int) -> Unit,
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+    onSwapSlotSelected: (row: Int, col: Int) -> Unit,
 ) {
+    val canSelectForSwap = when (val state = swapState) {
+        is SwapSelectionState.AwaitingFirst -> myPlayerId.isNotBlank()
+        is SwapSelectionState.AwaitingSecond -> myPlayerId.isNotBlank() && state.player1Id != myPlayerId
+        null -> false
+    }
+
     SectionCard(
         title = "Your Grid",
         badge = "Visible: $myVisibleScore",
     ) {
         CardGrid(
             board = myBoard,
-            selectable = isMyTurn && isReplacementPhase && pendingAction != null,
+            selectable = canSelectForSwap || (isMyTurn && isReplacementPhase && pendingAction != null),
             onCardClick = { row, col ->
-                when (pendingAction) {
-                    "REPLACE" -> {
-                        onReplaceCard(row, col)
-                        onPendingActionChange(null)
-                    }
-                    "DISCARD_AND_REVEAL" -> {
-                        onDiscardAndReveal(row, col)
-                        onPendingActionChange(null)
+                if (canSelectForSwap) {
+                    onSwapSlotSelected(row, col)
+                } else {
+                    when (pendingAction) {
+                        "REPLACE" -> {
+                            onReplaceCard(row, col)
+                            onPendingActionChange(null)
+                        }
+                        "DISCARD_AND_REVEAL" -> {
+                            onDiscardAndReveal(row, col)
+                            onPendingActionChange(null)
+                        }
                     }
                 }
             },
@@ -427,6 +517,8 @@ private fun OtherPlayersSection(
     totalScores: List<TotalScore>,
     currentPlayerId: String?,
     disconnectedPlayers: List<String>,
+    swapState: SwapSelectionState?,
+    onSlotSelected: (playerId: String, row: Int, col: Int) -> Unit,
 ) {
     SectionCard(title = "Other Players") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -436,6 +528,8 @@ private fun OtherPlayersSection(
                     totalScore = totalScores.find { it.playerId == player.playerId }?.totalScore ?: 0,
                     isCurrentPlayer = player.playerId == currentPlayerId,
                     isDisconnected = player.nickname in disconnectedPlayers,
+                    swapState = swapState,
+                    onSlotSelected = { row, col -> onSlotSelected(player.playerId, row, col) },
                 )
             }
         }
@@ -796,9 +890,10 @@ private fun CardGrid(
     board: List<List<BoardSlot>>,
     selectable: Boolean,
     onCardClick: (row: Int, col: Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         board.forEachIndexed { rowIndex, row ->
@@ -1083,16 +1178,24 @@ private fun ActionMarketSection(
 private fun HandActionCardsSection(
     cards: List<ActionCard>,
     canUseCards: Boolean,
+    swapState: SwapSelectionState?,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
+    val activeCardIndex = when (swapState) {
+        is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
+        is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
+        null -> null
+    }
+
     SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
         if (cards.isEmpty()) {
             EmptyActionCardHandMessage()
         } else {
             HandActionCardsRow(
                 cards = cards,
-                canUseCards = canUseCards,
+                canUseCards = canUseCards && swapState == null,
+                activeCardIndex = activeCardIndex,
                 onPlayActionCard = onPlayActionCard,
                 onDiscardActionCard = onDiscardActionCard,
             )
@@ -1115,6 +1218,7 @@ private fun EmptyActionCardHandMessage() {
 private fun HandActionCardsRow(
     cards: List<ActionCard>,
     canUseCards: Boolean,
+    activeCardIndex: Int?,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
@@ -1127,6 +1231,7 @@ private fun HandActionCardsRow(
                 index = index,
                 card = card,
                 canUseCards = canUseCards,
+                isActive = activeCardIndex == index,
                 onPlayActionCard = onPlayActionCard,
                 onDiscardActionCard = onDiscardActionCard,
                 modifier = Modifier.weight(1f),
@@ -1140,6 +1245,7 @@ private fun HandActionCardItem(
     index: Int,
     card: ActionCard,
     canUseCards: Boolean,
+    isActive: Boolean,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -1152,6 +1258,7 @@ private fun HandActionCardItem(
                 index = index,
                 card = card,
                 canUseCards = canUseCards,
+                isActive = isActive,
                 onPlayActionCard = onPlayActionCard,
             ),
         ) {
@@ -1175,6 +1282,7 @@ private fun actionCardModifier(
     index: Int,
     card: ActionCard,
     canUseCards: Boolean,
+    isActive: Boolean,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
 ): Modifier {
     val clickModifier = if (canUseCards) {
@@ -1188,8 +1296,8 @@ private fun actionCardModifier(
     return Modifier
         .aspectRatio(0.65f)
         .border(
-            width = 1.dp,
-            color = MintGreen.copy(alpha = 0.4f),
+            width = if (isActive) 2.dp else 1.dp,
+            color = if (isActive) MintGreen else MintGreen.copy(alpha = 0.4f),
             shape = RoundedCornerShape(10.dp),
         )
         .then(clickModifier)
@@ -1236,6 +1344,8 @@ private fun OtherPlayerRow(
     totalScore: Int,
     isCurrentPlayer: Boolean,
     isDisconnected: Boolean = false,
+    swapState: SwapSelectionState?,
+    onSlotSelected: (row: Int, col: Int) -> Unit,
 ) {
     val avatarBg = when {
         isDisconnected -> Color(0xFFFFCDD2)
@@ -1257,13 +1367,23 @@ private fun OtherPlayerRow(
         isCurrentPlayer -> androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen)
         else -> null
     }
+    val isSelectableForSwap = when (val state = swapState) {
+        is SwapSelectionState.AwaitingFirst -> true
+        is SwapSelectionState.AwaitingSecond -> state.player1Id != player.playerId
+        null -> false
+    }
 
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = surfaceColor,
-        border = border,
+        border = if (isSelectableForSwap) {
+            androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen)
+        } else {
+            border
+        },
     ) {
-        Row(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1295,6 +1415,13 @@ private fun OtherPlayerRow(
                         color = Color(0xFFEF5350),
                     )
                 }
+                if (isSelectableForSwap) {
+                    Text(
+                        text = "Tap a card to swap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PrimaryGreen,
+                    )
+                }
             }
             Text(
                 text = "$totalScore pts",
@@ -1306,6 +1433,15 @@ private fun OtherPlayerRow(
                 },
                 fontWeight = FontWeight.Bold,
             )
+        }
+            if (isSelectableForSwap) {
+                CardGrid(
+                    board = player.board,
+                    selectable = true,
+                    onCardClick = onSlotSelected,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }
@@ -1321,12 +1457,14 @@ private fun cardDisplayValue(card: Card): String =
 private fun actionCardDisplayLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "🛡️"
+        "PLAYER_SWAP" -> "↔"
         else -> "Action"
     }
 
 private fun actionCardAccessibilityLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "Defense"
+        "PLAYER_SWAP" -> "Player swap"
         else -> "Action"
     }
 
@@ -1337,7 +1475,7 @@ private fun ActionCardFaceContent(
 ) {
     Text(
         text = actionCardDisplayLabel(card),
-        style = if (card.kind == "DEFENSE") {
+        style = if (card.kind == "DEFENSE" || card.kind == "PLAYER_SWAP") {
             MaterialTheme.typography.headlineSmall
         } else {
             MaterialTheme.typography.labelMedium

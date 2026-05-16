@@ -84,6 +84,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun playActionCard(actionCardIndex: Int) =
         gameClient.sendAction(GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = actionCardIndex))
 
+    fun playPlayerSwapCard(
+        actionCardIndex: Int,
+        player1Id: String,
+        player1Row: Int,
+        player1Col: Int,
+        player2Id: String,
+        player2Row: Int,
+        player2Col: Int,
+    ) = gameClient.sendAction(
+        GameAction(
+            type = "PLAY_ACTION_CARD",
+            actionCardIndex = actionCardIndex,
+            targetPlayer1Id = player1Id,
+            targetPlayer1Row = player1Row,
+            targetPlayer1Col = player1Col,
+            targetPlayer2Id = player2Id,
+            targetPlayer2Row = player2Row,
+            targetPlayer2Col = player2Col,
+        ),
+    )
+
     fun discardActionCard(actionCardIndex: Int) =
         gameClient.sendAction(GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = actionCardIndex))
 
