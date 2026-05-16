@@ -13,8 +13,8 @@ data class Card(
 data class ActionCard(
     val id: Int,
     val kind: String,
-    val label: String,
-    val value: Int,
+    val label: String = kind,
+    val value: Int = 10,
 )
 
 @Serializable

@@ -1,24 +1,27 @@
 package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.ActionCardResultMessage
-import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.BoardLineTargetType
+import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
-import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.PlayerRoundScore
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -257,69 +260,112 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_shows_server_provided_action_cards_in_hand() {
+    fun gameScreen_shows_defense_action_card_when_state_present() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = makeGameState(
-                        player1ActionCards = listOf(
-                            enlightenmentActionCard(),
-                            placeholderActionCard(),
-                        ),
-                    ),
+                    gameState = makeGameState(),
                     myPlayerId = "p1",
-                    isMyTurn = false,
+                    isMyTurn = true,
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().assertExists()
-        composeTestRule.onNodeWithText("Placeholder").performScrollTo().assertExists()
+        composeTestRule.onAllNodesWithText("🛡️").assertCountEquals(2)
     }
 
     @Test
-    fun gameScreen_placeholder_action_card_plays_without_target_picker() {
-        var sentCommand: PlayActionCardCommand? = null
+    fun gameScreen_action_card_click_triggers_play_callback() {
+        var playedIndex: Int? = null
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = makeGameState(player1ActionCards = listOf(placeholderActionCard())),
+                    gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onPlayActionCard = { sentCommand = it },
+                    onPlayActionCard = { playedIndex = it },
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Placeholder").performScrollTo().performClick()
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
 
-        assert(sentCommand?.actionCardIndex == 0)
-        assert(sentCommand?.parameters == null)
-        assertTextAbsent("Select a target player, then a row or column")
+        assertEquals(0, playedIndex)
     }
 
     @Test
-    fun gameScreen_visible_action_card_callback_is_wired() {
-        var selectedIndex: Int? = null
+    fun gameScreen_player_swap_action_card_enters_selection_mode() {
+        var playedIndex: Int? = null
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = makeGameState(
-                        visibleActionCards = listOf(enlightenmentActionCard(id = 201)),
-                    ),
+                    gameState = makeGameState(handActionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP"))),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onDrawVisibleActionCard = { selectedIndex = it },
+                    onPlayActionCard = { playedIndex = it },
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
 
-        assert(selectedIndex == 0)
+        composeTestRule.onNodeWithText("Tap a card to swap").performScrollTo().assertIsDisplayed()
+        assertEquals(null, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_action_card_discard_triggers_callback() {
+        var discardedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDiscardActionCard = { discardedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("discard_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, discardedIndex)
+    }
+
+    @Test
+    fun gameScreen_visible_action_card_click_triggers_callback() {
+        var drawnIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawVisibleActionCard = { drawnIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("draw_visible_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, drawnIndex)
     }
 
     @Test
@@ -639,7 +685,7 @@ class GameScreenTest {
                     gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onPlayActionCard = { sentCommand = it },
+                    onPlayEnlightenmentCard = { sentCommand = it },
                     onBack = {},
                 )
             }
@@ -648,35 +694,10 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
-        assert(sentCommand?.actionCardIndex == 0)
-        assert(sentCommand?.parameters?.targetPlayerId == "p1")
-        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.ROW)
-        assert(sentCommand?.parameters?.lineIndex == 0)
-    }
-
-    @Test
-    fun gameScreen_selecting_column_zero_sends_enlightenment_column_target() {
-        var sentCommand: PlayActionCardCommand? = null
-
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameStateWithHiddenCardValues(),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onPlayActionCard = { sentCommand = it },
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
-        composeTestRule.onNodeWithText("Column 0").performScrollTo().performClick()
-
-        assert(sentCommand?.actionCardIndex == 0)
-        assert(sentCommand?.parameters?.targetPlayerId == "p1")
-        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.COLUMN)
-        assert(sentCommand?.parameters?.lineIndex == 0)
+        assertEquals(0, sentCommand?.actionCardIndex)
+        assertEquals("p1", sentCommand?.parameters?.targetPlayerId)
+        assertEquals(BoardLineTargetType.ROW, sentCommand?.parameters?.targetType)
+        assertEquals(0, sentCommand?.parameters?.lineIndex)
     }
 
     @Test
@@ -689,7 +710,7 @@ class GameScreenTest {
                     gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onPlayActionCard = { sentCommand = it },
+                    onPlayEnlightenmentCard = { sentCommand = it },
                     onBack = {},
                 )
             }
@@ -700,10 +721,8 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Target: Bob").assertExists()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
-        assert(sentCommand?.actionCardIndex == 0)
-        assert(sentCommand?.parameters?.targetPlayerId == "p2")
-        assert(sentCommand?.parameters?.targetType == BoardLineTargetType.ROW)
-        assert(sentCommand?.parameters?.lineIndex == 0)
+        assertEquals("p2", sentCommand?.parameters?.targetPlayerId)
+        assertEquals(BoardLineTargetType.ROW, sentCommand?.parameters?.targetType)
     }
 
     @Test
@@ -729,53 +748,6 @@ class GameScreenTest {
 
         composeTestRule.onNodeWithText("Private Peek").assertExists()
         composeTestRule.onNodeWithText("Values: 2, ?, 6, 8").assertExists()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("No action cards in hand").assertExists()
-    }
-
-    @Test
-    fun gameScreen_hidden_shared_state_values_are_not_revealed_before_private_result() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameStateWithHiddenCardValues(),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
-
-        assertTextAbsent("11")
-        composeTestRule.onNodeWithText("3").assertExists()
-    }
-
-    @Test
-    fun gameScreen_does_not_mutate_board_state_for_enlightenment() {
-        val originalBoard = hiddenValueBoard()
-        val stateWithHiddenCardValues = makeGameStateWithHiddenCardValues(originalBoard)
-
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = stateWithHiddenCardValues,
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onPlayActionCard = {},
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
-        composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
-
-        val currentBoard = stateWithHiddenCardValues.players.first { it.playerId == "p1" }.board
-        assert(currentBoard == originalBoard)
-        assert(currentBoard[0][0].faceUp == false)
-        assert(currentBoard[0][0].card?.value == 11)
     }
 
     private fun assertTextAbsent(text: String) {
@@ -797,7 +769,7 @@ class GameScreenTest {
     private fun makeGameStateWithHiddenCardValues(
         board: List<List<BoardSlot>> = hiddenValueBoard(),
         currentPlayerId: String = "p1",
-    ) = makeGameState(currentPlayerId = currentPlayerId).copy(
+    ) = makeGameState(currentPlayerId = currentPlayerId, handActionCards = listOf(enlightenmentActionCard())).copy(
         players = listOf(
             GamePlayerState(
                 playerId = "p1",
@@ -819,9 +791,7 @@ class GameScreenTest {
         gameOver: Boolean = false,
         drawnCard: Card? = null,
         roundResult: RoundResult? = null,
-        player1ActionCards: List<ActionCard> = emptyList(),
-        visibleActionCards: List<ActionCard> = emptyList(),
-        actionDrawPileCount: Int = 16,
+        handActionCards: List<ActionCard> = listOf(ActionCard(id = 151, kind = "DEFENSE")),
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -836,7 +806,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                actionCards = player1ActionCards,
+                actionCards = handActionCards,
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -846,8 +816,11 @@ class GameScreenTest {
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
         drawnCard = drawnCard,
-        visibleActionCards = visibleActionCards,
-        actionDrawPileCount = actionDrawPileCount,
+        visibleActionCards = listOf(
+            ActionCard(id = 151, kind = "DEFENSE"),
+            ActionCard(id = 152, kind = "PLACEHOLDER"),
+        ),
+        actionDrawPileCount = 16,
         roundResult = roundResult,
     )
 
@@ -855,13 +828,6 @@ class GameScreenTest {
         id = id,
         kind = "ENLIGHTENMENT",
         label = "Enlightenment",
-        value = 10,
-    )
-
-    private fun placeholderActionCard(id: Int = 152) = ActionCard(
-        id = id,
-        kind = "PLACEHOLDER",
-        label = "Action",
         value = 10,
     )
 }

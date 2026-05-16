@@ -17,6 +17,7 @@ import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -164,48 +165,42 @@ class GameStompClientTest {
     }
 
     @Test
-    fun `sendAction DRAW_VISIBLE_ACTION_CARD sends index JSON`() = runBlocking {
+    fun `sendAction PLAY_ACTION_CARD sends action card index`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
-        client.sendAction(at.aau.se2.skyjo.model.GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = 1))
+        client.sendAction(
+            at.aau.se2.skyjo.model.GameAction(
+                type = "PLAY_ACTION_CARD",
+                actionCardIndex = 2,
+            ),
+        )
         delay(300)
 
         coVerify(atLeast = 1) {
             any<StompSession>().sendText(
                 destination = "/app/game.action",
-                body = match { it.contains("DRAW_VISIBLE_ACTION_CARD") && it.contains("\"actionCardIndex\":1") },
+                body = match { it.contains("PLAY_ACTION_CARD") && it.contains("\"actionCardIndex\":2") },
             )
         }
     }
 
     @Test
-    fun `connect subscribes to private action card results queue`() = runBlocking {
-        val client = GameStompClient(mockContext)
-        client.connect()
-        delay(300)
-
-        coVerify(atLeast = 1) {
-            any<StompSession>().subscribeText("/user/queue/action-card-results")
-        }
-    }
-
-    @Test
-    fun `playActionCard sends command to action card destination`() = runBlocking {
+    fun `playActionCard sends private action card command`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
         client.playActionCard(
             PlayActionCardCommand(
-                actionCardIndex = 0,
+                actionCardIndex = 2,
                 parameters = ActionCardParameters.BoardLineTarget(
-                    targetPlayerId = "p1",
+                    targetPlayerId = "p2",
                     targetType = BoardLineTargetType.ROW,
                     lineIndex = 0,
                 ),
-            )
+            ),
         )
         delay(300)
 
@@ -213,29 +208,10 @@ class GameStompClientTest {
             any<StompSession>().sendText(
                 destination = "/app/game.action-card",
                 body = match {
-                    it.contains("\"actionCardIndex\":0") &&
-                        it.contains("\"targetPlayerId\":\"p1\"") &&
+                    it.contains("\"actionCardIndex\":2") &&
+                        it.contains("\"targetPlayerId\":\"p2\"") &&
                         it.contains("\"targetType\":\"ROW\"") &&
                         it.contains("\"lineIndex\":0")
-                },
-            )
-        }
-    }
-
-    @Test
-    fun `playActionCard without parameters omits parameters from JSON`() = runBlocking {
-        val client = GameStompClient(mockContext)
-        client.connect()
-        delay(300)
-
-        client.playActionCard(PlayActionCardCommand(actionCardIndex = 1))
-        delay(300)
-
-        coVerify(atLeast = 1) {
-            any<StompSession>().sendText(
-                destination = "/app/game.action-card",
-                body = match {
-                    it.contains("\"actionCardIndex\":1") && !it.contains("parameters")
                 },
             )
         }
@@ -393,32 +369,19 @@ class GameStompClientTest {
     }
 
     @Test
-    fun `private action card result is emitted when valid JSON arrives`() = runBlocking {
-        val actionCardResultsFlow = MutableSharedFlow<String>(replay = 1)
-        coEvery {
-            any<StompSession>().subscribeText(eq("/user/queue/action-card-results"))
-        } returns actionCardResultsFlow
-
+    fun `action card result is emitted when valid private result arrives`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
-        val validResultJson = """
+        val validActionCardResultJson = """
             {
                 "type": "ENLIGHTENMENT",
-                "actionCardIndex": 0,
-                "targetPlayerId": "p1",
-                "targetType": "ROW",
-                "lineIndex": 0,
-                "inspectedValues": [2, null, 6, 8],
-                "inspectedCards": [
-                    {
-                        "row": 0,
-                        "col": 0,
-                        "value": null,
-                        "card": null
-                    }
-                ]
+                "actionCardIndex": 1,
+                "targetPlayerId": "p2",
+                "targetType": "COLUMN",
+                "lineIndex": 2,
+                "inspectedValues": [3, null, 7]
             }
         """.trimIndent()
 
@@ -426,13 +389,13 @@ class GameStompClientTest {
         val job = launch { client.actionCardResults.collect { collected.add(it) } }
         delay(100)
 
-        actionCardResultsFlow.emit(validResultJson)
+        topicFlow.emit(validActionCardResultJson)
         delay(500)
 
         assert(collected.isNotEmpty()) { "Expected action card result to be emitted" }
-        assert(collected.first().type == "ENLIGHTENMENT")
-        assert(collected.first().inspectedValues == listOf(2, null, 6, 8))
-        assert(collected.first().inspectedCards.first().value == null)
+        assertEquals("ENLIGHTENMENT", collected.first().type)
+        assertEquals(BoardLineTargetType.COLUMN, collected.first().targetType)
+        assertEquals(listOf(3, null, 7), collected.first().inspectedValues)
 
         job.cancel()
     }

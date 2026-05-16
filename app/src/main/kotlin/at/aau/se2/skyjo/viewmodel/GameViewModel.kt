@@ -4,10 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import at.aau.se2.skyjo.model.ActionCardParameters
-import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.BoardLineTargetType
-import at.aau.se2.skyjo.network.GameStompClient
+import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.PlayActionCardCommand
+import at.aau.se2.skyjo.network.GameStompClient
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -85,6 +85,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun discardAndReveal(row: Int, col: Int) =
         gameClient.sendAction(GameAction(type = "DISCARD_AND_REVEAL", row = row, col = col))
 
+    fun playActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = actionCardIndex))
+
     fun playActionCard(command: PlayActionCardCommand) =
         gameClient.playActionCard(command)
 
@@ -101,8 +104,32 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 targetType = targetType,
                 lineIndex = lineIndex,
             ),
-        )
+        ),
     )
+
+    fun playPlayerSwapCard(
+        actionCardIndex: Int,
+        player1Id: String,
+        player1Row: Int,
+        player1Col: Int,
+        player2Id: String,
+        player2Row: Int,
+        player2Col: Int,
+    ) = gameClient.sendAction(
+        GameAction(
+            type = "PLAY_ACTION_CARD",
+            actionCardIndex = actionCardIndex,
+            targetPlayer1Id = player1Id,
+            targetPlayer1Row = player1Row,
+            targetPlayer1Col = player1Col,
+            targetPlayer2Id = player2Id,
+            targetPlayer2Row = player2Row,
+            targetPlayer2Col = player2Col,
+        ),
+    )
+
+    fun discardActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = actionCardIndex))
 
     override fun onCleared() {
         super.onCleared()
