@@ -35,10 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
@@ -72,11 +76,6 @@ private sealed class SwapSelectionState {
     ) : SwapSelectionState()
 }
 
-private fun actionCardDisplayName(type: String): String = when (type) {
-    "PLAYER_SWAP" -> "↔ Swap"
-    else -> type
-}
-
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
@@ -90,21 +89,22 @@ fun GameScreen(
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
+    onDrawVisibleActionCard: (actionCardIndex: Int) -> Unit = {},
     onReplaceCard: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPlayPlayerSwapCard: (actionCardIndex: Int, p1Id: String, p1Row: Int, p1Col: Int, p2Id: String, p2Row: Int, p2Col: Int) -> Unit = { _, _, _, _, _, _, _ -> },
+    onPlayActionCard: (actionCardIndex: Int) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
-    // Keyed on turn/round so a half-finished swap selection is discarded
-    // when the player's turn ends or a new round starts (stale cardIndex guard).
     var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
-    val myActionCardTypes = gameState?.players?.find { it.playerId == myPlayerId }?.actionCardTypes ?: emptyList()
 
     val currentPhase = gameState?.phase
-    val myBoard = gameState?.players?.find { it.playerId == myPlayerId }?.board
+    val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
+    val myBoard = myPlayer?.board
+    val myActionCards = myPlayer?.actionCards.orEmpty()
     val myVisibleScore = myBoard
         ?.flatten()
         ?.filter { it.type == "OCCUPIED" && it.faceUp == true }
@@ -149,15 +149,17 @@ fun GameScreen(
                     currentPhase = currentPhase,
                     pendingAction = pendingAction,
                     swapState = swapState,
-                    myActionCardTypes = myActionCardTypes,
                     onPendingActionChange = { pendingAction = it },
                     onSwapStateChange = { swapState = it },
                     onDrawFromDeck = onDrawFromDeck,
                     onDrawFromDiscard = onDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
+                    onDrawVisibleActionCard = onDrawVisibleActionCard,
                     onReplaceCard = onReplaceCard,
                     onDiscardAndReveal = onDiscardAndReveal,
+                    myActionCards = myActionCards,
                     onPlayPlayerSwapCard = onPlayPlayerSwapCard,
+                    onPlayActionCard = onPlayActionCard,
                     onDiscardActionCard = onDiscardActionCard,
                 )
             }
@@ -172,9 +174,7 @@ fun GameScreen(
                 currentPlayerNickname = currentPlayerNickname,
                 discardCard = discardCard,
                 pendingAction = pendingAction,
-                swapState = swapState,
                 onPendingActionChange = { pendingAction = it },
-                onSwapStateChange = { swapState = it },
                 onDrawFromDeck = onDrawFromDeck,
                 onDrawFromDiscard = onDrawFromDiscard,
             )
@@ -288,23 +288,28 @@ private fun GameContent(
     currentPhase: String?,
     pendingAction: String?,
     swapState: SwapSelectionState?,
-    myActionCardTypes: List<String>,
     onPendingActionChange: (String?) -> Unit,
     onSwapStateChange: (SwapSelectionState?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
     onDrawFromActionDeck: () -> Unit,
+    onDrawVisibleActionCard: (actionCardIndex: Int) -> Unit,
     onReplaceCard: (row: Int, col: Int) -> Unit,
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+    myActionCards: List<ActionCard>,
     onPlayPlayerSwapCard: (Int, String, Int, Int, String, Int, Int) -> Unit,
-    onDiscardActionCard: (Int) -> Unit,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
 
     ActionMarketSection(
+        cards = gameState.visibleActionCards,
+        actionDrawPileCount = gameState.actionDrawPileCount,
         clickable = isMyTurn && isDrawPhase,
         onDrawFromActionDeck = onDrawFromActionDeck,
+        onDrawVisibleActionCard = onDrawVisibleActionCard,
     )
 
     DrawPileRow(
@@ -334,17 +339,25 @@ private fun GameContent(
             onDiscardAndReveal = onDiscardAndReveal,
             onSwapSlotSelected = { row, col ->
                 if (myPlayerId != null) {
-                    when (val s = swapState) {
+                    when (val state = swapState) {
                         is SwapSelectionState.AwaitingFirst -> {
-                            onSwapStateChange(SwapSelectionState.AwaitingSecond(s.cardIndex, myPlayerId, row, col))
+                            onSwapStateChange(SwapSelectionState.AwaitingSecond(state.cardIndex, myPlayerId, row, col))
                         }
                         is SwapSelectionState.AwaitingSecond -> {
-                            if (myPlayerId != s.player1Id) {
-                                onPlayPlayerSwapCard(s.cardIndex, s.player1Id, s.player1Row, s.player1Col, myPlayerId, row, col)
+                            if (myPlayerId != state.player1Id) {
+                                onPlayPlayerSwapCard(
+                                    state.cardIndex,
+                                    state.player1Id,
+                                    state.player1Row,
+                                    state.player1Col,
+                                    myPlayerId,
+                                    row,
+                                    col,
+                                )
                                 onSwapStateChange(null)
                             }
                         }
-                        null -> {}
+                        null -> Unit
                     }
                 }
             },
@@ -360,28 +373,42 @@ private fun GameContent(
             disconnectedPlayers = gameState.disconnectedPlayers,
             swapState = swapState,
             onSlotSelected = { playerId, row, col ->
-                when (val s = swapState) {
+                when (val state = swapState) {
                     is SwapSelectionState.AwaitingFirst -> {
-                        onSwapStateChange(SwapSelectionState.AwaitingSecond(s.cardIndex, playerId, row, col))
+                        onSwapStateChange(SwapSelectionState.AwaitingSecond(state.cardIndex, playerId, row, col))
                     }
                     is SwapSelectionState.AwaitingSecond -> {
-                        if (playerId != s.player1Id) {
-                            onPlayPlayerSwapCard(s.cardIndex, s.player1Id, s.player1Row, s.player1Col, playerId, row, col)
+                        if (playerId != state.player1Id) {
+                            onPlayPlayerSwapCard(
+                                state.cardIndex,
+                                state.player1Id,
+                                state.player1Row,
+                                state.player1Col,
+                                playerId,
+                                row,
+                                col,
+                            )
                             onSwapStateChange(null)
                         }
                     }
-                    null -> {}
+                    null -> Unit
                 }
             },
         )
     }
 
     HandActionCardsSection(
-        cards = myActionCardTypes,
-        isPlayable = isMyTurn && (currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS),
+        cards = myActionCards,
+        canUseCards = isMyTurn && isDrawPhase,
         swapState = swapState,
-        onPlayCard = { index -> onSwapStateChange(SwapSelectionState.AwaitingFirst(index)) },
-        onDiscardCard = { index ->
+        onPlayActionCard = { index ->
+            if (myActionCards.getOrNull(index)?.kind == "PLAYER_SWAP") {
+                onSwapStateChange(SwapSelectionState.AwaitingFirst(index))
+            } else {
+                onPlayActionCard(index)
+            }
+        },
+        onDiscardActionCard = { index ->
             onDiscardActionCard(index)
             onSwapStateChange(null)
         },
@@ -451,25 +478,32 @@ private fun PlayerGridSection(
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
     onSwapSlotSelected: (row: Int, col: Int) -> Unit,
 ) {
+    val canSelectForSwap = when (val state = swapState) {
+        is SwapSelectionState.AwaitingFirst -> myPlayerId.isNotBlank()
+        is SwapSelectionState.AwaitingSecond -> myPlayerId.isNotBlank() && state.player1Id != myPlayerId
+        null -> false
+    }
+
     SectionCard(
         title = "Your Grid",
         badge = "Visible: $myVisibleScore",
     ) {
         CardGrid(
             board = myBoard,
-            selectable = (isMyTurn && isReplacementPhase && pendingAction != null)
-                || (swapState is SwapSelectionState.AwaitingFirst)
-                || (swapState is SwapSelectionState.AwaitingSecond && (swapState as SwapSelectionState.AwaitingSecond).player1Id != myPlayerId),
+            selectable = canSelectForSwap || (isMyTurn && isReplacementPhase && pendingAction != null),
             onCardClick = { row, col ->
-                when {
-                    swapState != null -> onSwapSlotSelected(row, col)
-                    pendingAction == "REPLACE" -> {
-                        onReplaceCard(row, col)
-                        onPendingActionChange(null)
-                    }
-                    pendingAction == "DISCARD_AND_REVEAL" -> {
-                        onDiscardAndReveal(row, col)
-                        onPendingActionChange(null)
+                if (canSelectForSwap) {
+                    onSwapSlotSelected(row, col)
+                } else {
+                    when (pendingAction) {
+                        "REPLACE" -> {
+                            onReplaceCard(row, col)
+                            onPendingActionChange(null)
+                        }
+                        "DISCARD_AND_REVEAL" -> {
+                            onDiscardAndReveal(row, col)
+                            onPendingActionChange(null)
+                        }
                     }
                 }
             },
@@ -540,9 +574,7 @@ private fun GameScreenActionBar(
     currentPlayerNickname: String,
     discardCard: Card?,
     pendingAction: String?,
-    swapState: SwapSelectionState?,
     onPendingActionChange: (String?) -> Unit,
-    onSwapStateChange: (SwapSelectionState?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
 ) {
@@ -554,34 +586,6 @@ private fun GameScreenActionBar(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Swap mode guidance — shown above everything else when active
-            if (swapState != null) {
-                val swapHint = when (swapState) {
-                    is SwapSelectionState.AwaitingFirst -> "Select the first card to swap (any player's board)"
-                    is SwapSelectionState.AwaitingSecond -> "Select a card from a different player's board"
-                }
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = at.aau.se2.skyjo.ui.theme.GreenSurface,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = swapHint,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = PrimaryGreen,
-                            modifier = Modifier.weight(1f),
-                        )
-                        androidx.compose.material3.TextButton(onClick = { onSwapStateChange(null) }) {
-                            Text("Cancel", color = MutedText, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
             when {
                 gameState.gameOver -> {
                     Text(
@@ -1062,9 +1066,14 @@ private fun RoundResultSection(
 
 @Composable
 private fun ActionMarketSection(
+    cards: List<ActionCard>,
+    actionDrawPileCount: Int,
     clickable: Boolean = false,
     onDrawFromActionDeck: () -> Unit = {},
+    onDrawVisibleActionCard: (actionCardIndex: Int) -> Unit = {},
 ) {
+    val deckClickable = clickable && actionDrawPileCount > 0
+
     Surface(
         shape = MaterialTheme.shapes.large,
         color = SurfaceWhite,
@@ -1094,17 +1103,17 @@ private fun ActionMarketSection(
                         .size(72.dp)
                         .background(
                             brush = Brush.verticalGradient(
-                                colors = if (clickable) listOf(MintGreen, PrimaryGreen)
+                                colors = if (deckClickable) listOf(MintGreen, PrimaryGreen)
                                 else listOf(PrimaryGreen, GreenDark),
                             ),
                             shape = RoundedCornerShape(14.dp),
                         )
                         .border(
-                            width = if (clickable) 2.dp else 2.dp,
-                            color = if (clickable) MintGreen else MintGreen.copy(alpha = 0.5f),
+                            width = 2.dp,
+                            color = if (deckClickable) MintGreen else MintGreen.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(14.dp),
                         )
-                        .then(if (clickable) Modifier.clickable(onClick = onDrawFromActionDeck) else Modifier),
+                        .then(if (deckClickable) Modifier.clickable(onClick = onDrawFromActionDeck) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1114,33 +1123,50 @@ private fun ActionMarketSection(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (clickable) "TAP to draw action card" else "Action Draw Deck",
+                    text = if (deckClickable) {
+                        "TAP to draw action card ($actionDrawPileCount left)"
+                    } else {
+                        "Action Draw Deck ($actionDrawPileCount left)"
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (clickable) PrimaryGreen else MutedText,
-                    fontWeight = if (clickable) FontWeight.Bold else FontWeight.Normal,
+                    color = if (deckClickable) PrimaryGreen else MutedText,
+                    fontWeight = if (deckClickable) FontWeight.Bold else FontWeight.Normal,
                 )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf("↔ Swap", "👁 Peek", "🔄 Trade", "⚡ Double").forEach { action ->
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = at.aau.se2.skyjo.ui.theme.GreenSurface,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(
-                            text = action,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = PrimaryGreen,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 10.dp),
-                        )
+            if (cards.isEmpty()) {
+                Text(
+                    text = "No visible action cards",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MutedText,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    cards.forEachIndexed { index, action ->
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("draw_visible_action_card_$index")
+                                .then(
+                                    if (clickable) {
+                                        Modifier.clickable { onDrawVisibleActionCard(index) }
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                        ) {
+                            ActionCardFaceContent(
+                                card = action,
+                                modifier = Modifier.padding(vertical = 10.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -1150,66 +1176,165 @@ private fun ActionMarketSection(
 
 @Composable
 private fun HandActionCardsSection(
-    cards: List<String>,
-    isPlayable: Boolean,
+    cards: List<ActionCard>,
+    canUseCards: Boolean,
     swapState: SwapSelectionState?,
-    onPlayCard: (index: Int) -> Unit,
-    onDiscardCard: (index: Int) -> Unit,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
+    val activeCardIndex = when (swapState) {
+        is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
+        is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
+        null -> null
+    }
+
     SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
         if (cards.isEmpty()) {
-            Text(
-                text = "No action cards in hand",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MutedText,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
+            EmptyActionCardHandMessage()
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                cards.forEachIndexed { index, cardType ->
-                    val isThisCardActive = when (val s = swapState) {
-                        is SwapSelectionState.AwaitingFirst -> s.cardIndex == index
-                        is SwapSelectionState.AwaitingSecond -> s.cardIndex == index
-                        null -> false
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isThisCardActive) PrimaryGreen else at.aau.se2.skyjo.ui.theme.GreenSurface,
-                            modifier = Modifier
-                                .weight(1f)
-                                .border(
-                                    width = if (isThisCardActive) 2.dp else 1.dp,
-                                    color = if (isThisCardActive) MintGreen else MintGreen.copy(alpha = 0.4f),
-                                    shape = RoundedCornerShape(10.dp),
-                                ),
-                        ) {
-                            Text(
-                                text = actionCardDisplayName(cardType),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isThisCardActive) SurfaceWhite else PrimaryGreen,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                            )
-                        }
-                        if (isPlayable && swapState == null) {
-                            androidx.compose.material3.TextButton(onClick = { onPlayCard(index) }) {
-                                Text("Play", color = PrimaryGreen, style = MaterialTheme.typography.labelMedium)
-                            }
-                            androidx.compose.material3.TextButton(onClick = { onDiscardCard(index) }) {
-                                Text("Discard", color = MutedText, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
+            HandActionCardsRow(
+                cards = cards,
+                canUseCards = canUseCards && swapState == null,
+                activeCardIndex = activeCardIndex,
+                onPlayActionCard = onPlayActionCard,
+                onDiscardActionCard = onDiscardActionCard,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyActionCardHandMessage() {
+    Text(
+        text = "No action cards in hand",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MutedText,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun HandActionCardsRow(
+    cards: List<ActionCard>,
+    canUseCards: Boolean,
+    activeCardIndex: Int?,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        cards.forEachIndexed { index, card ->
+            HandActionCardItem(
+                index = index,
+                card = card,
+                canUseCards = canUseCards,
+                isActive = activeCardIndex == index,
+                onPlayActionCard = onPlayActionCard,
+                onDiscardActionCard = onDiscardActionCard,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HandActionCardItem(
+    index: Int,
+    card: ActionCard,
+    canUseCards: Boolean,
+    isActive: Boolean,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+            modifier = actionCardModifier(
+                index = index,
+                card = card,
+                canUseCards = canUseCards,
+                isActive = isActive,
+                onPlayActionCard = onPlayActionCard,
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                ActionCardFaceContent(
+                    card = card,
+                    modifier = Modifier.padding(4.dp),
+                )
             }
         }
+        Spacer(modifier = Modifier.height(6.dp))
+        DiscardActionCardButton(
+            index = index,
+            canUseCards = canUseCards,
+            onDiscardActionCard = onDiscardActionCard,
+        )
+    }
+}
+
+private fun actionCardModifier(
+    index: Int,
+    card: ActionCard,
+    canUseCards: Boolean,
+    isActive: Boolean,
+    onPlayActionCard: (actionCardIndex: Int) -> Unit,
+): Modifier {
+    val clickModifier = if (canUseCards) {
+        Modifier
+            .testTag("play_action_card_$index")
+            .clickable { onPlayActionCard(index) }
+    } else {
+        Modifier
+    }
+
+    return Modifier
+        .aspectRatio(0.65f)
+        .border(
+            width = if (isActive) 2.dp else 1.dp,
+            color = if (isActive) MintGreen else MintGreen.copy(alpha = 0.4f),
+            shape = RoundedCornerShape(10.dp),
+        )
+        .then(clickModifier)
+        .semantics {
+            contentDescription = "Play ${actionCardAccessibilityLabel(card)} action card"
+        }
+}
+
+@Composable
+private fun DiscardActionCardButton(
+    index: Int,
+    canUseCards: Boolean,
+    onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+) {
+    val clickModifier = if (canUseCards) {
+        Modifier.clickable { onDiscardActionCard(index) }
+    } else {
+        Modifier
+    }
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = SurfaceWhite,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("discard_action_card_$index")
+            .then(clickModifier),
+    ) {
+        Text(
+            text = "Discard",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (canUseCards) PrimaryGreen else MutedText,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
     }
 }
 
@@ -1220,7 +1345,7 @@ private fun OtherPlayerRow(
     isCurrentPlayer: Boolean,
     isDisconnected: Boolean = false,
     swapState: SwapSelectionState?,
-    onSlotSelected: (row: Int, col: Int) -> Unit = { _, _ -> },
+    onSlotSelected: (row: Int, col: Int) -> Unit,
 ) {
     val avatarBg = when {
         isDisconnected -> Color(0xFFFFCDD2)
@@ -1242,71 +1367,73 @@ private fun OtherPlayerRow(
         isCurrentPlayer -> androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen)
         else -> null
     }
-
-    val isSelectableForSwap = when (val s = swapState) {
+    val isSelectableForSwap = when (val state = swapState) {
         is SwapSelectionState.AwaitingFirst -> true
-        is SwapSelectionState.AwaitingSecond -> s.player1Id != player.playerId
+        is SwapSelectionState.AwaitingSecond -> state.player1Id != player.playerId
         null -> false
     }
 
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = surfaceColor,
-        border = if (isSelectableForSwap) androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen) else border,
+        border = if (isSelectableForSwap) {
+            androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen)
+        } else {
+            border
+        },
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = player.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                style = MaterialTheme.typography.titleMedium,
+                color = avatarTextColor,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+                    .size(36.dp)
+                    .background(color = avatarBg, shape = androidx.compose.foundation.shape.CircleShape)
+                    .padding(8.dp),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = player.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = avatarTextColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(color = avatarBg, shape = androidx.compose.foundation.shape.CircleShape)
-                        .padding(8.dp),
-                    textAlign = TextAlign.Center,
+                    text = player.nickname,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isDisconnected) Color(0xFFB71C1C) else MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                if (isDisconnected) {
                     Text(
-                        text = player.nickname,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isDisconnected) Color(0xFFB71C1C) else MaterialTheme.colorScheme.onSurface,
+                        text = "Disconnected",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFEF5350),
                     )
-                    if (isDisconnected) {
-                        Text(
-                            text = "Disconnected",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFEF5350),
-                        )
-                    }
-                    if (isSelectableForSwap) {
-                        Text(
-                            text = "Tap a card to swap",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = PrimaryGreen,
-                        )
-                    }
                 }
-                Text(
-                    text = "$totalScore pts",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = when {
-                        isDisconnected -> Color(0xFFEF9A9A)
-                        isCurrentPlayer -> PrimaryGreen
-                        else -> MutedText
-                    },
-                    fontWeight = FontWeight.Bold,
-                )
+                if (isSelectableForSwap) {
+                    Text(
+                        text = "Tap a card to swap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PrimaryGreen,
+                    )
+                }
             }
-
+            Text(
+                text = "$totalScore pts",
+                style = MaterialTheme.typography.labelLarge,
+                color = when {
+                    isDisconnected -> Color(0xFFEF9A9A)
+                    isCurrentPlayer -> PrimaryGreen
+                    else -> MutedText
+                },
+                fontWeight = FontWeight.Bold,
+            )
+        }
             if (isSelectableForSwap) {
                 CardGrid(
                     board = player.board,
@@ -1326,6 +1453,39 @@ private fun cardColor(value: Int): Color = when {
 
 private fun cardDisplayValue(card: Card): String =
     if (card.type == "ACTION") "A" else card.value.toString()
+
+private fun actionCardDisplayLabel(card: ActionCard): String =
+    when (card.kind) {
+        "DEFENSE" -> "🛡️"
+        "PLAYER_SWAP" -> "↔"
+        else -> "Action"
+    }
+
+private fun actionCardAccessibilityLabel(card: ActionCard): String =
+    when (card.kind) {
+        "DEFENSE" -> "Defense"
+        "PLAYER_SWAP" -> "Player swap"
+        else -> "Action"
+    }
+
+@Composable
+private fun ActionCardFaceContent(
+    card: ActionCard,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = actionCardDisplayLabel(card),
+        style = if (card.kind == "DEFENSE" || card.kind == "PLAYER_SWAP") {
+            MaterialTheme.typography.headlineSmall
+        } else {
+            MaterialTheme.typography.labelMedium
+        },
+        color = PrimaryGreen,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        modifier = modifier,
+    )
+}
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

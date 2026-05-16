@@ -70,6 +70,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun drawFromActionDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "ACTION_DECK"))
 
+    fun drawVisibleActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = actionCardIndex))
+
     fun drawFromDiscard() = gameClient.sendAction(GameAction(type = "DRAW", source = "DISCARD"))
 
     fun replaceCard(row: Int, col: Int) =
@@ -78,10 +81,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun discardAndReveal(row: Int, col: Int) =
         gameClient.sendAction(GameAction(type = "DISCARD_AND_REVEAL", row = row, col = col))
 
+    fun playActionCard(actionCardIndex: Int) =
+        gameClient.sendAction(GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = actionCardIndex))
+
     fun playPlayerSwapCard(
         actionCardIndex: Int,
-        player1Id: String, player1Row: Int, player1Col: Int,
-        player2Id: String, player2Row: Int, player2Col: Int,
+        player1Id: String,
+        player1Row: Int,
+        player1Col: Int,
+        player2Id: String,
+        player2Row: Int,
+        player2Col: Int,
     ) = gameClient.sendAction(
         GameAction(
             type = "PLAY_ACTION_CARD",
@@ -92,7 +102,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             targetPlayer2Id = player2Id,
             targetPlayer2Row = player2Row,
             targetPlayer2Col = player2Col,
-        )
+        ),
     )
 
     fun discardActionCard(actionCardIndex: Int) =

@@ -197,6 +197,39 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `drawVisibleActionCard sends DRAW_VISIBLE_ACTION_CARD action`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.drawVisibleActionCard(actionCardIndex = 2)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DRAW_VISIBLE_ACTION_CARD", actionCardIndex = 2)
+            )
+        }
+    }
+
+    @Test
+    fun `playActionCard sends PLAY_ACTION_CARD action`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.playActionCard(actionCardIndex = 1)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = 1)
+            )
+        }
+    }
+
+    @Test
+    fun `discardActionCard sends DISCARD_ACTION_CARD action`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.discardActionCard(actionCardIndex = 0)
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 0)
+            )
+        }
+    }
+
+    @Test
     fun `reconnect is triggered when connection drops with player name set`() {
         val viewModel = GameViewModel(mockApplication)
         viewModel.connect("Alice")

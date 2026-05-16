@@ -21,7 +21,7 @@ data class GamePlayerState(
     val playerId: String,
     val nickname: String,
     val board: List<List<BoardSlot>>,
-    val actionCardTypes: List<String> = emptyList(),
+    val actionCards: List<ActionCard> = emptyList(),
 )
 
 @Serializable
@@ -54,7 +54,15 @@ data class GameUpdateMessage(
     val players: List<GamePlayerState>,
     val discardTopCard: Card? = null,
     val drawnCard: Card? = null,
+    val visibleActionCards: List<ActionCard> = emptyList(),
+    val actionDrawPileCount: Int = 0,
     val roundResult: RoundResult? = null,
     val gameId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
+)
+
+@Serializable
+data class ActionCard(
+    val id: Int,
+    val kind: String,
 )

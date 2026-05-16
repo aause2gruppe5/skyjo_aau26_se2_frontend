@@ -1,13 +1,15 @@
 package at.aau.se2.skyjo.ui.screens.game
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
@@ -252,6 +254,115 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Your Action Cards").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_defense_action_card_when_state_present() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithText("🛡️").assertCountEquals(2)
+    }
+
+    @Test
+    fun gameScreen_action_card_click_triggers_play_callback() {
+        var playedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { playedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_player_swap_action_card_enters_selection_mode() {
+        var playedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP"))),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { playedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText("Tap a card to swap").performScrollTo().assertIsDisplayed()
+        assertEquals(null, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_action_card_discard_triggers_callback() {
+        var discardedIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDiscardActionCard = { discardedIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("discard_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, discardedIndex)
+    }
+
+    @Test
+    fun gameScreen_visible_action_card_click_triggers_callback() {
+        var drawnIndex: Int? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onDrawVisibleActionCard = { drawnIndex = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("draw_visible_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(0, drawnIndex)
     }
 
     @Test
@@ -520,254 +631,13 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Your Grid").assertExists()
     }
 
-    @Test
-    fun gameScreen_shows_swap_card_label_in_hand() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState().copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onAllNodesWithText("↔ Swap").onFirst().assertExists()
-    }
-
-    @Test
-    fun gameScreen_shows_no_action_cards_message_when_hand_empty() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(),
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("No action cards in hand").assertExists()
-    }
-
-    @Test
-    fun gameScreen_shows_play_and_discard_buttons_when_my_turn_awaiting_draw_with_action_card() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Play").assertExists()
-        composeTestRule.onNodeWithText("Discard").assertExists()
-    }
-
-    @Test
-    fun gameScreen_tapping_play_enters_swap_mode_and_shows_hint() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertExists()
-    }
-
-    @Test
-    fun gameScreen_cancel_button_dismisses_swap_mode() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Cancel").performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Select the first card to swap", substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun gameScreen_discard_action_card_callback_fires_with_correct_index() {
-        var discardedIndex = -1
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onDiscardActionCard = { idx -> discardedIndex = idx },
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Discard").performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        assertEquals(0, discardedIndex)
-    }
-
-    @Test
-    fun gameScreen_other_player_shows_tap_hint_in_swap_mode() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Tap a card to swap").assertExists()
-    }
-
-    @Test
-    fun gameScreen_play_callback_fires_after_two_slot_selections() {
-        var swapCalled = false
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(phase = "AWAITING_DRAW").copy(
-                        players = listOf(
-                            GamePlayerState(
-                                playerId = "p1",
-                                nickname = "Alice",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 3, "NUMBER")) } },
-                                actionCardTypes = listOf("PLAYER_SWAP"),
-                            ),
-                            GamePlayerState(
-                                playerId = "p2",
-                                nickname = "Bob",
-                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(2, 5, "NUMBER")) } },
-                            ),
-                        ),
-                    ),
-                    myPlayerId = "p1",
-                    isMyTurn = true,
-                    onPlayPlayerSwapCard = { _, _, _, _, _, _, _ -> swapCalled = true },
-                    onBack = {},
-                )
-            }
-        }
-        // Enter swap mode
-        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        // Select first card from own board — tap first "3" card (Alice's board, selectable in AwaitingFirst)
-        composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        // Now in AwaitingSecond — select a card from Bob's board
-        composeTestRule.onAllNodesWithText("5").onFirst().performScrollTo().performClick()
-        composeTestRule.waitForIdle()
-        assert(swapCalled) { "onPlayPlayerSwapCard should be called after two slot selections" }
-    }
-
     private fun makeGameState(
         phase: String = "AWAITING_DRAW",
         currentPlayerId: String = "p1",
         gameOver: Boolean = false,
         drawnCard: Card? = null,
         roundResult: RoundResult? = null,
+        handActionCards: List<ActionCard> = listOf(ActionCard(id = 151, kind = "DEFENSE")),
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -782,6 +652,7 @@ class GameScreenTest {
                 playerId = "p1",
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                actionCards = handActionCards,
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -791,6 +662,11 @@ class GameScreenTest {
         ),
         discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
         drawnCard = drawnCard,
+        visibleActionCards = listOf(
+            ActionCard(id = 151, kind = "DEFENSE"),
+            ActionCard(id = 152, kind = "PLACEHOLDER"),
+        ),
+        actionDrawPileCount = 16,
         roundResult = roundResult,
     )
 }

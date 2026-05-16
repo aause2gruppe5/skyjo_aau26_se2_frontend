@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GameAction
@@ -98,7 +100,7 @@ class AppNavHostTest {
                 playerId = myPlayerId,
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 3, "NUMBER")) } },
-                actionCardTypes = listOf("PLAYER_SWAP"),
+                actionCards = listOf(ActionCard(id = 151, kind = "PLAYER_SWAP")),
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -190,7 +192,7 @@ class AppNavHostTest {
         composeTestRule.waitForIdle()
 
         // Enter swap mode
-        composeTestRule.onNodeWithText("Play").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         // Select first card from own board
