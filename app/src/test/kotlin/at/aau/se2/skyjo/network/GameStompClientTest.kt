@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
@@ -394,6 +395,90 @@ class GameStompClientTest {
         coVerify(atLeast = 1) {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
         }
+    }
+
+    @Test
+    fun `reconnect returns immediately when already reconnecting`() = runBlocking {
+        val client = GameStompClient(mockContext)
+
+        val job1 = launch { client.reconnect("Hans") }
+        yield() // Let job1 start and set reconnecting = true before its first delay
+
+        var secondCallReturned = false
+        val job2 = launch {
+            client.reconnect("Hans")
+            secondCallReturned = true
+        }
+        yield() // Let job2 run to completion (should be instant due to guard)
+
+        assert(secondCallReturned) { "Second reconnect call should return immediately when already reconnecting" }
+        job1.cancel()
+        job2.cancel()
+    }
+
+    @Test
+    fun `reconnect sets connectionError when connection fails`() = runBlocking {
+        coEvery {
+            anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
+        } throws Exception("Connection refused")
+
+        val client = GameStompClient(mockContext)
+        val job = launch { client.reconnect("Hans") }
+        delay(1500) // 1000ms initial delay + connect attempt + error assignment
+        job.cancel()
+
+        assert(client.connectionError.value == "Verbindung getrennt, versuche erneut…") {
+            "Expected reconnect error message, got: ${client.connectionError.value}"
+        }
+    }
+
+    @Test
+    fun `game update with gameOver true calls clearStoredGame`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val gameOverJson = """
+            {
+                "phase": "ROUND_FINISHED",
+                "currentPlayerId": "p1",
+                "roundNumber": 1,
+                "gameOver": true,
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        topicFlow.emit(gameOverJson)
+        delay(300)
+
+        verify(atLeast = 1) { mockEditor.remove("game_id") }
+    }
+
+    @Test
+    fun `game update with non-null gameId saves gameId to preferences`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val gameWithIdJson = """
+            {
+                "phase": "AWAITING_DRAW",
+                "currentPlayerId": "p1",
+                "roundNumber": 1,
+                "gameOver": false,
+                "gameId": "test-game-456",
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        topicFlow.emit(gameWithIdJson)
+        delay(300)
+
+        verify(atLeast = 1) { mockEditor.putString("game_id", "test-game-456") }
     }
 
     @Test

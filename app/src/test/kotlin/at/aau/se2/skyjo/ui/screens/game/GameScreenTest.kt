@@ -1,5 +1,6 @@
 package at.aau.se2.skyjo.ui.screens.game
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -514,6 +515,40 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Your Grid").assertExists()
+    }
+
+    @Test
+    fun gameScreen_hides_player_grid_when_myPlayerId_is_null() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = null,
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        // myBoard is null when myPlayerId doesn't match any player → PlayerGridSection skipped
+        composeTestRule.onNodeWithText("Your Grid").assertDoesNotExist()
+        // Other sections should still render
+        composeTestRule.onNodeWithText("ACTION MARKET").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_shows_game_over_banner_without_winner_line_when_scores_empty() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(gameOver = true).copy(totalScores = emptyList()),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+        composeTestRule.onNodeWithText("Winner:", substring = true).assertDoesNotExist()
     }
 
     private fun makeGameState(
