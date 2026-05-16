@@ -1,8 +1,8 @@
 package at.aau.se2.skyjo.ui.screens.game
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -530,7 +530,7 @@ class GameScreenTest {
             }
         }
         // myBoard is null when myPlayerId doesn't match any player → PlayerGridSection skipped
-        composeTestRule.onNodeWithText("Your Grid").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("Your Grid").assertCountEquals(0)
         // Other sections should still render
         composeTestRule.onNodeWithText("ACTION MARKET").assertIsDisplayed()
     }
@@ -548,7 +548,47 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("GAME OVER").assertExists()
-        composeTestRule.onNodeWithText("Winner:", substring = true).assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("Winner:", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun gameScreen_action_card_excluded_from_visible_score() {
+        // Covers: slot.card?.takeIf { it.type != "ACTION" } false branch (ACTION card)
+        val stateWithActionCard = makeGameState().copy(
+            players = listOf(
+                GamePlayerState(
+                    playerId = "p1",
+                    nickname = "Alice",
+                    board = listOf(
+                        listOf(
+                            BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 0, "ACTION")),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                            BoardSlot(type = "OCCUPIED", faceUp = false),
+                        ),
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                        List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
+                    ),
+                ),
+                GamePlayerState(
+                    playerId = "p2",
+                    nickname = "Bob",
+                    board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                ),
+            ),
+        )
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithActionCard,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        // ACTION card is face-up but excluded from score → visible score stays 0
+        composeTestRule.onNodeWithText("Visible: 0").assertExists()
     }
 
     private fun makeGameState(
