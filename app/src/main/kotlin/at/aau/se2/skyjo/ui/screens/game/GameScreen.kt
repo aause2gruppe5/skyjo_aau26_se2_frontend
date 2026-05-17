@@ -1598,10 +1598,22 @@ private fun HandActionCardItem(
                 onPlayActionCard = onPlayActionCard,
             ),
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
                 ActionCardFaceContent(
                     card = card,
-                    modifier = Modifier.padding(4.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    text = actionCardAccessibilityLabel(card),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp, bottom = 4.dp),
                 )
             }
         }
