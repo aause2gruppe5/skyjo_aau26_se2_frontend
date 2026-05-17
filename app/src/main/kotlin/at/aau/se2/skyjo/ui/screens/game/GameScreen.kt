@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -203,6 +203,8 @@ fun GameScreen(
                     onPlayActionCard = onPlayActionCard,
                     onPlayEnlightenmentCard = onPlayEnlightenmentCard,
                     onDiscardActionCard = onDiscardActionCard,
+                    enlightenmentResult = if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) privateActionCardResult else null,
+                    onDismissEnlightenmentResult = onDismissActionCardResult,
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -223,12 +225,6 @@ fun GameScreen(
         }
     }
 
-    if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) {
-        EnlightenmentResultDialog(
-            result = privateActionCardResult,
-            onDismiss = onDismissActionCardResult,
-        )
-    }
 }
 
 // ── Top-level section composables ────────────────────────────────────────────
@@ -355,6 +351,8 @@ private fun GameContent(
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+    enlightenmentResult: ActionCardResultMessage? = null,
+    onDismissEnlightenmentResult: () -> Unit = {},
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
@@ -477,6 +475,8 @@ private fun GameContent(
                 null -> Unit
             }
         },
+        peekResult = enlightenmentResult,
+        onDismissPeek = onDismissEnlightenmentResult,
     )
 
     HandActionCardsSection(
@@ -605,12 +605,28 @@ private fun PlayerGridCarousel(
     onDiscardAndReveal: (row: Int, col: Int) -> Unit,
     onSwapSlotSelected: (row: Int, col: Int) -> Unit,
     onOtherSlotSelected: (playerId: String, row: Int, col: Int) -> Unit,
+    peekResult: ActionCardResultMessage? = null,
+    onDismissPeek: () -> Unit = {},
 ) {
     if (players.isEmpty()) return
     val pageCount = players.size
     val safeIndex = viewedPlayerIndex.coerceIn(0, players.lastIndex)
     val viewedPlayer = players[safeIndex]
     val isOwnGrid = viewedPlayer.playerId == myPlayerId
+
+    LaunchedEffect(peekResult) {
+        if (peekResult != null) {
+            val targetIndex = players.indexOfFirst { it.playerId == peekResult.targetPlayerId }
+            if (targetIndex >= 0) onViewedPlayerIndexChange(targetIndex)
+        }
+    }
+
+    val peekedSlots: Map<Pair<Int, Int>, Int?> =
+        if (peekResult != null && viewedPlayer.playerId == peekResult.targetPlayerId) {
+            peekResult.toPeekedSlots()
+        } else {
+            emptyMap()
+        }
 
     val canSelectOwnForSwap = when (val state = swapState) {
         is SwapSelectionState.AwaitingFirst -> myPlayerId.isNotBlank()
@@ -619,10 +635,13 @@ private fun PlayerGridCarousel(
         null -> false
     }
 
+    val viewedPlayerHasDefense = !isOwnGrid && viewedPlayer.actionCards.any { it.kind == "DEFENSE" }
+    val isProtectedFromSwap = swapState != null && !isOwnGrid && viewedPlayerHasDefense
+
     val isSelectableOtherGrid = when (val state = swapState) {
-        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly
+        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly && !isProtectedFromSwap
         is SwapSelectionState.AwaitingSecond -> !state.ownCardsOnly &&
-                state.player1Id != viewedPlayer.playerId
+                state.player1Id != viewedPlayer.playerId && !isProtectedFromSwap
         null -> false
     }
 
@@ -694,9 +713,50 @@ private fun PlayerGridCarousel(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (peekedSlots.isNotEmpty()) {
+                val peekTargetLabel = peekResult?.let { r ->
+                    when (r.targetType) {
+                        BoardLineTargetType.ROW -> "Row ${r.lineIndex}"
+                        BoardLineTargetType.COLUMN -> "Column ${r.lineIndex}"
+                    }
+                } ?: ""
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = BlueSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("peek_banner"),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text(
+                                text = "Private Peek",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = PrimaryGreen,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = peekTargetLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MutedText,
+                            )
+                        }
+                        TextButton(onClick = onDismissPeek) {
+                            Text(text = "Got it", color = PrimaryGreen)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             if (isOwnGrid) {
                 CardGrid(
                     board = myBoard,
+                    peekedSlots = peekedSlots,
                     selectable = canSelectOwnForSwap || (isMyTurn && isReplacementPhase && pendingAction != null),
                     onCardClick = { row, col ->
                         if (canSelectOwnForSwap) {
@@ -748,7 +808,28 @@ private fun PlayerGridCarousel(
                     )
                 }
 
-                if (isSelectableOtherGrid) {
+                if (isProtectedFromSwap) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("defense_protected_indicator"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = MutedText,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = "Protected by Defense card — cannot swap",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MutedText,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                } else if (isSelectableOtherGrid) {
                     Text(
                         text = "Tap a card to swap",
                         style = MaterialTheme.typography.labelSmall,
@@ -758,6 +839,7 @@ private fun PlayerGridCarousel(
                 }
                 CardGrid(
                     board = viewedPlayer.board,
+                    peekedSlots = peekedSlots,
                     selectable = isSelectableOtherGrid,
                     onCardClick = { row, col ->
                         onOtherSlotSelected(viewedPlayer.playerId, row, col)
@@ -1122,6 +1204,7 @@ private fun CardGrid(
     board: List<List<BoardSlot>>,
     selectable: Boolean,
     onCardClick: (row: Int, col: Int) -> Unit,
+    peekedSlots: Map<Pair<Int, Int>, Int?> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -1134,10 +1217,13 @@ private fun CardGrid(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 row.forEachIndexed { colIndex, slot ->
+                    val key = Pair(rowIndex, colIndex)
                     BoardSlotTile(
                         slot = slot,
                         selectable = selectable && slot.type == "OCCUPIED",
                         onClick = { onCardClick(rowIndex, colIndex) },
+                        isPeeked = peekedSlots.containsKey(key),
+                        peekedValue = peekedSlots[key],
                         modifier = Modifier
                             .weight(1f)
                             .testTag("board_slot_${rowIndex}_${colIndex}"),
@@ -1153,6 +1239,8 @@ private fun BoardSlotTile(
     slot: BoardSlot,
     selectable: Boolean,
     onClick: () -> Unit,
+    isPeeked: Boolean = false,
+    peekedValue: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     when (slot.type) {
@@ -1168,15 +1256,28 @@ private fun BoardSlotTile(
             val isFaceUp = slot.faceUp == true
             val cardValue = if (isFaceUp) slot.card?.value else null
             val bgColor = when {
+                isPeeked -> BlueSurface
                 !isFaceUp -> CardHiddenBg
                 cardValue != null && cardValue <= 0 -> CardNegativeBg
                 else -> CardPositiveBg
             }
             val displayText = when {
+                isPeeked -> peekedValue?.toString() ?: "?"
                 !isFaceUp -> "?"
                 slot.card?.type == "ACTION" -> "A"
                 cardValue != null -> cardValue.toString()
                 else -> "?"
+            }
+            val borderColor = when {
+                selectable -> PrimaryGreen
+                isPeeked -> MintGreen
+                !isFaceUp -> MintGreen.copy(alpha = 0.4f)
+                else -> BorderColor
+            }
+            val textColor = when {
+                isPeeked -> PrimaryGreen
+                !isFaceUp -> CardHiddenText
+                else -> MaterialTheme.colorScheme.onBackground
             }
 
             Box(
@@ -1184,10 +1285,8 @@ private fun BoardSlotTile(
                     .aspectRatio(0.65f)
                     .background(color = bgColor, shape = RoundedCornerShape(10.dp))
                     .border(
-                        width = if (selectable) 2.dp else 1.dp,
-                        color = if (selectable) PrimaryGreen
-                        else if (!isFaceUp) MintGreen.copy(alpha = 0.4f)
-                        else BorderColor,
+                        width = if (selectable || isPeeked) 2.dp else 1.dp,
+                        color = borderColor,
                         shape = RoundedCornerShape(10.dp),
                     )
                     .then(if (selectable) Modifier.clickable(onClick = onClick) else Modifier),
@@ -1196,7 +1295,7 @@ private fun BoardSlotTile(
                 Text(
                     text = displayText,
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (!isFaceUp) CardHiddenText else MaterialTheme.colorScheme.onBackground,
+                    color = textColor,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                 )
@@ -1562,46 +1661,6 @@ private fun EnlightenmentTargetPicker(
     }
 }
 
-@Composable
-private fun EnlightenmentResultDialog(
-    result: ActionCardResultMessage,
-    onDismiss: () -> Unit,
-) {
-    val targetLabel = when (result.targetType) {
-        BoardLineTargetType.ROW -> "Row ${result.lineIndex}"
-        BoardLineTargetType.COLUMN -> "Column ${result.lineIndex}"
-    }
-    val valuesLabel = if (result.inspectedValues.isEmpty()) {
-        "No cards inspected"
-    } else {
-        "Values: ${result.inspectedValues.joinToString { it?.toString() ?: "?" }}"
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(text = "Private Peek")
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Enlightenment result for $targetLabel",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = valuesLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "OK")
-            }
-        },
-    )
-}
 
 @Composable
 private fun HandActionCardsRow(
@@ -1765,6 +1824,18 @@ private fun actionCardAccessibilityLabel(card: ActionCard): String =
         ACTION_CARD_KIND_ENLIGHTENMENT -> "Enlightenment"
         else -> card.label.ifBlank { "Action" }
     }
+
+private fun ActionCardResultMessage.toPeekedSlots(): Map<Pair<Int, Int>, Int?> {
+    if (inspectedCards.isNotEmpty()) {
+        return inspectedCards.associate { Pair(it.row, it.col) to it.value }
+    }
+    return when (targetType) {
+        BoardLineTargetType.ROW ->
+            inspectedValues.mapIndexed { col, value -> Pair(lineIndex, col) to value }.toMap()
+        BoardLineTargetType.COLUMN ->
+            inspectedValues.mapIndexed { row, value -> Pair(row, lineIndex) to value }.toMap()
+    }
+}
 
 @Composable
 private fun ActionCardFaceContent(

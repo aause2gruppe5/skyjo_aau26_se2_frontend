@@ -16,6 +16,7 @@ import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
+import at.aau.se2.skyjo.model.InspectedCard
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
 import at.aau.se2.skyjo.model.PlayerRoundScore
@@ -486,6 +487,83 @@ class GameScreenTest {
             .performClick()
 
         assertEquals(PlayerSwapCall(0, "p2", 0, 0, "p1", 0, 1), playerSwapCall)
+    }
+
+    @Test
+    fun gameScreen_player_swap_shows_protected_indicator_when_target_has_defense() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        handActionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP")),
+                    ).copy(
+                        players = listOf(
+                            GamePlayerState(
+                                playerId = "p1",
+                                nickname = "Alice",
+                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                                actionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP")),
+                            ),
+                            GamePlayerState(
+                                playerId = "p2",
+                                nickname = "Bob",
+                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                                actionCards = listOf(ActionCard(id = 151, kind = "DEFENSE")),
+                            ),
+                        ),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+
+        composeTestRule.onNodeWithTag("defense_protected_indicator").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Protected by Defense card — cannot swap").assertIsDisplayed()
+        assertTextAbsent("Tap a card to swap")
+    }
+
+    @Test
+    fun gameScreen_player_swap_grid_not_selectable_when_target_has_defense() {
+        var swapCalled = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        handActionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP")),
+                    ).copy(
+                        players = listOf(
+                            GamePlayerState(
+                                playerId = "p1",
+                                nickname = "Alice",
+                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                                actionCards = listOf(ActionCard(id = 152, kind = "PLAYER_SWAP")),
+                            ),
+                            GamePlayerState(
+                                playerId = "p2",
+                                nickname = "Bob",
+                                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+                                actionCards = listOf(ActionCard(id = 151, kind = "DEFENSE")),
+                            ),
+                        ),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayPlayerSwapCard = { _, _, _, _, _, _, _ -> swapCalled = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("board_slot_0_0").performScrollTo().performClick()
+
+        assertEquals(false, swapCalled)
     }
 
     @Test
@@ -1008,11 +1086,11 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_private_enlightenment_result_shows_inspected_values() {
+    fun gameScreen_enlightenment_result_shows_peeked_value_in_grid_via_inspected_cards() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = makeGameState(),
+                    gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
                     privateActionCardResult = ActionCardResultMessage(
@@ -1021,23 +1099,81 @@ class GameScreenTest {
                         targetPlayerId = "p1",
                         targetType = BoardLineTargetType.ROW,
                         lineIndex = 0,
-                        inspectedValues = listOf(2, null, 6, 8),
+                        inspectedCards = listOf(
+                            InspectedCard(row = 0, col = 0, value = 11),
+                            InspectedCard(row = 0, col = 2, value = 7),
+                            InspectedCard(row = 0, col = 3, value = -2),
+                        ),
                     ),
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Private Peek").assertExists()
-        composeTestRule.onNodeWithText("Values: 2, ?, 6, 8").assertExists()
+        composeTestRule.onNodeWithText("11").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("7").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("-2").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun gameScreen_private_enlightenment_result_shows_empty_state() {
+    fun gameScreen_enlightenment_result_shows_peeked_values_from_inspected_values_fallback() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
-                    gameState = makeGameState(),
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = ActionCardResultMessage(
+                        type = "ENLIGHTENMENT",
+                        actionCardIndex = 0,
+                        targetPlayerId = "p1",
+                        targetType = BoardLineTargetType.ROW,
+                        lineIndex = 1,
+                        inspectedValues = listOf(5, 9, 3, 1),
+                    ),
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("9").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("1").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_enlightenment_result_shows_peek_banner() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = ActionCardResultMessage(
+                        type = "ENLIGHTENMENT",
+                        actionCardIndex = 0,
+                        targetPlayerId = "p1",
+                        targetType = BoardLineTargetType.ROW,
+                        lineIndex = 0,
+                        inspectedCards = listOf(InspectedCard(row = 0, col = 0, value = 4)),
+                    ),
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("peek_banner").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Private Peek").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Row 0").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Got it").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_enlightenment_result_dismiss_calls_callback() {
+        var dismissed = false
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
                     privateActionCardResult = ActionCardResultMessage(
@@ -1045,15 +1181,42 @@ class GameScreenTest {
                         actionCardIndex = 0,
                         targetPlayerId = "p1",
                         targetType = BoardLineTargetType.COLUMN,
-                        lineIndex = 1,
+                        lineIndex = 2,
+                        inspectedCards = listOf(InspectedCard(row = 0, col = 2, value = 6)),
+                    ),
+                    onDismissActionCardResult = { dismissed = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Got it").performScrollTo().performClick()
+        assertEquals(true, dismissed)
+    }
+
+    @Test
+    fun gameScreen_enlightenment_result_auto_navigates_to_target_player() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameStateWithHiddenCardValues(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = ActionCardResultMessage(
+                        type = "ENLIGHTENMENT",
+                        actionCardIndex = 0,
+                        targetPlayerId = "p2",
+                        targetType = BoardLineTargetType.ROW,
+                        lineIndex = 0,
+                        inspectedCards = listOf(InspectedCard(row = 0, col = 0, value = 3)),
                     ),
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Private Peek").assertExists()
-        composeTestRule.onNodeWithText("No cards inspected").assertExists()
+        composeTestRule.onNodeWithTag("peek_banner").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Bob's Grid").performScrollTo().assertIsDisplayed()
     }
 
     private fun assertTextAbsent(text: String) {
@@ -1153,7 +1316,7 @@ class GameScreenTest {
         drawnCard = drawnCard,
         visibleActionCards = listOf(
             ActionCard(id = 151, kind = "DEFENSE"),
-            ActionCard(id = 152, kind = "PLACEHOLDER"),
+            ActionCard(id = 152, kind = "PLACEHOLDER"), // Sprint 3: replace with real card kind
         ),
         actionDrawPileCount = 16,
         roundResult = roundResult,
