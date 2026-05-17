@@ -20,11 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,10 +45,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.se2.skyjo.model.ActionCard
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.components.PrimaryButton
@@ -76,6 +82,9 @@ private sealed class SwapSelectionState {
     ) : SwapSelectionState()
 }
 
+private const val ACTION_CARD_KIND_ENLIGHTENMENT = "ENLIGHTENMENT"
+private const val ACTION_CARD_KIND_PLAYER_SWAP = "PLAYER_SWAP"
+private const val ACTION_CARD_RESULT_ENLIGHTENMENT = "ENLIGHTENMENT"
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
@@ -86,6 +95,7 @@ fun GameScreen(
     gameState: GameUpdateMessage? = null,
     myPlayerId: String? = null,
     isMyTurn: Boolean = false,
+    privateActionCardResult: ActionCardResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
@@ -94,12 +104,17 @@ fun GameScreen(
     onDiscardAndReveal: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPlayPlayerSwapCard: (actionCardIndex: Int, p1Id: String, p1Row: Int, p1Col: Int, p2Id: String, p2Row: Int, p2Col: Int) -> Unit = { _, _, _, _, _, _, _ -> },
     onPlayActionCard: (actionCardIndex: Int) -> Unit = {},
+    onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
+    onDismissActionCardResult: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
     var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
+    var pendingEnlightenmentCardIndex by remember(isMyTurn, gameState?.roundNumber) {
+        mutableStateOf<Int?>(null)
+    }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -149,8 +164,10 @@ fun GameScreen(
                     currentPhase = currentPhase,
                     pendingAction = pendingAction,
                     swapState = swapState,
+                    pendingEnlightenmentCardIndex = pendingEnlightenmentCardIndex,
                     onPendingActionChange = { pendingAction = it },
                     onSwapStateChange = { swapState = it },
+                    onPendingEnlightenmentCardIndexChange = { pendingEnlightenmentCardIndex = it },
                     onDrawFromDeck = onDrawFromDeck,
                     onDrawFromDiscard = onDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
@@ -160,6 +177,7 @@ fun GameScreen(
                     myActionCards = myActionCards,
                     onPlayPlayerSwapCard = onPlayPlayerSwapCard,
                     onPlayActionCard = onPlayActionCard,
+                    onPlayEnlightenmentCard = onPlayEnlightenmentCard,
                     onDiscardActionCard = onDiscardActionCard,
                 )
             }
@@ -179,6 +197,13 @@ fun GameScreen(
                 onDrawFromDiscard = onDrawFromDiscard,
             )
         }
+    }
+
+    if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) {
+        EnlightenmentResultDialog(
+            result = privateActionCardResult,
+            onDismiss = onDismissActionCardResult,
+        )
     }
 }
 
@@ -288,8 +313,10 @@ private fun GameContent(
     currentPhase: String?,
     pendingAction: String?,
     swapState: SwapSelectionState?,
+    pendingEnlightenmentCardIndex: Int?,
     onPendingActionChange: (String?) -> Unit,
     onSwapStateChange: (SwapSelectionState?) -> Unit,
+    onPendingEnlightenmentCardIndexChange: (Int?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
     onDrawFromActionDeck: () -> Unit,
@@ -299,10 +326,16 @@ private fun GameContent(
     myActionCards: List<ActionCard>,
     onPlayPlayerSwapCard: (Int, String, Int, Int, String, Int, Int) -> Unit,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
+    onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
+    val activeActionCardIndex = pendingEnlightenmentCardIndex ?: when (swapState) {
+        is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
+        is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
+        null -> null
+    }
 
     ActionMarketSection(
         cards = gameState.visibleActionCards,
@@ -399,20 +432,55 @@ private fun GameContent(
 
     HandActionCardsSection(
         cards = myActionCards,
-        canUseCards = isMyTurn && isDrawPhase,
-        swapState = swapState,
+        canUseCards = isMyTurn && isDrawPhase && swapState == null && pendingEnlightenmentCardIndex == null,
+        activeCardIndex = activeActionCardIndex,
         onPlayActionCard = { index ->
-            if (myActionCards.getOrNull(index)?.kind == "PLAYER_SWAP") {
-                onSwapStateChange(SwapSelectionState.AwaitingFirst(index))
-            } else {
-                onPlayActionCard(index)
+            when (myActionCards.getOrNull(index)?.kind) {
+                ACTION_CARD_KIND_PLAYER_SWAP -> {
+                    onPendingActionChange(null)
+                    onPendingEnlightenmentCardIndexChange(null)
+                    onSwapStateChange(SwapSelectionState.AwaitingFirst(index))
+                }
+                ACTION_CARD_KIND_ENLIGHTENMENT -> {
+                    onPendingActionChange(null)
+                    onSwapStateChange(null)
+                    onPendingEnlightenmentCardIndexChange(index)
+                }
+                else -> {
+                    onPendingActionChange(null)
+                    onSwapStateChange(null)
+                    onPendingEnlightenmentCardIndexChange(null)
+                    onPlayActionCard(index)
+                }
             }
         },
         onDiscardActionCard = { index ->
             onDiscardActionCard(index)
             onSwapStateChange(null)
+            onPendingEnlightenmentCardIndexChange(null)
         },
     )
+
+    if (isMyTurn && isDrawPhase && pendingEnlightenmentCardIndex != null && myPlayerId != null) {
+        EnlightenmentTargetPicker(
+            players = gameState.players,
+            myPlayerId = myPlayerId,
+            onTargetSelected = { targetPlayerId, targetType, lineIndex ->
+                onPlayEnlightenmentCard(
+                    PlayActionCardCommand(
+                        actionCardIndex = pendingEnlightenmentCardIndex,
+                        parameters = ActionCardParameters.BoardLineTarget(
+                            targetPlayerId = targetPlayerId,
+                            targetType = targetType,
+                            lineIndex = lineIndex,
+                        ),
+                    ),
+                )
+                onPendingEnlightenmentCardIndexChange(null)
+            },
+            onCancel = { onPendingEnlightenmentCardIndexChange(null) },
+        )
+    }
 
     if (gameState.roundResult != null) {
         RoundResultSection(
@@ -1178,23 +1246,17 @@ private fun ActionMarketSection(
 private fun HandActionCardsSection(
     cards: List<ActionCard>,
     canUseCards: Boolean,
-    swapState: SwapSelectionState?,
+    activeCardIndex: Int?,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
 ) {
-    val activeCardIndex = when (swapState) {
-        is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
-        is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
-        null -> null
-    }
-
     SectionCard(title = "Your Action Cards", badge = "${cards.size} cards") {
         if (cards.isEmpty()) {
             EmptyActionCardHandMessage()
         } else {
             HandActionCardsRow(
                 cards = cards,
-                canUseCards = canUseCards && swapState == null,
+                canUseCards = canUseCards,
                 activeCardIndex = activeCardIndex,
                 onPlayActionCard = onPlayActionCard,
                 onDiscardActionCard = onDiscardActionCard,
@@ -1211,6 +1273,157 @@ private fun EmptyActionCardHandMessage() {
         color = MutedText,
         modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun EnlightenmentTargetPicker(
+    players: List<GamePlayerState>,
+    myPlayerId: String,
+    onTargetSelected: (targetPlayerId: String, targetType: BoardLineTargetType, lineIndex: Int) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var selectedTargetPlayerId by remember { mutableStateOf(myPlayerId) }
+    val selectedPlayer = players.firstOrNull { it.playerId == selectedTargetPlayerId }
+        ?: players.firstOrNull()
+    val board = selectedPlayer?.board ?: emptyList()
+    val columnCount = board.maxOfOrNull { it.size } ?: 0
+
+    SectionCard(title = "Enlightenment") {
+        Text(
+            text = "Select a target player, then a row or column",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedText,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Target Player",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            players.forEach { player ->
+                SecondaryButton(
+                    text = if (player.playerId == myPlayerId) {
+                        "${player.nickname} (You)"
+                    } else {
+                        "Target ${player.nickname}"
+                    },
+                    onClick = { selectedTargetPlayerId = player.playerId },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        if (selectedPlayer != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Target: ${selectedPlayer.nickname}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedText,
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Rows",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            board.indices.forEach { rowIndex ->
+                SecondaryButton(
+                    text = "Row $rowIndex",
+                    onClick = {
+                        selectedPlayer?.let {
+                            onTargetSelected(it.playerId, BoardLineTargetType.ROW, rowIndex)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Columns",
+            style = MaterialTheme.typography.labelMedium,
+            color = PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            repeat(columnCount) { colIndex ->
+                SecondaryButton(
+                    text = "Column $colIndex",
+                    onClick = {
+                        selectedPlayer?.let {
+                            onTargetSelected(it.playerId, BoardLineTargetType.COLUMN, colIndex)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        TextButton(onClick = onCancel) {
+            Text(text = "Cancel")
+        }
+    }
+}
+
+@Composable
+private fun EnlightenmentResultDialog(
+    result: ActionCardResultMessage,
+    onDismiss: () -> Unit,
+) {
+    val targetLabel = when (result.targetType) {
+        BoardLineTargetType.ROW -> "Row ${result.lineIndex}"
+        BoardLineTargetType.COLUMN -> "Column ${result.lineIndex}"
+    }
+    val valuesLabel = if (result.inspectedValues.isEmpty()) {
+        "No cards inspected"
+    } else {
+        "Values: ${result.inspectedValues.joinToString { it?.toString() ?: "?" }}"
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Private Peek")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Enlightenment result for $targetLabel",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = valuesLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "OK")
+            }
+        },
     )
 }
 
@@ -1457,15 +1670,17 @@ private fun cardDisplayValue(card: Card): String =
 private fun actionCardDisplayLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "🛡️"
-        "PLAYER_SWAP" -> "↔"
-        else -> "Action"
+        ACTION_CARD_KIND_PLAYER_SWAP -> "↔"
+        ACTION_CARD_KIND_ENLIGHTENMENT -> card.label.ifBlank { "Enlightenment" }
+        else -> card.label.ifBlank { "Action" }
     }
 
 private fun actionCardAccessibilityLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "Defense"
-        "PLAYER_SWAP" -> "Player swap"
-        else -> "Action"
+        ACTION_CARD_KIND_PLAYER_SWAP -> "Player swap"
+        ACTION_CARD_KIND_ENLIGHTENMENT -> "Enlightenment"
+        else -> card.label.ifBlank { "Action" }
     }
 
 @Composable
@@ -1475,7 +1690,7 @@ private fun ActionCardFaceContent(
 ) {
     Text(
         text = actionCardDisplayLabel(card),
-        style = if (card.kind == "DEFENSE" || card.kind == "PLAYER_SWAP") {
+        style = if (card.kind == "DEFENSE" || card.kind == ACTION_CARD_KIND_PLAYER_SWAP) {
             MaterialTheme.typography.headlineSmall
         } else {
             MaterialTheme.typography.labelMedium

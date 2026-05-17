@@ -3,6 +3,10 @@ package at.aau.se2.skyjo.network
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.BoardLineTargetType
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import io.mockk.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,6 +17,7 @@ import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -182,6 +187,37 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `playActionCard sends private action card command`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.playActionCard(
+            PlayActionCardCommand(
+                actionCardIndex = 2,
+                parameters = ActionCardParameters.BoardLineTarget(
+                    targetPlayerId = "p2",
+                    targetType = BoardLineTargetType.ROW,
+                    lineIndex = 0,
+                ),
+            ),
+        )
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action-card",
+                body = match {
+                    it.contains("\"actionCardIndex\":2") &&
+                        it.contains("\"targetPlayerId\":\"p2\"") &&
+                        it.contains("\"targetType\":\"ROW\"") &&
+                        it.contains("\"lineIndex\":0")
+                },
+            )
+        }
+    }
+
+    @Test
     fun `joinLobby does nothing when session is null`() = runBlocking {
         val client = GameStompClient(mockContext)
         // connect NOT called → session is null
@@ -328,6 +364,38 @@ class GameStompClientTest {
 
         assert(collected.isNotEmpty()) { "Expected game update to be emitted" }
         assert(collected.first().phase == "AWAITING_DRAW")
+
+        job.cancel()
+    }
+
+    @Test
+    fun `action card result is emitted when valid private result arrives`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val validActionCardResultJson = """
+            {
+                "type": "ENLIGHTENMENT",
+                "actionCardIndex": 1,
+                "targetPlayerId": "p2",
+                "targetType": "COLUMN",
+                "lineIndex": 2,
+                "inspectedValues": [3, null, 7]
+            }
+        """.trimIndent()
+
+        val collected = mutableListOf<ActionCardResultMessage>()
+        val job = launch { client.actionCardResults.collect { collected.add(it) } }
+        delay(100)
+
+        topicFlow.emit(validActionCardResultJson)
+        delay(500)
+
+        assert(collected.isNotEmpty()) { "Expected action card result to be emitted" }
+        assertEquals("ENLIGHTENMENT", collected.first().type)
+        assertEquals(BoardLineTargetType.COLUMN, collected.first().targetType)
+        assertEquals(listOf(3, null, 7), collected.first().inspectedValues)
 
         job.cancel()
     }

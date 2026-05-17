@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
+import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GameAction
@@ -55,6 +56,7 @@ class AppNavHostTest {
 
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
+    private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
@@ -66,6 +68,7 @@ class AppNavHostTest {
         mockkConstructor(GameStompClient::class)
         every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
         every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
+        every { anyConstructed<GameStompClient>().actionCardResults } returns fakeActionCardResults
         every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
         every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
@@ -76,6 +79,7 @@ class AppNavHostTest {
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
+        every { anyConstructed<GameStompClient>().playActionCard(any()) } just runs
         every { anyConstructed<GameStompClient>().disconnect() } just runs
         every { anyConstructed<GameStompClient>().close() } just runs
     }

@@ -1,10 +1,14 @@
 package at.aau.se2.skyjo.viewmodel
 
 import android.app.Application
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.GameUpdateMessage
 import at.aau.se2.skyjo.model.LobbyPlayer
 import at.aau.se2.skyjo.model.LobbyUpdateMessage
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.network.GameStompClient
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
@@ -35,6 +39,7 @@ class GameViewModelTest {
 
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
+    private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
@@ -47,6 +52,7 @@ class GameViewModelTest {
 
         every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
         every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
+        every { anyConstructed<GameStompClient>().actionCardResults } returns fakeActionCardResults
         every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
         every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
@@ -58,6 +64,7 @@ class GameViewModelTest {
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
+        every { anyConstructed<GameStompClient>().playActionCard(any()) } just runs
         every { anyConstructed<GameStompClient>().disconnect() } just runs
         every { anyConstructed<GameStompClient>().close() } just runs
     }
@@ -214,6 +221,50 @@ class GameViewModelTest {
         verify(exactly = 1) {
             anyConstructed<GameStompClient>().sendAction(
                 GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = 1)
+            )
+        }
+    }
+
+    @Test
+    fun `playActionCard with command delegates to private action card endpoint`() {
+        val command = PlayActionCardCommand(
+            actionCardIndex = 1,
+            parameters = ActionCardParameters.BoardLineTarget(
+                targetPlayerId = "p2",
+                targetType = BoardLineTargetType.ROW,
+                lineIndex = 0,
+            ),
+        )
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playActionCard(command)
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().playActionCard(command)
+        }
+    }
+
+    @Test
+    fun `playEnlightenment builds board line target command`() {
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playEnlightenment(
+            actionCardIndex = 2,
+            targetPlayerId = "p3",
+            targetType = BoardLineTargetType.COLUMN,
+            lineIndex = 1,
+        )
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().playActionCard(
+                PlayActionCardCommand(
+                    actionCardIndex = 2,
+                    parameters = ActionCardParameters.BoardLineTarget(
+                        targetPlayerId = "p3",
+                        targetType = BoardLineTargetType.COLUMN,
+                        lineIndex = 1,
+                    ),
+                ),
             )
         }
     }
