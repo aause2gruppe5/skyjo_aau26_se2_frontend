@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -644,6 +645,154 @@ private fun OtherPlayersSection(
                     isDisconnected = player.nickname in disconnectedPlayers,
                     swapState = swapState,
                     onSlotSelected = { row, col -> onSlotSelected(player.playerId, row, col) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerGridCarousel(
+    players: List<GamePlayerState>,
+    myPlayerId: String,
+    myBoard: List<List<BoardSlot>>,
+    myVisibleScore: Int,
+    isMyTurn: Boolean,
+    isReplacementPhase: Boolean,
+    pendingAction: String?,
+    swapState: SwapSelectionState?,
+    viewedPlayerIndex: Int,
+    onViewedPlayerIndexChange: (Int) -> Unit,
+    onPendingActionChange: (String?) -> Unit,
+    onReplaceCard: (row: Int, col: Int) -> Unit,
+    onDiscardAndReveal: (row: Int, col: Int) -> Unit,
+    onSwapSlotSelected: (row: Int, col: Int) -> Unit,
+    onOtherSlotSelected: (playerId: String, row: Int, col: Int) -> Unit,
+) {
+    if (players.isEmpty()) return
+    val pageCount = players.size
+    val safeIndex = viewedPlayerIndex.coerceIn(0, players.lastIndex)
+    val viewedPlayer = players[safeIndex]
+    val isOwnGrid = viewedPlayer.playerId == myPlayerId
+
+    val canSelectOwnForSwap = when (val state = swapState) {
+        is SwapSelectionState.AwaitingFirst -> myPlayerId.isNotBlank()
+        is SwapSelectionState.AwaitingSecond -> myPlayerId.isNotBlank() &&
+                (state.ownCardsOnly || state.player1Id != myPlayerId)
+        null -> false
+    }
+
+    val isSelectableOtherGrid = when (val state = swapState) {
+        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly
+        is SwapSelectionState.AwaitingSecond -> !state.ownCardsOnly &&
+                state.player1Id != viewedPlayer.playerId
+        null -> false
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceWhite,
+        shadowElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = { onViewedPlayerIndexChange((safeIndex - 1 + pageCount) % pageCount) },
+                    modifier = Modifier.testTag("carousel_prev"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Previous player",
+                        tint = PrimaryGreen,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = if (isOwnGrid) "Your Grid" else "${viewedPlayer.nickname}'s Grid",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "(${safeIndex + 1}/$pageCount)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedText,
+                    )
+                }
+
+                if (isOwnGrid) {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+                    ) {
+                        Text(
+                            text = "Visible: $myVisibleScore",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryGreen,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { onViewedPlayerIndexChange((safeIndex + 1) % pageCount) },
+                    modifier = Modifier.testTag("carousel_next"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Next player",
+                        tint = PrimaryGreen,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (isOwnGrid) {
+                CardGrid(
+                    board = myBoard,
+                    selectable = canSelectOwnForSwap || (isMyTurn && isReplacementPhase && pendingAction != null),
+                    onCardClick = { row, col ->
+                        if (canSelectOwnForSwap) {
+                            onSwapSlotSelected(row, col)
+                        } else {
+                            when (pendingAction) {
+                                "REPLACE" -> {
+                                    onReplaceCard(row, col)
+                                    onPendingActionChange(null)
+                                }
+                                "DISCARD_AND_REVEAL" -> {
+                                    onDiscardAndReveal(row, col)
+                                    onPendingActionChange(null)
+                                }
+                            }
+                        }
+                    },
+                )
+            } else {
+                if (isSelectableOtherGrid) {
+                    Text(
+                        text = "Tap a card to swap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PrimaryGreen,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+                CardGrid(
+                    board = viewedPlayer.board,
+                    selectable = isSelectableOtherGrid,
+                    onCardClick = { row, col ->
+                        onOtherSlotSelected(viewedPlayer.playerId, row, col)
+                    },
                 )
             }
         }
