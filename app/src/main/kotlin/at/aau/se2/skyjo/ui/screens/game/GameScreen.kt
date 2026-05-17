@@ -1458,6 +1458,7 @@ private fun actionCardDisplayLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "🛡️"
         "PLAYER_SWAP" -> "↔"
+        "DOUBLE_TURN" -> "⏩"
         else -> "Action"
     }
 
@@ -1465,6 +1466,7 @@ private fun actionCardAccessibilityLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "Defense"
         "PLAYER_SWAP" -> "Player swap"
+        "DOUBLE_TURN" -> "Double turn"
         else -> "Action"
     }
 
@@ -1475,7 +1477,7 @@ private fun ActionCardFaceContent(
 ) {
     Text(
         text = actionCardDisplayLabel(card),
-        style = if (card.kind == "DEFENSE" || card.kind == "PLAYER_SWAP") {
+        style = if (card.kind == "DEFENSE" || card.kind == "PLAYER_SWAP" || card.kind == "DOUBLE_TURN") {
             MaterialTheme.typography.headlineSmall
         } else {
             MaterialTheme.typography.labelMedium
