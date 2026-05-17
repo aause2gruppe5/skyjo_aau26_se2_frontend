@@ -79,6 +79,24 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `connect uses university backend websocket url`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            anyConstructed<StompClient>().connect(
+                url = "ws://se2-demo.aau.at:53209/ws",
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+            )
+        }
+    }
+
+    @Test
     fun `connect resets connectionError on success`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
