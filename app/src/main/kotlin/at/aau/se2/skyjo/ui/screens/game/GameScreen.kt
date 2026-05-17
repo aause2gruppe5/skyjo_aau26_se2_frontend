@@ -124,6 +124,11 @@ fun GameScreen(
     var pendingEnlightenmentCardIndex by remember(isMyTurn, gameState?.roundNumber) {
         mutableStateOf<Int?>(null)
     }
+    var viewedPlayerIndex by remember(isMyTurn, gameState?.roundNumber) {
+        mutableStateOf(
+            gameState?.players?.indexOfFirst { it.playerId == myPlayerId }?.coerceAtLeast(0) ?: 0
+        )
+    }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -174,6 +179,8 @@ fun GameScreen(
                     pendingAction = pendingAction,
                     swapState = swapState,
                     pendingEnlightenmentCardIndex = pendingEnlightenmentCardIndex,
+                    viewedPlayerIndex = viewedPlayerIndex,
+                    onViewedPlayerIndexChange = { viewedPlayerIndex = it },
                     onPendingActionChange = { pendingAction = it },
                     onSwapStateChange = { swapState = it },
                     onPendingEnlightenmentCardIndexChange = { pendingEnlightenmentCardIndex = it },
@@ -324,6 +331,8 @@ private fun GameContent(
     pendingAction: String?,
     swapState: SwapSelectionState?,
     pendingEnlightenmentCardIndex: Int?,
+    viewedPlayerIndex: Int,
+    onViewedPlayerIndexChange: (Int) -> Unit,
     onPendingActionChange: (String?) -> Unit,
     onSwapStateChange: (SwapSelectionState?) -> Unit,
     onPendingEnlightenmentCardIndexChange: (Int?) -> Unit,
@@ -369,96 +378,54 @@ private fun GameContent(
         DrawnCardSection(card = drawnCard)
     }
 
-    if (myBoard != null) {
-        PlayerGridSection(
-            myBoard = myBoard,
-            myVisibleScore = myVisibleScore,
-            isMyTurn = isMyTurn,
-            isReplacementPhase = isReplacementPhase,
-            pendingAction = pendingAction,
-            swapState = swapState,
-            myPlayerId = myPlayerId ?: "",
-            onPendingActionChange = onPendingActionChange,
-            onReplaceCard = onReplaceCard,
-            onDiscardAndReveal = onDiscardAndReveal,
-            onSwapSlotSelected = { row, col ->
-                if (myPlayerId != null) {
-                    when (val state = swapState) {
-                        is SwapSelectionState.AwaitingFirst -> {
-                            onSwapStateChange(
-                                SwapSelectionState.AwaitingSecond(
-                                    cardIndex = state.cardIndex,
-                                    player1Id = myPlayerId,
-                                    player1Row = row,
-                                    player1Col = col,
-                                    ownCardsOnly = state.ownCardsOnly,
-                                ),
-                            )
-                        }
-                        is SwapSelectionState.AwaitingSecond -> {
-                            if (state.ownCardsOnly && state.player1Id == myPlayerId) {
-                                val selectedSameSlot = row == state.player1Row && col == state.player1Col
-                                if (!selectedSameSlot) {
-                                    onPlaySwapOwnCards(
-                                        state.cardIndex,
-                                        state.player1Row,
-                                        state.player1Col,
-                                        row,
-                                        col,
-                                    )
-                                    onSwapStateChange(null)
-                                }
-                            } else if (!state.ownCardsOnly && myPlayerId != state.player1Id) {
-                                onPlayPlayerSwapCard(
+    PlayerGridCarousel(
+        players = gameState.players,
+        myPlayerId = myPlayerId ?: "",
+        myBoard = myBoard ?: emptyList(),
+        myVisibleScore = myVisibleScore,
+        isMyTurn = isMyTurn,
+        isReplacementPhase = isReplacementPhase,
+        pendingAction = pendingAction,
+        swapState = swapState,
+        viewedPlayerIndex = viewedPlayerIndex,
+        onViewedPlayerIndexChange = onViewedPlayerIndexChange,
+        onPendingActionChange = onPendingActionChange,
+        onReplaceCard = onReplaceCard,
+        onDiscardAndReveal = onDiscardAndReveal,
+        onSwapSlotSelected = { row, col ->
+            if (myPlayerId != null) {
+                when (val state = swapState) {
+                    is SwapSelectionState.AwaitingFirst -> {
+                        onSwapStateChange(
+                            SwapSelectionState.AwaitingSecond(
+                                cardIndex = state.cardIndex,
+                                player1Id = myPlayerId,
+                                player1Row = row,
+                                player1Col = col,
+                                ownCardsOnly = state.ownCardsOnly,
+                            ),
+                        )
+                    }
+                    is SwapSelectionState.AwaitingSecond -> {
+                        if (state.ownCardsOnly && state.player1Id == myPlayerId) {
+                            val selectedSameSlot = row == state.player1Row && col == state.player1Col
+                            if (!selectedSameSlot) {
+                                onPlaySwapOwnCards(
                                     state.cardIndex,
-                                    state.player1Id,
                                     state.player1Row,
                                     state.player1Col,
-                                    myPlayerId,
                                     row,
                                     col,
                                 )
                                 onSwapStateChange(null)
                             }
-                        }
-                        null -> Unit
-                    }
-                }
-            },
-        )
-    }
-
-    val others = gameState.players.filter { it.playerId != myPlayerId }
-    if (others.isNotEmpty()) {
-        OtherPlayersSection(
-            players = others,
-            totalScores = gameState.totalScores,
-            currentPlayerId = gameState.currentPlayerId,
-            disconnectedPlayers = gameState.disconnectedPlayers,
-            swapState = swapState,
-            onSlotSelected = { playerId, row, col ->
-                when (val state = swapState) {
-                    is SwapSelectionState.AwaitingFirst -> {
-                        if (!state.ownCardsOnly) {
-                            onSwapStateChange(
-                                SwapSelectionState.AwaitingSecond(
-                                    cardIndex = state.cardIndex,
-                                    player1Id = playerId,
-                                    player1Row = row,
-                                    player1Col = col,
-                                    ownCardsOnly = false,
-                                ),
-                            )
-                        }
-                    }
-                    is SwapSelectionState.AwaitingSecond -> {
-                        if (!state.ownCardsOnly && playerId != state.player1Id) {
+                        } else if (!state.ownCardsOnly && myPlayerId != state.player1Id) {
                             onPlayPlayerSwapCard(
                                 state.cardIndex,
                                 state.player1Id,
                                 state.player1Row,
                                 state.player1Col,
-                                playerId,
+                                myPlayerId,
                                 row,
                                 col,
                             )
@@ -467,9 +434,41 @@ private fun GameContent(
                     }
                     null -> Unit
                 }
-            },
-        )
-    }
+            }
+        },
+        onOtherSlotSelected = { playerId, row, col ->
+            when (val state = swapState) {
+                is SwapSelectionState.AwaitingFirst -> {
+                    if (!state.ownCardsOnly) {
+                        onSwapStateChange(
+                            SwapSelectionState.AwaitingSecond(
+                                cardIndex = state.cardIndex,
+                                player1Id = playerId,
+                                player1Row = row,
+                                player1Col = col,
+                                ownCardsOnly = false,
+                            ),
+                        )
+                    }
+                }
+                is SwapSelectionState.AwaitingSecond -> {
+                    if (!state.ownCardsOnly && playerId != state.player1Id) {
+                        onPlayPlayerSwapCard(
+                            state.cardIndex,
+                            state.player1Id,
+                            state.player1Row,
+                            state.player1Col,
+                            playerId,
+                            row,
+                            col,
+                        )
+                        onSwapStateChange(null)
+                    }
+                }
+                null -> Unit
+            }
+        },
+    )
 
     HandActionCardsSection(
         cards = myActionCards,
@@ -575,79 +574,6 @@ private fun DrawPileRow(
             },
             modifier = Modifier.weight(1f),
         )
-    }
-}
-
-@Composable
-private fun PlayerGridSection(
-    myBoard: List<List<BoardSlot>>,
-    myVisibleScore: Int,
-    isMyTurn: Boolean,
-    isReplacementPhase: Boolean,
-    pendingAction: String?,
-    swapState: SwapSelectionState?,
-    myPlayerId: String,
-    onPendingActionChange: (String?) -> Unit,
-    onReplaceCard: (row: Int, col: Int) -> Unit,
-    onDiscardAndReveal: (row: Int, col: Int) -> Unit,
-    onSwapSlotSelected: (row: Int, col: Int) -> Unit,
-) {
-    val canSelectForSwap = when (val state = swapState) {
-        is SwapSelectionState.AwaitingFirst -> myPlayerId.isNotBlank()
-        is SwapSelectionState.AwaitingSecond -> myPlayerId.isNotBlank() &&
-                (state.ownCardsOnly || state.player1Id != myPlayerId)
-        null -> false
-    }
-
-    SectionCard(
-        title = "Your Grid",
-        badge = "Visible: $myVisibleScore",
-    ) {
-        CardGrid(
-            board = myBoard,
-            selectable = canSelectForSwap || (isMyTurn && isReplacementPhase && pendingAction != null),
-            onCardClick = { row, col ->
-                if (canSelectForSwap) {
-                    onSwapSlotSelected(row, col)
-                } else {
-                    when (pendingAction) {
-                        "REPLACE" -> {
-                            onReplaceCard(row, col)
-                            onPendingActionChange(null)
-                        }
-                        "DISCARD_AND_REVEAL" -> {
-                            onDiscardAndReveal(row, col)
-                            onPendingActionChange(null)
-                        }
-                    }
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun OtherPlayersSection(
-    players: List<GamePlayerState>,
-    totalScores: List<TotalScore>,
-    currentPlayerId: String?,
-    disconnectedPlayers: List<String>,
-    swapState: SwapSelectionState?,
-    onSlotSelected: (playerId: String, row: Int, col: Int) -> Unit,
-) {
-    SectionCard(title = "Other Players") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            players.forEach { player ->
-                OtherPlayerRow(
-                    player = player,
-                    totalScore = totalScores.find { it.playerId == player.playerId }?.totalScore ?: 0,
-                    isCurrentPlayer = player.playerId == currentPlayerId,
-                    isDisconnected = player.nickname in disconnectedPlayers,
-                    swapState = swapState,
-                    onSlotSelected = { row, col -> onSlotSelected(player.playerId, row, col) },
-                )
-            }
-        }
     }
 }
 
