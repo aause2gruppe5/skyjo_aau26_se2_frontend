@@ -281,7 +281,7 @@ class GameStompClient(context: Context) {
 
     companion object {
         private const val TAG = "GameStompClient"
-        private const val SERVER_URL = "ws://10.0.2.2:8765/ws"
+        private const val SERVER_URL = "ws://se2-demo.aau.at:53209/ws"
         private const val PREF_GAME_ID = "game_id"
     }
 }

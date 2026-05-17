@@ -67,7 +67,6 @@ class GameStompClientTest {
         unmockkAll()
     }
 
-    @Test
     fun `connect establishes session and logs success`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
@@ -75,6 +74,24 @@ class GameStompClientTest {
 
         coVerify(atLeast = 1) {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `connect uses university backend websocket url`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            anyConstructed<StompClient>().connect(
+                url = "ws://se2-demo.aau.at:53209/ws",
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+            )
         }
     }
 
