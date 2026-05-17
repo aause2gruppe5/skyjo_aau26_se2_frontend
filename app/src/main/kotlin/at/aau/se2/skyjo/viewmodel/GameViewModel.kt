@@ -63,6 +63,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun leaveLobby() {
         gameClient.leaveLobby()
+        gameClient.clearStoredGame()
         gameClient.disconnect()
         _myPlayerName.value = ""
     }
