@@ -90,6 +90,7 @@ private sealed class SwapSelectionState {
 private const val ACTION_CARD_KIND_ENLIGHTENMENT = "ENLIGHTENMENT"
 private const val ACTION_CARD_KIND_PLAYER_SWAP = "PLAYER_SWAP"
 private const val ACTION_CARD_KIND_SWAP_OWN_CARDS = "SWAP_OWN_CARDS"
+private const val ACTION_CARD_KIND_DOUBLE_TURN = "DOUBLE_TURN"
 private const val ACTION_CARD_RESULT_ENLIGHTENMENT = "ENLIGHTENMENT"
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
@@ -1721,6 +1722,7 @@ private fun actionCardDisplayLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "🛡️"
         ACTION_CARD_KIND_PLAYER_SWAP -> "↔"
+        ACTION_CARD_KIND_DOUBLE_TURN -> "⏩"
         ACTION_CARD_KIND_SWAP_OWN_CARDS -> "⇄"
         ACTION_CARD_KIND_ENLIGHTENMENT -> card.label.ifBlank { "Enlightenment" }
         else -> card.label.ifBlank { "Action" }
@@ -1730,6 +1732,7 @@ private fun actionCardAccessibilityLabel(card: ActionCard): String =
     when (card.kind) {
         "DEFENSE" -> "Defense"
         ACTION_CARD_KIND_PLAYER_SWAP -> "Player swap"
+        ACTION_CARD_KIND_DOUBLE_TURN -> "Double turn"
         ACTION_CARD_KIND_SWAP_OWN_CARDS -> "Swap own cards"
         ACTION_CARD_KIND_ENLIGHTENMENT -> "Enlightenment"
         else -> card.label.ifBlank { "Action" }
@@ -1742,7 +1745,7 @@ private fun ActionCardFaceContent(
 ) {
     Text(
         text = actionCardDisplayLabel(card),
-        style = if (card.kind == "DEFENSE" || card.kind == ACTION_CARD_KIND_PLAYER_SWAP || card.kind == ACTION_CARD_KIND_SWAP_OWN_CARDS) {
+        style = if (card.kind == "DEFENSE" || card.kind == ACTION_CARD_KIND_PLAYER_SWAP || card.kind == ACTION_CARD_KIND_DOUBLE_TURN || card.kind == ACTION_CARD_KIND_SWAP_OWN_CARDS) {
             MaterialTheme.typography.headlineSmall
         } else {
             MaterialTheme.typography.labelMedium
