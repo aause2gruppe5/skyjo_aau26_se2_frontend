@@ -338,6 +338,8 @@ class GameScreenTest {
             .performScrollTo()
             .performClick()
 
+        // Navigate to Bob's grid to see the swap hint
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Tap a card to swap").performScrollTo().assertIsDisplayed()
         assertEquals(null, playedIndex)
     }
@@ -465,15 +467,19 @@ class GameScreenTest {
             }
         }
 
+        // Play PLAYER_SWAP card
         composeTestRule
             .onNodeWithTag("play_action_card_0")
             .performScrollTo()
             .performClick()
+        // Navigate to Bob's grid and select his slot (AwaitingFirst → AwaitingSecond with player1=p2)
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
         composeTestRule
-            .onAllNodesWithTag("board_slot_0_0")
-            .onLast()
+            .onNodeWithTag("board_slot_0_0")
             .performScrollTo()
             .performClick()
+        // Navigate back to Alice's grid and select her slot (fires onPlayPlayerSwapCard)
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
         composeTestRule
             .onNodeWithTag("board_slot_0_1")
             .performScrollTo()
@@ -591,7 +597,7 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_shows_other_players_section() {
+    fun gameScreen_carousel_shows_own_grid_by_default() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
@@ -602,7 +608,43 @@ class GameScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Other Players").assertExists()
+        composeTestRule.onNodeWithText("Your Grid").assertExists()
+        composeTestRule.onNodeWithText("(1/2)").assertExists()
+    }
+
+    @Test
+    fun gameScreen_carousel_next_navigates_to_other_player() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Bob's Grid").assertExists()
+        composeTestRule.onNodeWithText("(2/2)").assertExists()
+    }
+
+    @Test
+    fun gameScreen_carousel_wraps_from_last_to_first() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        // Navigate forward past end → wraps to start
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Your Grid").assertExists()
     }
 
     @Test
@@ -866,7 +908,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
 
         composeTestRule.onNodeWithText("Select a target player, then a row or column").assertExists()
         composeTestRule.onNodeWithText("Alice (You)").assertExists()
@@ -888,7 +930,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().assertExists()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().assertExists()
 
         assertTextAbsent("Select a target player, then a row or column")
         assertTextAbsent("Row 0")
@@ -910,7 +952,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
         assertEquals(0, sentCommand?.actionCardIndex)
@@ -935,7 +977,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Target Bob").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Target: Bob").assertExists()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
@@ -957,7 +999,7 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Enlightenment").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Cancel").performScrollTo().performClick()
 
         assertTextAbsent("Select a target player, then a row or column")
