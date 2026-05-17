@@ -21,6 +21,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1389,10 +1396,20 @@ private fun ActionMarketSection(
                                     },
                                 ),
                         ) {
-                            ActionCardFaceContent(
-                                card = action,
-                                modifier = Modifier.padding(vertical = 10.dp),
-                            )
+                            Column(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                ActionCardFaceContent(card = action)
+                                Text(
+                                    text = actionCardAccessibilityLabel(action),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = PrimaryGreen,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 4.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -1670,15 +1687,14 @@ private fun actionCardModifier(
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
 ): Modifier {
     val clickModifier = if (canUseCards) {
-        Modifier
-            .testTag("play_action_card_$index")
-            .clickable { onPlayActionCard(index) }
+        Modifier.clickable { onPlayActionCard(index) }
     } else {
         Modifier
     }
 
     return Modifier
         .aspectRatio(0.65f)
+        .testTag("play_action_card_$index")
         .border(
             width = if (isActive) 2.dp else 1.dp,
             color = if (isActive) MintGreen else MintGreen.copy(alpha = 0.4f),
@@ -1730,14 +1746,14 @@ private fun cardColor(value: Int): Color = when {
 private fun cardDisplayValue(card: Card): String =
     if (card.type == "ACTION") "A" else card.value.toString()
 
-private fun actionCardDisplayLabel(card: ActionCard): String =
+private fun actionCardIcon(card: ActionCard): ImageVector =
     when (card.kind) {
-        "DEFENSE" -> "🛡️"
-        ACTION_CARD_KIND_PLAYER_SWAP -> "↔"
-        ACTION_CARD_KIND_DOUBLE_TURN -> "⏩"
-        ACTION_CARD_KIND_SWAP_OWN_CARDS -> "⇄"
-        ACTION_CARD_KIND_ENLIGHTENMENT -> card.label.ifBlank { "Enlightenment" }
-        else -> card.label.ifBlank { "Action" }
+        "DEFENSE" -> Icons.Default.Shield
+        ACTION_CARD_KIND_PLAYER_SWAP -> Icons.Default.SwapHoriz
+        ACTION_CARD_KIND_DOUBLE_TURN -> Icons.Default.FastForward
+        ACTION_CARD_KIND_SWAP_OWN_CARDS -> Icons.Default.Autorenew
+        ACTION_CARD_KIND_ENLIGHTENMENT -> Icons.Default.Lightbulb
+        else -> Icons.Default.Style
     }
 
 private fun actionCardAccessibilityLabel(card: ActionCard): String =
@@ -1755,17 +1771,11 @@ private fun ActionCardFaceContent(
     card: ActionCard,
     modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = actionCardDisplayLabel(card),
-        style = if (card.kind == "DEFENSE" || card.kind == ACTION_CARD_KIND_PLAYER_SWAP || card.kind == ACTION_CARD_KIND_DOUBLE_TURN || card.kind == ACTION_CARD_KIND_SWAP_OWN_CARDS) {
-            MaterialTheme.typography.headlineSmall
-        } else {
-            MaterialTheme.typography.labelMedium
-        },
-        color = PrimaryGreen,
-        fontWeight = FontWeight.SemiBold,
-        textAlign = TextAlign.Center,
-        modifier = modifier,
+    Icon(
+        imageVector = actionCardIcon(card),
+        contentDescription = null,
+        tint = PrimaryGreen,
+        modifier = modifier.size(32.dp),
     )
 }
 
