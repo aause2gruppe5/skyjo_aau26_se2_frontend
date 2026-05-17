@@ -34,6 +34,14 @@ class GameScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    private data class OwnSwapCall(
+        val actionCardIndex: Int,
+        val firstRow: Int,
+        val firstCol: Int,
+        val secondRow: Int,
+        val secondCol: Int,
+    )
+
     @Test
     fun gameScreen_renders_without_crash() {
         composeTestRule.setContent {
@@ -320,6 +328,103 @@ class GameScreenTest {
 
         composeTestRule.onNodeWithText("Tap a card to swap").performScrollTo().assertIsDisplayed()
         assertEquals(null, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_swapOwnCards_action_card_enters_selection_mode_without_playing_immediately() {
+        var playedIndex: Int? = null
+        var ownSwapCall: OwnSwapCall? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(swapOwnCardsActionCard())),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { playedIndex = it },
+                    onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
+                        ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
+                    },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(null, playedIndex)
+        assertEquals(null, ownSwapCall)
+    }
+
+    @Test
+    fun gameScreen_swapOwnCards_sends_two_own_board_positions() {
+        var ownSwapCall: OwnSwapCall? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(swapOwnCardsActionCard())),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
+                        ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
+                    },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+        composeTestRule
+            .onNodeWithTag("board_slot_0_0")
+            .performScrollTo()
+            .performClick()
+        composeTestRule
+            .onNodeWithTag("board_slot_0_1")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(OwnSwapCall(0, 0, 0, 0, 1), ownSwapCall)
+    }
+
+    @Test
+    fun gameScreen_swapOwnCards_does_not_send_when_same_slot_is_selected_twice() {
+        var ownSwapCall: OwnSwapCall? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(swapOwnCardsActionCard())),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
+                        ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
+                    },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+        composeTestRule
+            .onNodeWithTag("board_slot_0_0")
+            .performScrollTo()
+            .performClick()
+        composeTestRule
+            .onNodeWithTag("board_slot_0_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(null, ownSwapCall)
     }
 
     @Test
@@ -828,6 +933,13 @@ class GameScreenTest {
         id = id,
         kind = "ENLIGHTENMENT",
         label = "Enlightenment",
+        value = 10,
+    )
+
+    private fun swapOwnCardsActionCard(id: Int = 153) = ActionCard(
+        id = id,
+        kind = "SWAP_OWN_CARDS",
+        label = "Swap Own Cards",
         value = 10,
     )
 }

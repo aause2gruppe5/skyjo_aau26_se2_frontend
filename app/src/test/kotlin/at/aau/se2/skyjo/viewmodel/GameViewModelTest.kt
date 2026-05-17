@@ -335,6 +335,32 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `playSwapOwnCards sends PLAY_ACTION_CARD action with own swap coordinates`() {
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playSwapOwnCards(
+            actionCardIndex = 2,
+            firstRow = 0,
+            firstCol = 1,
+            secondRow = 2,
+            secondCol = 3,
+        )
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(
+                    type = "PLAY_ACTION_CARD",
+                    actionCardIndex = 2,
+                    targetPlayer1Row = 0,
+                    targetPlayer1Col = 1,
+                    targetPlayer2Row = 2,
+                    targetPlayer2Col = 3,
+                )
+            )
+        }
+    }
+
+    @Test
     fun `discardActionCard sends DISCARD_ACTION_CARD action with correct index`() {
         val viewModel = GameViewModel(mockApplication)
         viewModel.discardActionCard(actionCardIndex = 2)
