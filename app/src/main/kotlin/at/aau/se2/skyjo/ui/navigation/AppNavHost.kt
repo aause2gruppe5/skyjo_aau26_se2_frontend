@@ -126,6 +126,9 @@ fun AppNavHost(
                     onPlayPlayerSwapCard = { cardIdx, p1Id, p1Row, p1Col, p2Id, p2Row, p2Col ->
                         gameViewModel.playPlayerSwapCard(cardIdx, p1Id, p1Row, p1Col, p2Id, p2Row, p2Col)
                     },
+                    onPlaySwapOwnCards = { cardIdx, firstRow, firstCol, secondRow, secondCol ->
+                        gameViewModel.playSwapOwnCards(cardIdx, firstRow, firstCol, secondRow, secondCol)
+                    },
                     onPlayActionCard = { index -> gameViewModel.playActionCard(index) },
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
