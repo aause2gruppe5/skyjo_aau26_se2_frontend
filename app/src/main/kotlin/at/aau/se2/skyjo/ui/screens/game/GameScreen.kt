@@ -383,6 +383,8 @@ private fun GameContent(
         myPlayerId = myPlayerId ?: "",
         myBoard = myBoard ?: emptyList(),
         myVisibleScore = myVisibleScore,
+        totalScores = gameState.totalScores,
+        disconnectedPlayers = gameState.disconnectedPlayers,
         isMyTurn = isMyTurn,
         isReplacementPhase = isReplacementPhase,
         pendingAction = pendingAction,
@@ -583,6 +585,8 @@ private fun PlayerGridCarousel(
     myPlayerId: String,
     myBoard: List<List<BoardSlot>>,
     myVisibleScore: Int,
+    totalScores: List<TotalScore>,
+    disconnectedPlayers: List<String>,
     isMyTurn: Boolean,
     isReplacementPhase: Boolean,
     pendingAction: String?,
@@ -705,6 +709,38 @@ private fun PlayerGridCarousel(
                     },
                 )
             } else {
+                val isDisconnected = viewedPlayer.nickname in disconnectedPlayers
+                val playerScore = totalScores.find { it.playerId == viewedPlayer.playerId }?.totalScore ?: 0
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isDisconnected) {
+                        Surface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = Color(0xFFFFCDD2),
+                        ) {
+                            Text(
+                                text = "Disconnected",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFB71C1C),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "$playerScore pts",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MutedText,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
                 if (isSelectableOtherGrid) {
                     Text(
                         text = "Tap a card to swap",
@@ -1683,117 +1719,6 @@ private fun DiscardActionCardButton(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(vertical = 6.dp),
         )
-    }
-}
-
-@Composable
-private fun OtherPlayerRow(
-    player: GamePlayerState,
-    totalScore: Int,
-    isCurrentPlayer: Boolean,
-    isDisconnected: Boolean = false,
-    swapState: SwapSelectionState?,
-    onSlotSelected: (row: Int, col: Int) -> Unit,
-) {
-    val avatarBg = when {
-        isDisconnected -> Color(0xFFFFCDD2)
-        isCurrentPlayer -> MintGreen
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    val avatarTextColor = when {
-        isDisconnected -> Color(0xFFB71C1C)
-        isCurrentPlayer -> PrimaryGreen
-        else -> MutedText
-    }
-    val surfaceColor = when {
-        isDisconnected -> Color(0xFFFFF8F8)
-        isCurrentPlayer -> at.aau.se2.skyjo.ui.theme.GreenSurface
-        else -> MaterialTheme.colorScheme.surface
-    }
-    val border = when {
-        isDisconnected -> androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF9A9A))
-        isCurrentPlayer -> androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen)
-        else -> null
-    }
-    val isSelectableForSwap = when (val state = swapState) {
-        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly
-        is SwapSelectionState.AwaitingSecond -> !state.ownCardsOnly && state.player1Id != player.playerId
-        null -> false
-    }
-
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = surfaceColor,
-        border = if (isSelectableForSwap) {
-            androidx.compose.foundation.BorderStroke(2.dp, PrimaryGreen)
-        } else {
-            border
-        },
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = player.nickname.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                style = MaterialTheme.typography.titleMedium,
-                color = avatarTextColor,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(
-                        color = avatarBg,
-                        shape = androidx.compose.foundation.shape.CircleShape
-                    )
-                    .padding(8.dp),
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = player.nickname,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isDisconnected) Color(0xFFB71C1C) else MaterialTheme.colorScheme.onSurface,
-                )
-                if (isDisconnected) {
-                    Text(
-                        text = "Disconnected",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFEF5350),
-                    )
-                }
-                if (isSelectableForSwap) {
-                    Text(
-                        text = "Tap a card to swap",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryGreen,
-                    )
-                }
-            }
-            Text(
-                text = "$totalScore pts",
-                style = MaterialTheme.typography.labelLarge,
-                color = when {
-                    isDisconnected -> Color(0xFFEF9A9A)
-                    isCurrentPlayer -> PrimaryGreen
-                    else -> MutedText
-                },
-                fontWeight = FontWeight.Bold,
-            )
-        }
-            if (isSelectableForSwap) {
-                CardGrid(
-                    board = player.board,
-                    selectable = true,
-                    onCardClick = onSlotSelected,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
-        }
     }
 }
 

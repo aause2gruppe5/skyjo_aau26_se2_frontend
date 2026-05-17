@@ -833,6 +833,8 @@ class GameScreenTest {
                 )
             }
         }
+        // Navigate to Bob's grid to see disconnected badge
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Disconnected").assertExists()
     }
 
