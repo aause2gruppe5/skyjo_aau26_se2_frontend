@@ -1,10 +1,18 @@
 package at.aau.se2.skyjo.viewmodel
 
 import android.app.Application
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.BoardLineTargetType
+import at.aau.se2.skyjo.model.BoardSlot
+import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GameAction
+import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
 import at.aau.se2.skyjo.model.LobbyPlayer
 import at.aau.se2.skyjo.model.LobbyUpdateMessage
+import at.aau.se2.skyjo.model.PlayActionCardCommand
+import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.network.GameStompClient
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
@@ -35,6 +43,7 @@ class GameViewModelTest {
 
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
+    private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
@@ -43,10 +52,17 @@ class GameViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        fakeLobbyState.value = null
+        fakeGameState.value = null
+        fakeConnectionError.value = null
+        fakeIsConnected.value = false
+        fakeHasRejoinedGame.value = false
+
         mockkConstructor(GameStompClient::class)
 
         every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
         every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
+        every { anyConstructed<GameStompClient>().actionCardResults } returns fakeActionCardResults
         every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
         every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
@@ -58,6 +74,7 @@ class GameViewModelTest {
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
+        every { anyConstructed<GameStompClient>().playActionCard(any()) } just runs
         every { anyConstructed<GameStompClient>().disconnect() } just runs
         every { anyConstructed<GameStompClient>().close() } just runs
     }
@@ -85,6 +102,28 @@ class GameViewModelTest {
         val viewModel = GameViewModel(mockApplication)
         viewModel.connect("TestPlayer")
         assertEquals("TestPlayer", viewModel.myPlayerName.value)
+    }
+
+    @Test
+    fun `myPlayerId resolves connected player from game state`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.connect("Alice")
+
+        fakeGameState.value = makeGameState(currentPlayerId = "p2")
+
+        assertEquals("p1", viewModel.myPlayerId.value)
+        assertFalse(viewModel.isMyTurn.value)
+    }
+
+    @Test
+    fun `isMyTurn is true when current player matches resolved player id`() {
+        val viewModel = GameViewModel(mockApplication)
+        viewModel.connect("Alice")
+
+        fakeGameState.value = makeGameState(currentPlayerId = "p1")
+
+        assertEquals("p1", viewModel.myPlayerId.value)
+        assertTrue(viewModel.isMyTurn.value)
     }
 
     @Test
@@ -125,6 +164,7 @@ class GameViewModelTest {
         val viewModel = GameViewModel(mockApplication)
         viewModel.leaveLobby()
         verify(exactly = 1) { anyConstructed<GameStompClient>().leaveLobby() }
+        verify(exactly = 1) { anyConstructed<GameStompClient>().disconnect() }
     }
 
     @Test
@@ -219,6 +259,50 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `playActionCard with command delegates to private action card endpoint`() {
+        val command = PlayActionCardCommand(
+            actionCardIndex = 1,
+            parameters = ActionCardParameters.BoardLineTarget(
+                targetPlayerId = "p2",
+                targetType = BoardLineTargetType.ROW,
+                lineIndex = 0,
+            ),
+        )
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playActionCard(command)
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().playActionCard(command)
+        }
+    }
+
+    @Test
+    fun `playEnlightenment builds board line target command`() {
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playEnlightenment(
+            actionCardIndex = 2,
+            targetPlayerId = "p3",
+            targetType = BoardLineTargetType.COLUMN,
+            lineIndex = 1,
+        )
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().playActionCard(
+                PlayActionCardCommand(
+                    actionCardIndex = 2,
+                    parameters = ActionCardParameters.BoardLineTarget(
+                        targetPlayerId = "p3",
+                        targetType = BoardLineTargetType.COLUMN,
+                        lineIndex = 1,
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `discardActionCard sends DISCARD_ACTION_CARD action`() {
         val viewModel = GameViewModel(mockApplication)
         viewModel.discardActionCard(actionCardIndex = 0)
@@ -284,6 +368,32 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `playSwapOwnCards sends PLAY_ACTION_CARD action with own swap coordinates`() {
+        val viewModel = GameViewModel(mockApplication)
+
+        viewModel.playSwapOwnCards(
+            actionCardIndex = 2,
+            firstRow = 0,
+            firstCol = 1,
+            secondRow = 2,
+            secondCol = 3,
+        )
+
+        verify(exactly = 1) {
+            anyConstructed<GameStompClient>().sendAction(
+                GameAction(
+                    type = "PLAY_ACTION_CARD",
+                    actionCardIndex = 2,
+                    targetPlayer1Row = 0,
+                    targetPlayer1Col = 1,
+                    targetPlayer2Row = 2,
+                    targetPlayer2Col = 3,
+                )
+            )
+        }
+    }
+
+    @Test
     fun `discardActionCard sends DISCARD_ACTION_CARD action with correct index`() {
         val viewModel = GameViewModel(mockApplication)
         viewModel.discardActionCard(actionCardIndex = 2)
@@ -328,4 +438,29 @@ class GameViewModelTest {
             )
         }
     }
+
+    private fun makeGameState(currentPlayerId: String?) = GameUpdateMessage(
+        phase = "AWAITING_DRAW",
+        currentPlayerId = currentPlayerId,
+        roundNumber = 1,
+        gameOver = false,
+        totalScores = listOf(
+            TotalScore("p1", "Alice", 0),
+            TotalScore("p2", "Bob", 0),
+        ),
+        players = listOf(
+            GamePlayerState(
+                playerId = "p1",
+                nickname = "Alice",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+            ),
+            GamePlayerState(
+                playerId = "p2",
+                nickname = "Bob",
+                board = List(3) {
+                    List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 5, "NUMBER")) }
+                },
+            ),
+        ),
+    )
 }

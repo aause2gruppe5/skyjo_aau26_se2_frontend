@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
+import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GameAction
@@ -42,6 +43,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.onLast
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -55,6 +57,7 @@ class AppNavHostTest {
 
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
+    private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
@@ -66,6 +69,7 @@ class AppNavHostTest {
         mockkConstructor(GameStompClient::class)
         every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
         every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
+        every { anyConstructed<GameStompClient>().actionCardResults } returns fakeActionCardResults
         every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
         every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
         every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
@@ -76,6 +80,7 @@ class AppNavHostTest {
         every { anyConstructed<GameStompClient>().leaveLobby() } just runs
         every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
         every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
+        every { anyConstructed<GameStompClient>().playActionCard(any()) } just runs
         every { anyConstructed<GameStompClient>().disconnect() } just runs
         every { anyConstructed<GameStompClient>().close() } just runs
     }
@@ -209,4 +214,78 @@ class AppNavHostTest {
             )
         }
     }
+
+    @Test
+    fun appNavHost_game_screen_play_swap_own_cards_reaches_viewmodel() {
+        val viewModel = GameViewModel(mockApplication)
+
+        // WICHTIG: Überschreibe den Typ der Aktionskarte!
+        fakeGameState.value = makeGameState(actionCardKind = "SWAP_OWN_CARDS")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // 1. In den GameScreen navigieren
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        // 2. Aktionskarte auswählen
+        composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+
+        // 3. Erste eigene Karte auswählen
+        composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+
+        // 4. Zweite eigene Karte auswählen
+        composeTestRule.onAllNodesWithText("3").onLast().performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+
+        // 5. Verifizieren
+        verify {
+            anyConstructed<GameStompClient>().sendAction(
+                match { action ->
+                    // Achte darauf, dass dies exakt mit deinem GameAction-Modell übereinstimmt.
+                    // Wenn dein ViewModel für SwapOwnCards z.B. einen anderen type-String schickt,
+                    // musst du das hier anpassen.
+                    action.type == "PLAY_ACTION_CARD" &&
+                            action.actionCardIndex == 0
+                }
+            )
+        }
+    }
+    //hilfsfunktion
+    private fun makeGameState(
+        myPlayerId: String = "p1",
+        actionCardKind: String = "PLAYER_SWAP" // Standardwert für alte Tests beibehalten
+    ) = GameUpdateMessage(
+        phase = "AWAITING_DRAW",
+        currentPlayerId = myPlayerId,
+        roundNumber = 1,
+        gameOver = false,
+        totalScores = listOf(
+            TotalScore(myPlayerId, "Alice", 0),
+            TotalScore("p2", "Bob", 0),
+        ),
+        players = listOf(
+            GamePlayerState(
+                playerId = myPlayerId,
+                nickname = "Alice",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(1, 3, "NUMBER")) } },
+                // Hier den neuen Parameter verwenden:
+                actionCards = listOf(ActionCard(id = 151, kind = actionCardKind)),
+            ),
+            GamePlayerState(
+                playerId = "p2",
+                nickname = "Bob",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(2, 5, "NUMBER")) } },
+            ),
+        ),
+        discardTopCard = Card(id = 99, value = 4, type = "NUMBER"),
+    )
 }

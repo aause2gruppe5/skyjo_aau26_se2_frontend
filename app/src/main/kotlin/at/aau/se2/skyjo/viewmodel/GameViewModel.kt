@@ -3,7 +3,10 @@ package at.aau.se2.skyjo.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import at.aau.se2.skyjo.model.ActionCardParameters
+import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.GameAction
+import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.network.GameStompClient
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -14,6 +17,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val lobbyState = gameClient.lobbyState
     val gameState = gameClient.gameState
+    val actionCardResults = gameClient.actionCardResults
     val hasRejoinedGame = gameClient.hasRejoinedGame
     val errorMessage = gameClient.errorMessage
     val connectionError = gameClient.connectionError
@@ -84,6 +88,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun playActionCard(actionCardIndex: Int) =
         gameClient.sendAction(GameAction(type = "PLAY_ACTION_CARD", actionCardIndex = actionCardIndex))
 
+    fun playActionCard(command: PlayActionCardCommand) =
+        gameClient.playActionCard(command)
+
+    fun playEnlightenment(
+        actionCardIndex: Int,
+        targetPlayerId: String,
+        targetType: BoardLineTargetType,
+        lineIndex: Int,
+    ) = gameClient.playActionCard(
+        PlayActionCardCommand(
+            actionCardIndex = actionCardIndex,
+            parameters = ActionCardParameters.BoardLineTarget(
+                targetPlayerId = targetPlayerId,
+                targetType = targetType,
+                lineIndex = lineIndex,
+            ),
+        ),
+    )
+
     fun playPlayerSwapCard(
         actionCardIndex: Int,
         player1Id: String,
@@ -102,6 +125,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             targetPlayer2Id = player2Id,
             targetPlayer2Row = player2Row,
             targetPlayer2Col = player2Col,
+        ),
+    )
+
+    fun playSwapOwnCards(
+        actionCardIndex: Int,
+        firstRow: Int,
+        firstCol: Int,
+        secondRow: Int,
+        secondCol: Int,
+    ) = gameClient.sendAction(
+        GameAction(
+            type = "PLAY_ACTION_CARD",
+            actionCardIndex = actionCardIndex,
+            targetPlayer1Row = firstRow,
+            targetPlayer1Col = firstCol,
+            targetPlayer2Row = secondRow,
+            targetPlayer2Col = secondCol,
         ),
     )
 

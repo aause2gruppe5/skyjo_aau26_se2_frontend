@@ -35,6 +35,9 @@ class GameStompClient(context: Context) {
     private val _gameState = MutableStateFlow<GameUpdateMessage?>(null)
     val gameState: StateFlow<GameUpdateMessage?> = _gameState.asStateFlow()
 
+    private val _actionCardResults = MutableSharedFlow<ActionCardResultMessage>(extraBufferCapacity = 1)
+    val actionCardResults: SharedFlow<ActionCardResultMessage> = _actionCardResults.asSharedFlow()
+
     private val _errorMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
@@ -68,6 +71,7 @@ class GameStompClient(context: Context) {
             val gameFlow        = s.subscribeText("/topic/game")
             val errorsFlow      = s.subscribeText("/user/queue/errors")
             val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
+            val actionCardResultsFlow = s.subscribeText("/user/queue/action-card-results")
 
             subscriptionJobs = listOf(
                 scope.launch { collectLobby(lobbyFlow) },
@@ -75,6 +79,7 @@ class GameStompClient(context: Context) {
                 scope.launch { collectGame(gameFlow) },
                 scope.launch { collectErrors(errorsFlow) },
                 scope.launch { collectRejoinState(rejoinFlow) },
+                scope.launch { collectActionCardResults(actionCardResultsFlow) },
             )
         } catch (e: Exception) {
             Log.e(TAG, "Connection error: ${e.message}")
@@ -185,6 +190,21 @@ class GameStompClient(context: Context) {
         }
     }
 
+    private suspend fun collectActionCardResults(flow: kotlinx.coroutines.flow.Flow<String>) {
+        try {
+            flow.collect { jsonText ->
+                try {
+                    _actionCardResults.tryEmit(json.decodeFromString(jsonText))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Action card result parse error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Action card result subscribe error: ${e.message}")
+        }
+    }
+
     fun joinLobby(playerName: String, gameId: String? = null) {
         scope.launch {
             try {
@@ -228,6 +248,16 @@ class GameStompClient(context: Context) {
                 session?.sendText("/app/game.action", json.encodeToString(action))
             } catch (e: Exception) {
                 Log.e(TAG, "Send action error: ${e.message}")
+            }
+        }
+    }
+
+    fun playActionCard(command: PlayActionCardCommand) {
+        scope.launch {
+            try {
+                session?.sendText("/app/game.action-card", json.encodeToString(command))
+            } catch (e: Exception) {
+                Log.e(TAG, "Play action card error: ${e.message}")
             }
         }
     }

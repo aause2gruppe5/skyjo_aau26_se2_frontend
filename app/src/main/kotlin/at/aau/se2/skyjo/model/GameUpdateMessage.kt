@@ -10,6 +10,14 @@ data class Card(
 )
 
 @Serializable
+data class ActionCard(
+    val id: Int,
+    val kind: String,
+    val label: String = kind,
+    val value: Int = 10,
+)
+
+@Serializable
 data class BoardSlot(
     val type: String,
     val faceUp: Boolean? = null,
@@ -59,10 +67,4 @@ data class GameUpdateMessage(
     val roundResult: RoundResult? = null,
     val gameId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
-)
-
-@Serializable
-data class ActionCard(
-    val id: Int,
-    val kind: String,
 )
