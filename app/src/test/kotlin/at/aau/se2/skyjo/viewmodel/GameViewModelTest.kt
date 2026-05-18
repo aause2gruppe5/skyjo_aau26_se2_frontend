@@ -14,7 +14,11 @@ import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.model.PlayActionCardCommand
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.model.auth.WsTicketResponse
+import at.aau.se2.skyjo.model.lobby.LobbySummaryResponse
 import at.aau.se2.skyjo.model.social.LobbyInviteDto
+import at.aau.se2.skyjo.model.social.LobbyInviteStatus
+import at.aau.se2.skyjo.model.social.SocialUserDto
+import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.network.GameRealtimeClient
 import at.aau.se2.skyjo.network.SkyjoApi
 import io.mockk.clearAllMocks
@@ -77,6 +81,7 @@ class GameViewModelTest {
         coEvery { mockGameClient.reconnect(any()) } just runs
         coEvery { mockApi.createWebSocketTicket() } returns WsTicketResponse("ticket", Long.MAX_VALUE)
         every { mockGameClient.joinLobby(any(), any()) } just runs
+        every { mockGameClient.applyLobbyState(any()) } just runs
         every { mockGameClient.leaveLobby() } just runs
         every { mockGameClient.startGame(any(), any()) } just runs
         every { mockGameClient.sendAction(any()) } just runs
@@ -109,6 +114,37 @@ class GameViewModelTest {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.connect("TestPlayer")
         assertEquals("TestPlayer", viewModel.myPlayerName.value)
+    }
+
+    @Test
+    fun `setAuthenticatedUsername stores current player name`() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.setAuthenticatedUsername("Alice")
+
+        assertEquals("Alice", viewModel.myPlayerName.value)
+    }
+
+    @Test
+    fun `refreshHomeStats stores returned stats`() {
+        coEvery { mockApi.myStats() } returns stats(username = "Alice")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.refreshHomeStats()
+
+        assertEquals("Alice", viewModel.homeStats.value?.username)
+    }
+
+    @Test
+    fun `refreshHomeStats keeps previous stats when request fails`() {
+        coEvery { mockApi.myStats() } returns stats(username = "Alice")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.refreshHomeStats()
+        coEvery { mockApi.myStats() } throws IllegalStateException("offline")
+
+        viewModel.refreshHomeStats()
+
+        assertEquals("Alice", viewModel.homeStats.value?.username)
     }
 
     @Test
@@ -172,6 +208,114 @@ class GameViewModelTest {
         viewModel.leaveLobby()
         verify(exactly = 1) { mockGameClient.leaveLobby() }
         verify(exactly = 1) { mockGameClient.disconnect() }
+    }
+
+    @Test
+    fun `leaveLobby calls rest endpoint when authenticated lobby is active`() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        coEvery { mockApi.leaveLobby("lobby-1") } returns lobbySummary(players = listOf(LobbyPlayer("Bob", false)))
+
+        viewModel.leaveLobby()
+
+        coVerify(exactly = 1) { mockApi.leaveLobby("lobby-1") }
+        verify(exactly = 0) { mockGameClient.leaveLobby() }
+        verify(exactly = 1) { mockGameClient.clearStoredGame() }
+        verify(exactly = 1) { mockGameClient.disconnect() }
+        assertEquals("", viewModel.myPlayerName.value)
+    }
+
+    @Test
+    fun `createLobby connects with ticket and applies lobby state`() {
+        coEvery { mockApi.createLobby() } returns lobbySummary()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.createLobby("Alice")
+
+        assertEquals("Alice", viewModel.myPlayerName.value)
+        assertEquals(null, viewModel.lobbyError.value)
+        coVerify(exactly = 1) { mockApi.createLobby() }
+        coVerify(exactly = 1) { mockApi.createWebSocketTicket() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        verify(exactly = 1) { mockGameClient.applyLobbyState(expectedLobbyUpdate()) }
+    }
+
+    @Test
+    fun `createLobby stores readable error on failure`() {
+        coEvery { mockApi.createLobby() } throws IllegalStateException("user is already in a lobby")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.createLobby("Alice")
+
+        assertEquals("user is already in a lobby", viewModel.lobbyError.value)
+        coVerify(exactly = 0) { mockGameClient.connect(any(), any()) }
+        verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
+    }
+
+    @Test
+    fun `joinLobbyByCode connects with returned join code and applies lobby state`() {
+        coEvery { mockApi.joinLobby("abc123") } returns lobbySummary()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.joinLobbyByCode("Alice", "abc123")
+
+        assertEquals("Alice", viewModel.myPlayerName.value)
+        coVerify(exactly = 1) { mockApi.joinLobby("abc123") }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        verify(exactly = 1) { mockGameClient.applyLobbyState(expectedLobbyUpdate()) }
+    }
+
+    @Test
+    fun `joinLobbyByCode stores fallback error when exception has no message`() {
+        coEvery { mockApi.joinLobby("bad") } throws object : RuntimeException() {}
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.joinLobbyByCode("Alice", "bad")
+
+        assertEquals("Lobby konnte nicht betreten werden", viewModel.lobbyError.value)
+    }
+
+    @Test
+    fun `acceptLobbyInvite connects and applies current lobby when available`() {
+        coEvery { mockApi.acceptLobbyInvite("invite-1") } returns lobbyInvite()
+        coEvery { mockApi.currentLobby() } returns lobbySummary()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.acceptLobbyInvite("Alice", "invite-1")
+
+        assertEquals("Alice", viewModel.myPlayerName.value)
+        coVerify(exactly = 1) { mockApi.acceptLobbyInvite("invite-1") }
+        coVerify(exactly = 1) { mockApi.currentLobby() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        verify(exactly = 1) { mockGameClient.applyLobbyState(expectedLobbyUpdate()) }
+    }
+
+    @Test
+    fun `acceptLobbyInvite skips lobby state when current lobby is missing`() {
+        coEvery { mockApi.acceptLobbyInvite("invite-1") } returns lobbyInvite()
+        coEvery { mockApi.currentLobby() } returns null
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.acceptLobbyInvite("Alice", "invite-1")
+
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
+    }
+
+    @Test
+    fun `acceptLobbyInvite stores fallback error when request fails without message`() {
+        coEvery { mockApi.acceptLobbyInvite("invite-1") } throws object : RuntimeException() {}
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.acceptLobbyInvite("Alice", "invite-1")
+
+        assertEquals("Einladung konnte nicht angenommen werden", viewModel.lobbyError.value)
     }
 
     @Test
@@ -446,6 +590,54 @@ class GameViewModelTest {
             )
         }
     }
+
+    private fun lobbySummary(
+        lobbyId: String = "lobby-1",
+        joinCode: String = "ABC123",
+        players: List<LobbyPlayer> = listOf(LobbyPlayer("Alice", isHost = true)),
+        status: String = "WAITING",
+        maxPlayers: Int = 6,
+    ) = LobbySummaryResponse(
+        lobbyId = lobbyId,
+        joinCode = joinCode,
+        players = players,
+        status = status,
+        maxPlayers = maxPlayers,
+    )
+
+    private fun expectedLobbyUpdate(
+        lobbyId: String = "lobby-1",
+        joinCode: String = "ABC123",
+        players: List<LobbyPlayer> = listOf(LobbyPlayer("Alice", isHost = true)),
+        status: String = "WAITING",
+        maxPlayers: Int = 6,
+    ) = LobbyUpdateMessage(
+        lobbyId = lobbyId,
+        joinCode = joinCode,
+        players = players,
+        status = status,
+        maxPlayers = maxPlayers,
+    )
+
+    private fun lobbyInvite() = LobbyInviteDto(
+        inviteId = "invite-1",
+        lobbyId = "lobby-1",
+        joinCode = "ABC123",
+        from = SocialUserDto("user-b", "Bob"),
+        to = SocialUserDto("user-a", "Alice"),
+        status = LobbyInviteStatus.PENDING,
+        createdAt = 1_000L,
+    )
+
+    private fun stats(username: String) = PlayerStatsDto(
+        userId = "user-a",
+        username = username,
+        gamesPlayed = 3,
+        wins = 1,
+        totalScore = 42,
+        bestScore = 10,
+        averageScore = 14.0,
+    )
 
     private fun makeGameState(currentPlayerId: String?) = GameUpdateMessage(
         phase = "AWAITING_DRAW",

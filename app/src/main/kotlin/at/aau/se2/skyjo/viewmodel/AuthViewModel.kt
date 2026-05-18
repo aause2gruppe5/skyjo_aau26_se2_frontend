@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import at.aau.se2.skyjo.model.auth.AuthUserDto
-import at.aau.se2.skyjo.network.ApiException
 import at.aau.se2.skyjo.network.SkyjoApi
 import at.aau.se2.skyjo.network.SkyjoApiClient
 import at.aau.se2.skyjo.session.EncryptedSessionStore
@@ -140,11 +139,7 @@ class AuthViewModel(
         }
     }
 
-    private fun Throwable.readableMessage(fallback: String): String =
-        when (this) {
-            is ApiException -> message ?: fallback
-            else -> message ?: fallback
-        }
+    private fun Throwable.readableMessage(fallback: String): String = message ?: fallback
 
     private companion object {
         val USERNAME_PATTERN = Regex("^[A-Za-z0-9_]{3,20}$")

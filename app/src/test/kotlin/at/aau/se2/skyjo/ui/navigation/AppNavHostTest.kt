@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
@@ -139,6 +140,85 @@ class AppNavHostTest {
             }
         }
         composeTestRule.onNodeWithText("SKYJO", substring = true).assertExists()
+    }
+
+    @Test
+    fun appNavHost_navigates_to_friends_from_start_screen() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Noch keine Freunde").assertExists()
+    }
+
+    @Test
+    fun appNavHost_renders_leaderboard_route() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.Leaderboard.route)
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Noch keine Spiele im Leaderboard").assertExists()
+    }
+
+    @Test
+    fun appNavHost_renders_lobby_route_with_current_lobby_state() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.setAuthenticatedUsername("Alice")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.Lobby.route)
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Join Code: ABC123").assertExists()
+        composeTestRule.onNodeWithText("1 / 6").assertExists()
+    }
+
+    @Test
+    fun appNavHost_shows_connection_banner_for_named_disconnected_player() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.setAuthenticatedUsername("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+
+        composeTestRule.onNodeWithText("Verbindung unterbrochen, versuche erneut...").assertExists()
     }
 
     @Test
