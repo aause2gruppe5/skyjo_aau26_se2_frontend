@@ -72,7 +72,7 @@ fun SkyjoTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .height(56.dp),
+                .height(80.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onMenuClick) {

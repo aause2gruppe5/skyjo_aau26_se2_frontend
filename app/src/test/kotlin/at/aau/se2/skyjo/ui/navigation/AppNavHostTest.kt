@@ -204,6 +204,10 @@ class AppNavHostTest {
         composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
+        // Navigate to Bob's grid in carousel
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+
         // Select second card from Bob's board
         composeTestRule.onAllNodesWithText("5").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
