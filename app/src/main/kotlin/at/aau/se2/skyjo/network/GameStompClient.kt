@@ -13,8 +13,9 @@ import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.websocket.okhttp.OkHttpWebSocketClient
+import java.net.URLEncoder
 
-class GameStompClient(context: Context) {
+class GameStompClient(context: Context) : GameRealtimeClient {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("skyjo_prefs", Context.MODE_PRIVATE)
@@ -22,7 +23,8 @@ class GameStompClient(context: Context) {
     private val stompClient = StompClient(OkHttpWebSocketClient())
     private var session: StompSession? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var subscriptionJobs: List<Job> = emptyList()
+    private val subscriptionJobs = mutableListOf<Job>()
+    private val subscribedGameIds = mutableSetOf<String>()
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -30,27 +32,34 @@ class GameStompClient(context: Context) {
     }
 
     private val _lobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
-    val lobbyState: StateFlow<LobbyUpdateMessage?> = _lobbyState.asStateFlow()
+    override val lobbyState: StateFlow<LobbyUpdateMessage?> = _lobbyState.asStateFlow()
 
     private val _gameState = MutableStateFlow<GameUpdateMessage?>(null)
-    val gameState: StateFlow<GameUpdateMessage?> = _gameState.asStateFlow()
+    override val gameState: StateFlow<GameUpdateMessage?> = _gameState.asStateFlow()
 
     private val _actionCardResults = MutableSharedFlow<ActionCardResultMessage>(extraBufferCapacity = 1)
-    val actionCardResults: SharedFlow<ActionCardResultMessage> = _actionCardResults.asSharedFlow()
+    override val actionCardResults: SharedFlow<ActionCardResultMessage> = _actionCardResults.asSharedFlow()
+
+    private val _incomingInvites = MutableSharedFlow<at.aau.se2.skyjo.model.social.LobbyInviteDto>(extraBufferCapacity = 4)
+    override val incomingInvites: SharedFlow<at.aau.se2.skyjo.model.social.LobbyInviteDto> = _incomingInvites.asSharedFlow()
 
     private val _errorMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
+    override val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
     private val _connectionError = MutableStateFlow<String?>(null)
-    val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
+    override val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
 
     private val _isConnected = MutableStateFlow(false)
-    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val _hasRejoinedGame = MutableStateFlow(false)
-    val hasRejoinedGame: StateFlow<Boolean> = _hasRejoinedGame.asStateFlow()
+    override val hasRejoinedGame: StateFlow<Boolean> = _hasRejoinedGame.asStateFlow()
 
-    suspend fun connect() {
+    override suspend fun connect() {
+        connect(ticket = null, lobbyJoinCode = null)
+    }
+
+    override suspend fun connect(ticket: String?, lobbyJoinCode: String?) {
         _hasRejoinedGame.value = false
         cancelSubscriptions()
         try {
@@ -58,28 +67,29 @@ class GameStompClient(context: Context) {
         } catch (_: Exception) {}
 
         try {
-            session = stompClient.connect(SERVER_URL)
+            session = stompClient.connect(ticket?.let(::ticketUrl) ?: SERVER_URL)
             _connectionError.value = null
             _isConnected.value = true
             Log.d(TAG, "Connected successfully")
 
-            // Subscriptions synchron aufbauen — alle sind aktiv bevor connect() zurückgibt,
-            // damit joinLobby danach keine Nachrichten verpasst
+            // Subscribe before returning so lobby actions cannot miss first updates.
             val s = session!!
-            val lobbyFlow       = s.subscribeText("/topic/lobby")
+            val lobbyFlow       = s.subscribeText(lobbyJoinCode?.let { "/topic/lobbies/$it" } ?: "/topic/lobby")
             val lobbyDirectFlow = s.subscribeText("/user/queue/lobby")
             val gameFlow        = s.subscribeText("/topic/game")
             val errorsFlow      = s.subscribeText("/user/queue/errors")
             val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
             val actionCardResultsFlow = s.subscribeText("/user/queue/action-card-results")
+            val invitesFlow = s.subscribeText("/user/queue/invites")
 
-            subscriptionJobs = listOf(
+            subscriptionJobs += listOf(
                 scope.launch { collectLobby(lobbyFlow) },
                 scope.launch { collectLobbyDirect(lobbyDirectFlow) },
                 scope.launch { collectGame(gameFlow) },
                 scope.launch { collectErrors(errorsFlow) },
                 scope.launch { collectRejoinState(rejoinFlow) },
                 scope.launch { collectActionCardResults(actionCardResultsFlow) },
+                scope.launch { collectInvites(invitesFlow) },
             )
         } catch (e: Exception) {
             Log.e(TAG, "Connection error: ${e.message}")
@@ -90,7 +100,7 @@ class GameStompClient(context: Context) {
 
     private val retryDelays = listOf(1_000L, 3_000L, 9_000L)
 
-    suspend fun reconnect(playerName: String) {
+    override suspend fun reconnect(playerName: String) {
         val storedGameId = prefs.getString(PREF_GAME_ID, null)
         for (delay in retryDelays) {
             delay(delay)
@@ -105,7 +115,12 @@ class GameStompClient(context: Context) {
 
     private fun cancelSubscriptions() {
         subscriptionJobs.forEach { it.cancel() }
-        subscriptionJobs = emptyList()
+        subscriptionJobs.clear()
+        subscribedGameIds.clear()
+    }
+
+    override fun applyLobbyState(lobby: LobbyUpdateMessage) {
+        _lobbyState.value = lobby
     }
 
     private suspend fun collectLobby(flow: kotlinx.coroutines.flow.Flow<String>) {
@@ -145,6 +160,7 @@ class GameStompClient(context: Context) {
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
                     msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                    msg.gameId?.let { subscribeGameTopic(it) }
                     _gameState.value = msg
                 } catch (e: Exception) {
                     Log.e(TAG, "Game parse error: ${e.message}")
@@ -178,6 +194,8 @@ class GameStompClient(context: Context) {
             flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
+                    msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                    msg.gameId?.let { subscribeGameTopic(it) }
                     _gameState.value = msg
                     _hasRejoinedGame.value = true
                 } catch (e: Exception) {
@@ -205,7 +223,35 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun joinLobby(playerName: String, gameId: String? = null) {
+    private suspend fun collectInvites(flow: kotlinx.coroutines.flow.Flow<String>) {
+        try {
+            flow.collect { jsonText ->
+                try {
+                    _incomingInvites.tryEmit(json.decodeFromString(jsonText))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Invite parse error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Invite subscribe error: ${e.message}")
+        }
+    }
+
+    private fun subscribeGameTopic(gameId: String) {
+        val s = session ?: return
+        if (!subscribedGameIds.add(gameId)) return
+        subscriptionJobs += scope.launch {
+            runCatching {
+                collectGame(s.subscribeText("/topic/games/$gameId"))
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                Log.e(TAG, "Game topic subscribe error: ${e.message}")
+            }
+        }
+    }
+
+    override fun joinLobby(playerName: String, gameId: String?) {
         scope.launch {
             try {
                 session?.sendText(
@@ -219,7 +265,7 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun leaveLobby() {
+    override fun leaveLobby() {
         scope.launch {
             try {
                 session?.sendText("/app/lobby.leave", "")
@@ -229,7 +275,7 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun startGame(maxRounds: Int, targetScore: Int) {
+    override fun startGame(maxRounds: Int, targetScore: Int) {
         scope.launch {
             try {
                 session?.sendText(
@@ -242,7 +288,7 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun sendAction(action: GameAction) {
+    override fun sendAction(action: GameAction) {
         scope.launch {
             try {
                 session?.sendText("/app/game.action", json.encodeToString(action))
@@ -252,7 +298,7 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun playActionCard(command: PlayActionCardCommand) {
+    override fun playActionCard(command: PlayActionCardCommand) {
         scope.launch {
             try {
                 session?.sendText("/app/game.action-card", json.encodeToString(command))
@@ -262,11 +308,11 @@ class GameStompClient(context: Context) {
         }
     }
 
-    fun clearStoredGame() {
+    override fun clearStoredGame() {
         prefs.edit().remove(PREF_GAME_ID).apply()
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         cancelSubscriptions()
         scope.launch {
             try { session?.disconnect() } catch (_: Exception) {}
@@ -274,14 +320,17 @@ class GameStompClient(context: Context) {
         _isConnected.value = false
     }
 
-    fun close() {
+    override fun close() {
         disconnect()
         scope.cancel()
     }
 
     companion object {
         private const val TAG = "GameStompClient"
-        private const val SERVER_URL = "ws://se2-demo.aau.at:53209/ws"
+        private const val SERVER_URL = SkyjoApiClient.WS_BASE_URL
         private const val PREF_GAME_ID = "game_id"
     }
+
+    private fun ticketUrl(ticket: String): String =
+        "$SERVER_URL?ticket=${URLEncoder.encode(ticket, "UTF-8")}"
 }

@@ -40,25 +40,24 @@ class SettingsScreenTest {
         composeTestRule.onAllNodesWithText("Settings")[0].assertExists()
     }
 
-    // "AcePlayer" also appears in the always-composed drawer header, so use onAllNodesWithText
     @Test
-    fun settingsScreen_shows_player_name() {
+    fun settingsScreen_shows_account_name() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onAllNodesWithText("AcePlayer")[0].assertExists()
+        composeTestRule.onAllNodesWithText("Skyjo Account")[0].assertExists()
     }
 
     @Test
-    fun settingsScreen_shows_player_level() {
+    fun settingsScreen_shows_secure_session_text() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Level 42").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Session sicher gespeichert").assertIsDisplayed()
     }
 
     // Items below the fold in the scrollable column use assertExists() instead of assertIsDisplayed()
@@ -113,13 +112,13 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun settingsScreen_shows_link_account_option() {
+    fun settingsScreen_shows_session_option() {
         composeTestRule.setContent {
             SkyjoTheme {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Link Account").assertExists()
+        composeTestRule.onNodeWithText("Session").assertExists()
     }
 
     @Test

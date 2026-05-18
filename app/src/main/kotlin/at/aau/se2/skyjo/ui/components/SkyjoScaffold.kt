@@ -104,6 +104,7 @@ private data class NavTab(
 private val navTabs = listOf(
     NavTab(AppDestination.Start, Icons.Default.PlayArrow, "Play"),
     NavTab(AppDestination.Friends, Icons.Default.Group, "Friends"),
+    NavTab(AppDestination.Leaderboard, Icons.Default.EmojiEvents, "Board"),
     NavTab(AppDestination.Settings, Icons.Default.Settings, "Settings"),
 )
 
@@ -178,7 +179,7 @@ private data class DrawerItem(
 private val drawerItems = listOf(
     DrawerItem(Icons.Default.Settings, "Settings", AppDestination.Settings),
     DrawerItem(Icons.Default.Style, "Card Sleeves"),
-    DrawerItem(Icons.Default.EmojiEvents, "Leaderboard"),
+    DrawerItem(Icons.Default.EmojiEvents, "Leaderboard", AppDestination.Leaderboard),
     DrawerItem(Icons.Default.History, "Match History"),
     DrawerItem(Icons.Default.Help, "How to Play"),
 )
@@ -204,7 +205,7 @@ fun SkyjoDrawerContent(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = "A",
+                        text = "S",
                         style = MaterialTheme.typography.titleLarge,
                         color = PrimaryGreen,
                         fontWeight = FontWeight.ExtraBold,
@@ -214,12 +215,12 @@ fun SkyjoDrawerContent(
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "AcePlayer",
+                    text = "Skyjo",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Pro Tier",
+                    text = "Account aktiv",
                     style = MaterialTheme.typography.bodySmall,
                     color = PrimaryGreen,
                 )

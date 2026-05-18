@@ -125,7 +125,7 @@ class SkyjoScaffoldTest {
                 SkyjoDrawerContent(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("AcePlayer").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Skyjo").assertIsDisplayed()
     }
 
     @Test

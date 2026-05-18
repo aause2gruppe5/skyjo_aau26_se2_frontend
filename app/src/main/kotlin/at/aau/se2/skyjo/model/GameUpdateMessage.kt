@@ -66,5 +66,6 @@ data class GameUpdateMessage(
     val actionDrawPileCount: Int = 0,
     val roundResult: RoundResult? = null,
     val gameId: String? = null,
+    val lobbyId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
 )

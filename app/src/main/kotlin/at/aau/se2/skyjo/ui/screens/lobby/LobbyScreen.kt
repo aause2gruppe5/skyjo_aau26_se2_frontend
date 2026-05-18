@@ -54,6 +54,8 @@ fun LobbyScreen(
     players: List<LobbyPlayer> = emptyList(),
     maxPlayers: Int = 6,
     isHost: Boolean = false,
+    joinCode: String? = null,
+    errorMessage: String? = null,
     onStartGame: (maxRounds: Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -113,6 +115,23 @@ fun LobbyScreen(
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
+                joinCode?.takeIf { it.isNotBlank() }?.let { code ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Join Code: $code",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = PrimaryGreen,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             // ── Player count bar ─────────────────────────────────────────
@@ -256,7 +275,7 @@ private fun FilledPlayerSlot(player: LobbyPlayer) {
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (player.isHost) "${player.nickname}  👑" else player.nickname,
+                    text = player.nickname,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                 )

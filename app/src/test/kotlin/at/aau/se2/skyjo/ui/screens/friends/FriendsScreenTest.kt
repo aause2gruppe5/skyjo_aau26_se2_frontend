@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import at.aau.se2.skyjo.model.social.FriendDto
+import at.aau.se2.skyjo.model.social.SocialUserDto
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
 import org.junit.Test
@@ -41,56 +43,60 @@ class FriendsScreenTest {
     }
 
     @Test
-    fun friendsScreen_shows_online_friends_section() {
+    fun friendsScreen_shows_friends_section() {
         composeTestRule.setContent {
             SkyjoTheme {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Online Friends (3)").assertIsDisplayed()
-    }
-
-    // "Suggested Friends" may be below the visible fold in the test viewport
-    @Test
-    fun friendsScreen_shows_suggested_friends_section() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                FriendsScreen(onNavigate = {})
-            }
-        }
-        composeTestRule.onNodeWithText("Suggested Friends").assertExists()
+        composeTestRule.onNodeWithText("Freunde").assertIsDisplayed()
     }
 
     @Test
-    fun friendsScreen_shows_online_friend_name() {
+    fun friendsScreen_shows_search_field() {
         composeTestRule.setContent {
             SkyjoTheme {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("KiraBlaze").assertIsDisplayed()
+        composeTestRule.onNodeWithText("User suchen").assertExists()
     }
 
-    // Each online friend has its own "Invite" button (3 total), so use onAllNodesWithText
+    @Test
+    fun friendsScreen_shows_empty_friend_state() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(onNavigate = {})
+            }
+        }
+        composeTestRule.onNodeWithText("Noch keine Freunde").assertIsDisplayed()
+    }
+
     @Test
     fun friendsScreen_shows_friend_invite_button() {
         composeTestRule.setContent {
             SkyjoTheme {
-                FriendsScreen(onNavigate = {})
+                FriendsScreen(
+                    onNavigate = {},
+                    friends = listOf(FriendDto("user-1", "FriendOne", online = true)),
+                    activeLobbyId = "lobby-1",
+                )
             }
         }
         composeTestRule.onAllNodesWithText("Invite")[0].assertExists()
     }
 
-    // Each suggested friend has a "+ Add" button (2 total) and they may be below the fold
     @Test
-    fun friendsScreen_shows_suggested_friend_add_button() {
+    fun friendsScreen_shows_search_result_add_button() {
         composeTestRule.setContent {
             SkyjoTheme {
-                FriendsScreen(onNavigate = {})
+                FriendsScreen(
+                    onNavigate = {},
+                    searchResults = listOf(SocialUserDto("user-2", "SearchUser")),
+                )
             }
         }
-        composeTestRule.onAllNodesWithText("+ Add")[0].assertExists()
+        composeTestRule.onAllNodesWithText("Add")[0].assertExists()
     }
 
     @Test
