@@ -7,6 +7,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.social.FriendDto
+import at.aau.se2.skyjo.model.social.FriendRequestDto
+import at.aau.se2.skyjo.model.social.FriendRequestStatus
+import at.aau.se2.skyjo.model.social.LobbyInviteDto
+import at.aau.se2.skyjo.model.social.LobbyInviteStatus
 import at.aau.se2.skyjo.model.social.SocialUserDto
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import org.junit.Rule
@@ -97,6 +101,63 @@ class FriendsScreenTest {
             }
         }
         composeTestRule.onAllNodesWithText("Add")[0].assertExists()
+    }
+
+    @Test
+    fun friendsScreen_shows_request_and_invite_actions() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(
+                    onNavigate = {},
+                    incomingRequests = listOf(
+                        FriendRequestDto(
+                            requestId = "request-1",
+                            from = SocialUserDto("from", "Requester"),
+                            to = SocialUserDto("to", "Me"),
+                            status = FriendRequestStatus.PENDING,
+                            createdAt = 1L,
+                        ),
+                    ),
+                    lobbyInvites = listOf(
+                        LobbyInviteDto(
+                            inviteId = "invite-1",
+                            lobbyId = "lobby-1",
+                            joinCode = "ABC123",
+                            from = SocialUserDto("from", "Requester"),
+                            to = SocialUserDto("to", "Me"),
+                            status = LobbyInviteStatus.PENDING,
+                            createdAt = 1L,
+                        ),
+                    ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Anfragen").assertExists()
+        composeTestRule.onNodeWithText("Lobby Einladungen").assertExists()
+        composeTestRule.onNodeWithText("Accept").assertExists()
+        composeTestRule.onNodeWithText("Join").assertExists()
+        composeTestRule.onNodeWithText("Code ABC123").assertExists()
+    }
+
+    @Test
+    fun friendsScreen_shows_friend_relationship_statuses() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(
+                    onNavigate = {},
+                    friends = listOf(FriendDto("user-1", "OfflineFriend", online = false)),
+                    searchResults = listOf(
+                        SocialUserDto("user-2", "AlreadyFriend", at.aau.se2.skyjo.model.social.RelationshipStatus.FRIENDS),
+                        SocialUserDto("user-3", "IncomingUser", at.aau.se2.skyjo.model.social.RelationshipStatus.INCOMING_REQUEST),
+                        SocialUserDto("user-4", "OutgoingUser", at.aau.se2.skyjo.model.social.RelationshipStatus.OUTGOING_REQUEST),
+                    ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Offline").assertExists()
+        composeTestRule.onNodeWithText("Freund").assertExists()
+        composeTestRule.onNodeWithText("Anfrage offen").assertExists()
+        composeTestRule.onNodeWithText("Gesendet").assertExists()
     }
 
     @Test
