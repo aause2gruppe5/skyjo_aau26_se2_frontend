@@ -327,7 +327,7 @@ class GameStompClient(context: Context) : GameRealtimeClient {
 
     companion object {
         private const val TAG = "GameStompClient"
-        private const val SERVER_URL = SkyjoApiClient.WS_BASE_URL
+        private val SERVER_URL = SkyjoApiClient.WS_BASE_URL
         private const val PREF_GAME_ID = "game_id"
     }
 

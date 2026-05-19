@@ -58,6 +58,8 @@ fun AppNavHost(
     val isConnected by gameViewModel.isConnected.collectAsState()
     val myPlayerName by gameViewModel.myPlayerName.collectAsState()
     val hasRejoinedGame by gameViewModel.hasRejoinedGame.collectAsState()
+    val currentLobbyState by gameViewModel.lobbyState.collectAsState()
+    val currentGameState by gameViewModel.gameState.collectAsState()
     val fallbackAuthState = remember { mutableStateOf(AuthUiState(isCheckingSession = false, isAuthenticated = true)) }
     val fallbackFriendsState = remember { mutableStateOf(FriendsUiState()) }
     val fallbackLeaderboardState = remember { mutableStateOf(LeaderboardUiState()) }
@@ -244,7 +246,7 @@ fun AppNavHost(
             }
         }
 
-        if (!isConnected && myPlayerName.isNotEmpty()) {
+        if (!isConnected && myPlayerName.isNotEmpty() && (currentLobbyState != null || currentGameState != null)) {
             Text(
                 text = "Verbindung unterbrochen, versuche erneut...",
                 style = MaterialTheme.typography.labelMedium,

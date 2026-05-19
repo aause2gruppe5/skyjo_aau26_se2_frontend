@@ -37,9 +37,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "HTTP_BASE_URL", "\"http://se2-demo.aau.at:53209\"")
+        buildConfigField("String", "WS_BASE_URL", "\"ws://se2-demo.aau.at:53209/ws\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "HTTP_BASE_URL", "\"http://10.0.2.2:8080\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://10.0.2.2:8080/ws\"")
+        }
+
         release {
             isMinifyEnabled = true
             proguardFiles(
@@ -78,6 +85,7 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+        buildConfig = true
     }
 }
 

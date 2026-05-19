@@ -1,5 +1,6 @@
 package at.aau.se2.skyjo.network
 
+import at.aau.se2.skyjo.BuildConfig
 import at.aau.se2.skyjo.model.auth.AuthResponse
 import at.aau.se2.skyjo.model.auth.AuthUserDto
 import at.aau.se2.skyjo.model.auth.ErrorResponse
@@ -156,8 +157,8 @@ class SkyjoApiClient(
     }
 
     companion object {
-        const val HTTP_BASE_URL = "http://se2-demo.aau.at:53209"
-        const val WS_BASE_URL = "ws://se2-demo.aau.at:53209/ws"
+        val HTTP_BASE_URL: String = BuildConfig.HTTP_BASE_URL
+        val WS_BASE_URL: String = BuildConfig.WS_BASE_URL
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 

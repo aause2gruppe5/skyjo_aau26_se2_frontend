@@ -208,9 +208,16 @@ class AppNavHostTest {
     }
 
     @Test
-    fun appNavHost_shows_connection_banner_for_named_disconnected_player() {
+    fun appNavHost_shows_connection_banner_for_active_disconnected_session() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.setAuthenticatedUsername("Alice")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
 
         composeTestRule.setContent {
             SkyjoTheme {
