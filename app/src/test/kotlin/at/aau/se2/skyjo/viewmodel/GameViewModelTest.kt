@@ -203,6 +203,21 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `isHost is true when player is not first but has isHost flag set to true`() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.connect("Bob")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            players = listOf(
+                LobbyPlayer("Alice", isHost = false),
+                LobbyPlayer("Bob", isHost = true),
+            ),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        assertTrue(viewModel.isHost.value)
+    }
+
+    @Test
     fun `leaveLobby delegates to client`() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.leaveLobby()
@@ -484,6 +499,32 @@ class GameViewModelTest {
         fakeIsConnected.value = false
 
         coVerify(exactly = 0) { mockApi.createWebSocketTicket() }
+    }
+
+    @Test
+    fun `authenticated reconnect fetches and applies current lobby state`() {
+        coEvery { mockApi.currentLobby() } returns lobbySummary()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.connect("Alice")
+
+        fakeIsConnected.value = true
+        fakeIsConnected.value = false
+
+        coVerify(atLeast = 1) { mockApi.currentLobby() }
+        verify(atLeast = 1) { mockGameClient.applyLobbyState(expectedLobbyUpdate()) }
+    }
+
+    @Test
+    fun `authenticated reconnect skips applying lobby state when currentLobby returns null`() {
+        coEvery { mockApi.currentLobby() } returns null
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.connect("Alice")
+
+        fakeIsConnected.value = true
+        fakeIsConnected.value = false
+
+        coVerify(atLeast = 1) { mockApi.currentLobby() }
+        verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
     }
 
     @Test

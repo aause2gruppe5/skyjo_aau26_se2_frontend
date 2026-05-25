@@ -50,7 +50,7 @@ class GameViewModel(
     val lobbyError: StateFlow<String?> = _lobbyError.asStateFlow()
 
     val isHost: StateFlow<Boolean> = combine(lobbyState, myPlayerName) { lobby, name ->
-        name.isNotEmpty() && lobby?.players?.firstOrNull()?.nickname == name
+        name.isNotEmpty() && lobby?.players?.find { it.nickname == name }?.isHost == true
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val myPlayerId: StateFlow<String?> = combine(gameState, myPlayerName) { game, name ->
@@ -73,6 +73,17 @@ class GameViewModel(
                         runCatching {
                             val ticket = apiClient.createWebSocketTicket().ticket
                             gameClient.connect(ticket = ticket, lobbyJoinCode = lobbyState.value?.joinCode)
+                            apiClient.currentLobby()?.let { lobby ->
+                                gameClient.applyLobbyState(
+                                    LobbyUpdateMessage(
+                                        lobbyId = lobby.lobbyId,
+                                        joinCode = lobby.joinCode,
+                                        players = lobby.players,
+                                        status = lobby.status,
+                                        maxPlayers = lobby.maxPlayers,
+                                    ),
+                                )
+                            }
                         }
                     }
                 }
@@ -167,12 +178,14 @@ class GameViewModel(
     }
 
     fun leaveLobby() {
-        lobbyState.value?.lobbyId?.let { lobbyId ->
-            viewModelScope.launch { runCatching { apiClient.leaveLobby(lobbyId) } }
-        } ?: gameClient.leaveLobby()
-        gameClient.clearStoredGame()
-        gameClient.disconnect()
-        _myPlayerName.value = ""
+        viewModelScope.launch {
+            lobbyState.value?.lobbyId?.let { lobbyId ->
+                runCatching { apiClient.leaveLobby(lobbyId) }
+            } ?: run { gameClient.leaveLobby() }
+            gameClient.clearStoredGame()
+            gameClient.disconnect()
+            _myPlayerName.value = ""
+        }
     }
 
     fun startGame(maxRounds: Int = 3, targetScore: Int = 100) =
