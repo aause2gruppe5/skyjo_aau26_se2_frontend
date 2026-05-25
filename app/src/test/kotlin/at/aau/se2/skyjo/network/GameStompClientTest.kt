@@ -78,14 +78,14 @@ class GameStompClientTest {
     }
 
     @Test
-    fun `connect uses university backend websocket url`() = runBlocking {
+    fun `connect uses configured websocket url`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
         delay(300)
 
         coVerify(atLeast = 1) {
             anyConstructed<StompClient>().connect(
-                url = "ws://se2-demo.aau.at:53209/ws",
+                url = SkyjoApiClient.WS_BASE_URL,
                 any(),
                 any(),
                 any(),

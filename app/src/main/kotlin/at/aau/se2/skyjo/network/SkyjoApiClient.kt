@@ -3,7 +3,6 @@ package at.aau.se2.skyjo.network
 import at.aau.se2.skyjo.BuildConfig
 import at.aau.se2.skyjo.model.auth.AuthResponse
 import at.aau.se2.skyjo.model.auth.AuthUserDto
-import at.aau.se2.skyjo.model.auth.ErrorResponse
 import at.aau.se2.skyjo.model.auth.LoginRequest
 import at.aau.se2.skyjo.model.auth.RegisterRequest
 import at.aau.se2.skyjo.model.auth.WsTicketResponse
@@ -28,6 +27,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
 
 class ApiException(message: String, val statusCode: Int? = null) : Exception(message)
+
+@kotlinx.serialization.Serializable
+private data class ServerErrorResponse(
+    val message: String? = null,
+    val error: String? = null,
+    val status: Int? = null,
+)
 
 class SkyjoApiClient(
     private val sessionStore: SessionStore,
@@ -144,8 +150,9 @@ class SkyjoApiClient(
             val responseBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 val message = runCatching {
-                    json.decodeFromString<ErrorResponse>(responseBody).message
-                }.getOrElse { response.message.ifBlank { "Request failed" } }
+                    json.decodeFromString<ServerErrorResponse>(responseBody)
+                        .let { it.message ?: it.error ?: "HTTP ${response.code}" }
+                }.getOrElse { "HTTP ${response.code}" }
                 throw ApiException(message, response.code)
             }
             if (T::class == Unit::class) {
