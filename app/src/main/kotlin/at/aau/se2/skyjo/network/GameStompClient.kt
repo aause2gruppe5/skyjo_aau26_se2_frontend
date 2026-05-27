@@ -110,7 +110,7 @@ class GameStompClient(context: Context) : GameRealtimeClient {
                 return
             }
         }
-        _connectionError.value = "Verbindung getrennt"
+        _connectionError.value = "Connection lost"
     }
 
     private fun cancelSubscriptions() {

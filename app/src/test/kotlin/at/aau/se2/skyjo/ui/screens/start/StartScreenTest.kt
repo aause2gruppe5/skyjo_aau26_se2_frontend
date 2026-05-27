@@ -42,7 +42,7 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Bereit fuer die naechste Lobby").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ready for the next lobby").assertIsDisplayed()
     }
 
     @Test
@@ -55,7 +55,7 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("LOBBY ERSTELLEN").assertExists()
+        composeTestRule.onNodeWithText("CREATE LOBBY").assertExists()
     }
 
     @Test
@@ -96,7 +96,7 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Bereit fuer", substring = true).assertExists()
+        composeTestRule.onNodeWithText("Ready for", substring = true).assertExists()
     }
 
     @Test

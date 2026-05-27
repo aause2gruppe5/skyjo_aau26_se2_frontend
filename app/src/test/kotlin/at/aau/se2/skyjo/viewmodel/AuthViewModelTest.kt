@@ -87,7 +87,7 @@ class AuthViewModelTest {
         viewModel.submit()
 
         assertEquals(0, api.loginCalls)
-        assertTrue(viewModel.state.value.errorMessage.orEmpty().contains("Passwort"))
+        assertTrue(viewModel.state.value.errorMessage.orEmpty().contains("Password"))
     }
 
     @Test

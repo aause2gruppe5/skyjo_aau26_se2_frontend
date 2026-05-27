@@ -220,7 +220,7 @@ fun SkyjoDrawerContent(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Account aktiv",
+                    text = "Account active",
                     style = MaterialTheme.typography.bodySmall,
                     color = PrimaryGreen,
                 )

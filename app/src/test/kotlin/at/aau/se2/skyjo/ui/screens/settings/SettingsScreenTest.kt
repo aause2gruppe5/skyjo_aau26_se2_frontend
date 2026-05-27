@@ -57,7 +57,7 @@ class SettingsScreenTest {
                 SettingsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Session sicher gespeichert").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Session securely stored").assertIsDisplayed()
     }
 
     // Items below the fold in the scrollable column use assertExists() instead of assertIsDisplayed()

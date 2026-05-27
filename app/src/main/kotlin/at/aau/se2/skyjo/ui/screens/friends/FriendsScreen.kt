@@ -75,14 +75,14 @@ fun FriendsScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("User suchen") },
+                placeholder = { Text("Search users") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             if (searchResults.isNotEmpty()) {
-                SectionCard(title = "Suche") {
+                SectionCard(title = "Search") {
                     searchResults.forEach { user ->
                         SearchRow(user = user, onSendRequest = onSendRequest)
                     }
@@ -90,7 +90,7 @@ fun FriendsScreen(
             }
 
             if (incomingRequests.isNotEmpty()) {
-                SectionCard(title = "Anfragen") {
+                SectionCard(title = "Requests") {
                     incomingRequests.forEach { request ->
                         RequestRow(request, onAcceptRequest, onDeclineRequest)
                     }
@@ -98,16 +98,16 @@ fun FriendsScreen(
             }
 
             if (lobbyInvites.isNotEmpty()) {
-                SectionCard(title = "Lobby Einladungen") {
+                SectionCard(title = "Lobby Invites") {
                     lobbyInvites.forEach { invite ->
                         InviteRow(invite, onAcceptInvite, onDeclineInvite)
                     }
                 }
             }
 
-            SectionCard(title = "Freunde") {
+            SectionCard(title = "Your Friends") {
                 if (friends.isEmpty()) {
-                    Text("Noch keine Freunde", color = MutedText)
+                    Text("No friends yet", color = MutedText)
                 } else {
                     friends.forEach { friend ->
                         FriendRow(friend, showInvite = activeLobbyId != null, onInviteFriend = onInviteFriend)
@@ -154,9 +154,9 @@ private fun SearchRow(user: SocialUserDto, onSendRequest: (String) -> Unit) {
         Text(user.username, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
         when (user.relationshipStatus) {
             RelationshipStatus.NONE -> ActionPill("Add") { onSendRequest(user.userId) }
-            RelationshipStatus.FRIENDS -> Text("Freund", color = MutedText)
-            RelationshipStatus.INCOMING_REQUEST -> Text("Anfrage offen", color = MutedText)
-            RelationshipStatus.OUTGOING_REQUEST -> Text("Gesendet", color = MutedText)
+            RelationshipStatus.FRIENDS -> Text("Friend", color = MutedText)
+            RelationshipStatus.INCOMING_REQUEST -> Text("Request pending", color = MutedText)
+            RelationshipStatus.OUTGOING_REQUEST -> Text("Sent", color = MutedText)
         }
     }
 }

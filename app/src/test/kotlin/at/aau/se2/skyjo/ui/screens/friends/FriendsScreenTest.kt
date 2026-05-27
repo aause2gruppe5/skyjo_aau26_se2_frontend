@@ -53,7 +53,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Freunde").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Your Friends").assertIsDisplayed()
     }
 
     @Test
@@ -63,7 +63,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("User suchen").assertExists()
+        composeTestRule.onNodeWithText("Search users").assertExists()
     }
 
     @Test
@@ -73,7 +73,7 @@ class FriendsScreenTest {
                 FriendsScreen(onNavigate = {})
             }
         }
-        composeTestRule.onNodeWithText("Noch keine Freunde").assertIsDisplayed()
+        composeTestRule.onNodeWithText("No friends yet").assertIsDisplayed()
     }
 
     @Test
@@ -132,8 +132,8 @@ class FriendsScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Anfragen").assertExists()
-        composeTestRule.onNodeWithText("Lobby Einladungen").assertExists()
+        composeTestRule.onNodeWithText("Requests").assertExists()
+        composeTestRule.onNodeWithText("Lobby Invites").assertExists()
         composeTestRule.onNodeWithText("Accept").assertExists()
         composeTestRule.onNodeWithText("Join").assertExists()
         composeTestRule.onNodeWithText("Code ABC123").assertExists()
@@ -155,9 +155,9 @@ class FriendsScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Offline").assertExists()
-        composeTestRule.onNodeWithText("Freund").assertExists()
-        composeTestRule.onNodeWithText("Anfrage offen").assertExists()
-        composeTestRule.onNodeWithText("Gesendet").assertExists()
+        composeTestRule.onNodeWithText("Friend").assertExists()
+        composeTestRule.onNodeWithText("Request pending").assertExists()
+        composeTestRule.onNodeWithText("Sent").assertExists()
     }
 
     @Test

@@ -45,7 +45,7 @@ fun LeaderboardScreen(
             Text("Leaderboard", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             if (entries.isEmpty()) {
                 SkyjoCard {
-                    Text("Noch keine Spiele im Leaderboard", color = MutedText)
+                    Text("No games on the leaderboard yet", color = MutedText)
                 }
             } else {
                 entries.forEach { entry ->
@@ -53,7 +53,7 @@ fun LeaderboardScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
                                 Text("#${entry.rank} ${entry.username}", fontWeight = FontWeight.Bold)
-                                Text("${entry.gamesPlayed} Spiele - ${entry.wins} Wins", color = MutedText)
+                                Text("${entry.gamesPlayed} Games - ${entry.wins} Wins", color = MutedText)
                             }
                             Text("%.1f".format(entry.averageScore), color = PrimaryGreen, fontWeight = FontWeight.Bold)
                         }

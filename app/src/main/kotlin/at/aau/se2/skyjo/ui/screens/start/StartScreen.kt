@@ -91,7 +91,7 @@ fun StartScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "Bereit fuer die naechste Lobby",
+                            text = "Ready for the next lobby",
                             style = MaterialTheme.typography.bodySmall,
                             color = MutedText,
                         )
@@ -122,7 +122,7 @@ fun StartScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 PrimaryButton(
-                    text = "LOBBY ERSTELLEN",
+                    text = "CREATE LOBBY",
                     onClick = onCreateLobby,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -135,7 +135,7 @@ fun StartScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 PrimaryButton(
-                    text = "MIT CODE BEITRETEN",
+                    text = "JOIN WITH CODE",
                     onClick = { onJoinLobby(joinCode) },
                     enabled = joinCode.isNotBlank(),
                 )

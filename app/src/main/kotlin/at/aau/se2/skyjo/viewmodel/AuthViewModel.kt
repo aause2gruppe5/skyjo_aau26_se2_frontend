@@ -68,11 +68,11 @@ class AuthViewModel(
         val username = snapshot.username.trim()
         val password = snapshot.password
         if (!USERNAME_PATTERN.matches(username)) {
-            _state.update { it.copy(errorMessage = "Username: 3-20 Zeichen, nur Buchstaben, Zahlen und _") }
+            _state.update { it.copy(errorMessage = "Username: 3-20 characters, letters, numbers, and _ only") }
             return
         }
         if (password.length < 8) {
-            _state.update { it.copy(errorMessage = "Passwort muss mindestens 8 Zeichen haben") }
+            _state.update { it.copy(errorMessage = "Password must be at least 8 characters long") }
             return
         }
 
@@ -98,7 +98,7 @@ class AuthViewModel(
                 _state.update {
                     it.copy(
                         isSubmitting = false,
-                        errorMessage = error.readableMessage("Login fehlgeschlagen"),
+                        errorMessage = error.readableMessage("Login failed"),
                     )
                 }
             }

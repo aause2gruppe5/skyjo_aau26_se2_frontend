@@ -293,7 +293,7 @@ class GameViewModelTest {
 
         viewModel.joinLobbyByCode("Alice", "bad")
 
-        assertEquals("Lobby konnte nicht betreten werden", viewModel.lobbyError.value)
+        assertEquals("Could not join lobby", viewModel.lobbyError.value)
     }
 
     @Test
@@ -330,7 +330,7 @@ class GameViewModelTest {
 
         viewModel.acceptLobbyInvite("Alice", "invite-1")
 
-        assertEquals("Einladung konnte nicht angenommen werden", viewModel.lobbyError.value)
+        assertEquals("Could not accept invite", viewModel.lobbyError.value)
     }
 
     @Test

@@ -48,7 +48,7 @@ fun AuthScreen(
             fontWeight = FontWeight.ExtraBold,
         )
         Text(
-            text = if (state.isRegisterMode) "Account erstellen" else "Einloggen",
+            text = if (state.isRegisterMode) "Create account" else "Log in",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -79,7 +79,7 @@ fun AuthScreen(
             OutlinedTextField(
                 value = state.password,
                 onValueChange = onPasswordChange,
-                label = { Text("Passwort") },
+                label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
@@ -96,7 +96,7 @@ fun AuthScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
             PrimaryButton(
-                text = if (state.isRegisterMode) "REGISTRIEREN" else "LOGIN",
+                text = if (state.isRegisterMode) "REGISTER" else "LOGIN",
                 onClick = onSubmit,
                 enabled = !state.isSubmitting,
             )
@@ -105,7 +105,7 @@ fun AuthScreen(
                 enabled = !state.isSubmitting,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
-                Text(if (state.isRegisterMode) "Ich habe schon einen Account" else "Neuen Account erstellen")
+                Text(if (state.isRegisterMode) "I already have an account" else "Create a new account")
             }
         }
     }

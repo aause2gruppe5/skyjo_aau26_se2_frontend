@@ -155,7 +155,7 @@ class AppNavHostTest {
         composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("Noch keine Freunde").assertExists()
+        composeTestRule.onNodeWithText("No friends yet").assertExists()
     }
 
     @Test
@@ -175,7 +175,7 @@ class AppNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("Noch keine Spiele im Leaderboard").assertExists()
+        composeTestRule.onNodeWithText("No games on the leaderboard yet").assertExists()
     }
 
     @Test
@@ -225,7 +225,7 @@ class AppNavHostTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Verbindung unterbrochen, versuche erneut...").assertExists()
+        composeTestRule.onNodeWithText("Connection interrupted, retrying...").assertExists()
     }
 
     @Test
@@ -324,7 +324,7 @@ class AppNavHostTest {
     fun appNavHost_game_screen_play_swap_own_cards_reaches_viewmodel() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
 
-        // WICHTIG: Überschreibe den Typ der Aktionskarte!
+        // Important: override the action card type.
         fakeGameState.value = makeGameState(actionCardKind = "SWAP_OWN_CARDS")
         viewModel.connect("Alice")
 
@@ -335,39 +335,38 @@ class AppNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        // 1. In den GameScreen navigieren
+        // 1. Navigate to the game screen
         fakeHasRejoinedGame.value = true
         composeTestRule.waitForIdle()
 
-        // 2. Aktionskarte auswählen
+        // 2. Select action card
         composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 3. Erste eigene Karte auswählen
+        // 3. Select first own card
         composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 4. Zweite eigene Karte auswählen
+        // 4. Select second own card
         composeTestRule.onAllNodesWithText("3").onLast().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 5. Verifizieren
+        // 5. Verify
         verify {
             mockGameClient.sendAction(
                 match { action ->
-                    // Achte darauf, dass dies exakt mit deinem GameAction-Modell übereinstimmt.
-                    // Wenn dein ViewModel für SwapOwnCards z.B. einen anderen type-String schickt,
-                    // musst du das hier anpassen.
+                    // Make sure this matches the GameAction model exactly.
+                    // Adjust this if the ViewModel sends a different type string for SwapOwnCards.
                     action.type == "PLAY_ACTION_CARD" &&
                             action.actionCardIndex == 0
                 }
             )
         }
     }
-    //hilfsfunktion
+    // Helper function
     private fun makeGameState(
         myPlayerId: String = "p1",
-        actionCardKind: String = "PLAYER_SWAP" // Standardwert für alte Tests beibehalten
+        actionCardKind: String = "PLAYER_SWAP" // Keep the default value for older tests
     ) = GameUpdateMessage(
         phase = "AWAITING_DRAW",
         currentPlayerId = myPlayerId,

@@ -102,7 +102,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                text = "Session sicher gespeichert",
+                                text = "Session securely stored",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MutedText,
                             )
@@ -171,7 +171,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            text = "Aktiv",
+                            text = "Active",
                             style = MaterialTheme.typography.labelMedium,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.SemiBold,

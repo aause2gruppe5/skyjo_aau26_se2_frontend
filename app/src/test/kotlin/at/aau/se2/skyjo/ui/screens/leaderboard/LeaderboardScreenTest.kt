@@ -28,7 +28,7 @@ class LeaderboardScreenTest {
         }
 
         composeTestRule.onAllNodesWithText("Leaderboard")[0].assertIsDisplayed()
-        composeTestRule.onNodeWithText("Noch keine Spiele im Leaderboard").assertIsDisplayed()
+        composeTestRule.onNodeWithText("No games on the leaderboard yet").assertIsDisplayed()
     }
 
     @Test
@@ -54,7 +54,7 @@ class LeaderboardScreenTest {
         }
 
         composeTestRule.onNodeWithText("#1 Alice").assertIsDisplayed()
-        composeTestRule.onNodeWithText("4 Spiele - 3 Wins").assertIsDisplayed()
+        composeTestRule.onNodeWithText("4 Games - 3 Wins").assertIsDisplayed()
         composeTestRule.onNodeWithText("7.5").assertIsDisplayed()
     }
 }

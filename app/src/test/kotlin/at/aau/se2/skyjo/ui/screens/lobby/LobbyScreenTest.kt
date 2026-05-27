@@ -106,14 +106,14 @@ class LobbyScreenTest {
             SkyjoTheme {
                 LobbyScreen(
                     joinCode = "ABC123",
-                    errorMessage = "Lobby konnte nicht betreten werden",
+                    errorMessage = "Could not join lobby",
                     onStartGame = {},
                     onBack = {},
                 )
             }
         }
         composeTestRule.onNodeWithText("Join Code: ABC123").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Lobby konnte nicht betreten werden").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Could not join lobby").assertIsDisplayed()
     }
 
     @Test

@@ -126,7 +126,7 @@ class GameViewModel(
                     ),
                 )
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Lobby konnte nicht erstellt werden"
+                _lobbyError.value = error.message ?: "Could not create lobby"
             }
         }
     }
@@ -148,7 +148,7 @@ class GameViewModel(
                     ),
                 )
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Lobby konnte nicht betreten werden"
+                _lobbyError.value = error.message ?: "Could not join lobby"
             }
         }
     }
@@ -172,7 +172,7 @@ class GameViewModel(
                     )
                 }
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Einladung konnte nicht angenommen werden"
+                _lobbyError.value = error.message ?: "Could not accept invite"
             }
         }
     }

@@ -248,7 +248,7 @@ fun AppNavHost(
 
         if (!isConnected && myPlayerName.isNotEmpty() && (currentLobbyState != null || currentGameState != null)) {
             Text(
-                text = "Verbindung unterbrochen, versuche erneut...",
+                text = "Connection interrupted, retrying...",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
                 textAlign = TextAlign.Center,
