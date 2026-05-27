@@ -159,8 +159,12 @@ class GameStompClient(context: Context) : GameRealtimeClient {
             flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
-                    msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
-                    msg.gameId?.let { subscribeGameTopic(it) }
+                    if (msg.gameOver) {
+                        clearStoredGame()
+                    } else {
+                        msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                        msg.gameId?.let { subscribeGameTopic(it) }
+                    }
                     _gameState.value = msg
                 } catch (e: Exception) {
                     Log.e(TAG, "Game parse error: ${e.message}")
@@ -194,10 +198,15 @@ class GameStompClient(context: Context) : GameRealtimeClient {
             flow.collect { jsonText ->
                 try {
                     val msg = json.decodeFromString<GameUpdateMessage>(jsonText)
-                    msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
-                    msg.gameId?.let { subscribeGameTopic(it) }
                     _gameState.value = msg
-                    _hasRejoinedGame.value = true
+                    if (msg.isRejoinable()) {
+                        msg.gameId?.let { prefs.edit().putString(PREF_GAME_ID, it).apply() }
+                        msg.gameId?.let { subscribeGameTopic(it) }
+                        _hasRejoinedGame.value = true
+                    } else {
+                        clearStoredGame()
+                        _hasRejoinedGame.value = false
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Rejoin state parse error: ${e.message}")
                 }
@@ -327,10 +336,14 @@ class GameStompClient(context: Context) : GameRealtimeClient {
 
     companion object {
         private const val TAG = "GameStompClient"
+        private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
         private val SERVER_URL = SkyjoApiClient.WS_BASE_URL
         private const val PREF_GAME_ID = "game_id"
     }
 
     private fun ticketUrl(ticket: String): String =
         "$SERVER_URL?ticket=${URLEncoder.encode(ticket, "UTF-8")}"
+
+    private fun GameUpdateMessage.isRejoinable(): Boolean =
+        !gameOver && phase != PHASE_ROUND_FINISHED
 }

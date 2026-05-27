@@ -533,6 +533,56 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `rejoin state does not set hasRejoinedGame for round finished game JSON`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val finishedGameJson = """
+            {
+                "phase": "ROUND_FINISHED",
+                "currentPlayerId": null,
+                "roundNumber": 2,
+                "gameOver": false,
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        topicFlow.emit(finishedGameJson)
+        delay(500)
+
+        assert(!client.hasRejoinedGame.value) { "Expected finished rejoin JSON not to trigger rejoin navigation" }
+    }
+
+    @Test
+    fun `game over update clears stored game id`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val gameOverJson = """
+            {
+                "phase": "ROUND_FINISHED",
+                "currentPlayerId": null,
+                "roundNumber": 2,
+                "gameOver": true,
+                "gameId": "game-123",
+                "totalScores": [],
+                "players": [],
+                "disconnectedPlayers": []
+            }
+        """.trimIndent()
+
+        topicFlow.emit(gameOverJson)
+        delay(500)
+
+        verify(atLeast = 1) { mockEditor.remove("game_id") }
+        verify(atLeast = 1) { mockEditor.apply() }
+    }
+
+    @Test
     fun `game invalid JSON is handled without crash`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
