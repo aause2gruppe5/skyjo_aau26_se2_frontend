@@ -146,10 +146,10 @@ class CommonComponentsTest {
     fun badgeChip_shows_text() {
         composeTestRule.setContent {
             SkyjoTheme {
-                BadgeChip(text = "Pro Tier")
+                BadgeChip(text = "Status")
             }
         }
-        composeTestRule.onNodeWithText("Pro Tier").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Status").assertIsDisplayed()
     }
 
     // ── AvatarBadge ───────────────────────────────────────────────────────

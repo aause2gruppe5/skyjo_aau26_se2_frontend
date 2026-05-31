@@ -23,18 +23,29 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.ui.screens.auth.AuthScreen
 import at.aau.se2.skyjo.ui.screens.friends.FriendsScreen
 import at.aau.se2.skyjo.ui.screens.game.GameScreen
+import at.aau.se2.skyjo.ui.screens.leaderboard.LeaderboardScreen
 import at.aau.se2.skyjo.ui.screens.lobby.LobbyScreen
 import at.aau.se2.skyjo.ui.screens.settings.SettingsScreen
 import at.aau.se2.skyjo.ui.screens.start.StartScreen
+import at.aau.se2.skyjo.viewmodel.AuthViewModel
+import at.aau.se2.skyjo.viewmodel.AuthUiState
+import at.aau.se2.skyjo.viewmodel.FriendsUiState
+import at.aau.se2.skyjo.viewmodel.FriendsViewModel
 import at.aau.se2.skyjo.viewmodel.GameViewModel
+import at.aau.se2.skyjo.viewmodel.LeaderboardUiState
+import at.aau.se2.skyjo.viewmodel.LeaderboardViewModel
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    authViewModel: AuthViewModel? = null,
     gameViewModel: GameViewModel,
+    friendsViewModel: FriendsViewModel? = null,
+    leaderboardViewModel: LeaderboardViewModel? = null,
 ) {
     val navigateMain: (AppDestination) -> Unit = { dest ->
         navController.navigate(dest.route) {
@@ -47,6 +58,15 @@ fun AppNavHost(
     val isConnected by gameViewModel.isConnected.collectAsState()
     val myPlayerName by gameViewModel.myPlayerName.collectAsState()
     val hasRejoinedGame by gameViewModel.hasRejoinedGame.collectAsState()
+    val currentLobbyState by gameViewModel.lobbyState.collectAsState()
+    val currentGameState by gameViewModel.gameState.collectAsState()
+    val fallbackAuthState = remember { mutableStateOf(AuthUiState(isCheckingSession = false, isAuthenticated = true)) }
+    val fallbackFriendsState = remember { mutableStateOf(FriendsUiState()) }
+    val fallbackLeaderboardState = remember { mutableStateOf(LeaderboardUiState()) }
+    val authState = authViewModel?.state?.collectAsState()?.value ?: fallbackAuthState.value
+    val homeStats by gameViewModel.homeStats.collectAsState()
+    val friendsState = friendsViewModel?.state?.collectAsState()?.value ?: fallbackFriendsState.value
+    val leaderboardState = leaderboardViewModel?.state?.collectAsState()?.value ?: fallbackLeaderboardState.value
 
     LaunchedEffect(hasRejoinedGame) {
         if (hasRejoinedGame && navController.currentDestination?.route != AppDestination.Game.route) {
@@ -56,24 +76,73 @@ fun AppNavHost(
         }
     }
 
+    LaunchedEffect(Unit) {
+        gameViewModel.incomingInvites.collect { invite ->
+            friendsViewModel?.addLobbyInvite(invite)
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
-            startDestination = AppDestination.Start.route,
+            startDestination = AppDestination.Auth.route,
             modifier = Modifier.fillMaxSize(),
         ) {
+            composable(AppDestination.Auth.route) {
+                LaunchedEffect(authState.isAuthenticated) {
+                    if (authState.isAuthenticated) {
+                        authState.user?.username?.let(gameViewModel::setAuthenticatedUsername)
+                        navController.navigate(AppDestination.Start.route) {
+                            popUpTo(AppDestination.Auth.route) { inclusive = true }
+                        }
+                    }
+                }
+                AuthScreen(
+                    state = authState,
+                    onUsernameChange = { authViewModel?.updateUsername(it) },
+                    onPasswordChange = { authViewModel?.updatePassword(it) },
+                    onSubmit = { authViewModel?.submit() },
+                    onToggleMode = { authViewModel?.toggleMode() },
+                )
+            }
+
             composable(AppDestination.Start.route) {
+                val username = authState.user?.username.orEmpty()
+                LaunchedEffect(username) {
+                    if (username.isNotBlank()) {
+                        gameViewModel.setAuthenticatedUsername(username)
+                        gameViewModel.refreshHomeStats()
+                    }
+                }
                 StartScreen(
                     onPlayClicked = { playerName ->
                         gameViewModel.connect(playerName)
                         navController.navigate(AppDestination.Lobby.route)
                     },
                     onNavigate = navigateMain,
+                    username = username,
+                    stats = homeStats,
+                    onCreateLobby = {
+                        gameViewModel.createLobby(username)
+                        navController.navigate(AppDestination.Lobby.route)
+                    },
+                    onJoinLobby = { code ->
+                        gameViewModel.joinLobbyByCode(username, code)
+                        navController.navigate(AppDestination.Lobby.route)
+                    },
+                    onLogout = {
+                        authViewModel?.logout()
+                        gameViewModel.leaveLobby()
+                        navController.navigate(AppDestination.Auth.route) {
+                            popUpTo(AppDestination.Start.route) { inclusive = true }
+                        }
+                    },
                 )
             }
 
             composable(AppDestination.Lobby.route) {
                 val lobbyState by gameViewModel.lobbyState.collectAsState()
+                val lobbyError by gameViewModel.lobbyError.collectAsState()
                 val isHost by gameViewModel.isHost.collectAsState()
 
                 LaunchedEffect(lobbyState?.status) {
@@ -88,6 +157,8 @@ fun AppNavHost(
                     players = lobbyState?.players ?: emptyList(),
                     maxPlayers = lobbyState?.maxPlayers ?: 6,
                     isHost = isHost,
+                    joinCode = lobbyState?.joinCode,
+                    errorMessage = lobbyError,
                     onStartGame = { maxRounds ->
                         gameViewModel.startGame(maxRounds = maxRounds)
                     },
@@ -138,7 +209,36 @@ fun AppNavHost(
             }
 
             composable(AppDestination.Friends.route) {
-                FriendsScreen(onNavigate = navigateMain)
+                LaunchedEffect(Unit) { friendsViewModel?.refresh() }
+                FriendsScreen(
+                    onNavigate = navigateMain,
+                    friends = friendsState.friends,
+                    incomingRequests = friendsState.incomingRequests,
+                    lobbyInvites = friendsState.lobbyInvites,
+                    searchResults = friendsState.searchResults,
+                    query = friendsState.query,
+                    activeLobbyId = gameViewModel.lobbyState.collectAsState().value?.lobbyId,
+                    onQueryChange = { friendsViewModel?.updateSearch(it) },
+                    onSendRequest = { friendsViewModel?.sendFriendRequest(it) },
+                    onAcceptRequest = { friendsViewModel?.acceptRequest(it) },
+                    onDeclineRequest = { friendsViewModel?.declineRequest(it) },
+                    onInviteFriend = { friendUserId ->
+                        friendsViewModel?.inviteFriend(gameViewModel.lobbyState.value?.lobbyId, friendUserId)
+                    },
+                    onAcceptInvite = { inviteId ->
+                        friendsViewModel?.removeLobbyInvite(inviteId)
+                        gameViewModel.acceptLobbyInvite(username = authState.user?.username.orEmpty(), inviteId = inviteId)
+                        navController.navigate(AppDestination.Lobby.route)
+                    },
+                    onDeclineInvite = { inviteId ->
+                        friendsViewModel?.declineLobbyInvite(inviteId)
+                    },
+                )
+            }
+
+            composable(AppDestination.Leaderboard.route) {
+                LaunchedEffect(Unit) { leaderboardViewModel?.refresh() }
+                LeaderboardScreen(onNavigate = navigateMain, entries = leaderboardState.entries)
             }
 
             composable(AppDestination.Settings.route) {
@@ -146,9 +246,9 @@ fun AppNavHost(
             }
         }
 
-        if (!isConnected && myPlayerName.isNotEmpty()) {
+        if (!isConnected && myPlayerName.isNotEmpty() && (currentLobbyState != null || currentGameState != null)) {
             Text(
-                text = "Verbindung unterbrochen, versuche erneut…",
+                text = "Connection interrupted, retrying...",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
                 textAlign = TextAlign.Center,

@@ -10,6 +10,8 @@ data class LobbyPlayer(
 
 @Serializable
 data class LobbyUpdateMessage(
+    val lobbyId: String? = null,
+    val joinCode: String? = null,
     val players: List<LobbyPlayer>,
     val status: String,
     val maxPlayers: Int

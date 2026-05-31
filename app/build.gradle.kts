@@ -37,9 +37,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "HTTP_BASE_URL", "\"http://se2-demo.aau.at:53209\"")
+        buildConfigField("String", "WS_BASE_URL", "\"ws://se2-demo.aau.at:53209/ws\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "HTTP_BASE_URL", "\"http://10.0.2.2:8080\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://10.0.2.2:8080/ws\"")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(
@@ -78,6 +84,7 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+        buildConfig = true
     }
 }
 
@@ -140,6 +147,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.navigation:navigation-compose:$navigationComposeVersion")
+    implementation("androidx.security:security-crypto:1.1.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // WebSocket

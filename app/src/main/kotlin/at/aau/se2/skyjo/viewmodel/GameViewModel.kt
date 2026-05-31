@@ -6,18 +6,35 @@ import androidx.lifecycle.viewModelScope
 import at.aau.se2.skyjo.model.ActionCardParameters
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.GameAction
+import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.model.PlayActionCardCommand
+import at.aau.se2.skyjo.model.stats.PlayerStatsDto
+import at.aau.se2.skyjo.network.GameRealtimeClient
 import at.aau.se2.skyjo.network.GameStompClient
+import at.aau.se2.skyjo.network.SkyjoApi
+import at.aau.se2.skyjo.network.SkyjoApiClient
+import at.aau.se2.skyjo.session.EncryptedSessionStore
+import at.aau.se2.skyjo.session.SessionStore
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class GameViewModel(application: Application) : AndroidViewModel(application) {
+class GameViewModel(
+    application: Application,
+    private val apiClient: SkyjoApi,
+    private val gameClient: GameRealtimeClient,
+) : AndroidViewModel(application) {
 
-    private val gameClient = GameStompClient(application)
+    constructor(application: Application) : this(application, EncryptedSessionStore(application))
+
+    private constructor(
+        application: Application,
+        sessionStore: SessionStore,
+    ) : this(application, SkyjoApiClient(sessionStore), GameStompClient(application))
 
     val lobbyState = gameClient.lobbyState
     val gameState = gameClient.gameState
     val actionCardResults = gameClient.actionCardResults
+    val incomingInvites = gameClient.incomingInvites
     val hasRejoinedGame = gameClient.hasRejoinedGame
     val errorMessage = gameClient.errorMessage
     val connectionError = gameClient.connectionError
@@ -26,8 +43,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _myPlayerName = MutableStateFlow("")
     val myPlayerName: StateFlow<String> = _myPlayerName.asStateFlow()
 
+    private val _homeStats = MutableStateFlow<PlayerStatsDto?>(null)
+    val homeStats: StateFlow<PlayerStatsDto?> = _homeStats.asStateFlow()
+
+    private val _lobbyError = MutableStateFlow<String?>(null)
+    val lobbyError: StateFlow<String?> = _lobbyError.asStateFlow()
+
     val isHost: StateFlow<Boolean> = combine(lobbyState, myPlayerName) { lobby, name ->
-        name.isNotEmpty() && lobby?.players?.firstOrNull()?.nickname == name
+        name.isNotEmpty() && lobby?.players?.find { it.nickname == name }?.isHost == true
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val myPlayerId: StateFlow<String?> = combine(gameState, myPlayerName) { game, name ->
@@ -47,7 +70,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 .collect {
                     val name = _myPlayerName.value
                     if (name.isNotEmpty()) {
-                        gameClient.reconnect(name)
+                        runCatching {
+                            val ticket = apiClient.createWebSocketTicket().ticket
+                            gameClient.connect(ticket = ticket, lobbyJoinCode = lobbyState.value?.joinCode)
+                            apiClient.currentLobby()?.let { lobby ->
+                                gameClient.applyLobbyState(
+                                    LobbyUpdateMessage(
+                                        lobbyId = lobby.lobbyId,
+                                        joinCode = lobby.joinCode,
+                                        players = lobby.players,
+                                        status = lobby.status,
+                                        maxPlayers = lobby.maxPlayers,
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
         }
@@ -61,11 +98,94 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAuthenticatedUsername(username: String) {
+        _myPlayerName.value = username
+    }
+
+    fun refreshHomeStats() {
+        viewModelScope.launch {
+            runCatching { apiClient.myStats() }
+                .onSuccess { _homeStats.value = it }
+        }
+    }
+
+    fun createLobby(username: String) {
+        _myPlayerName.value = username
+        viewModelScope.launch {
+            _lobbyError.value = null
+            runCatching {
+                val lobby = apiClient.createLobby()
+                connectToLobby(lobby.joinCode)
+                gameClient.applyLobbyState(
+                    LobbyUpdateMessage(
+                        lobbyId = lobby.lobbyId,
+                        joinCode = lobby.joinCode,
+                        players = lobby.players,
+                        status = lobby.status,
+                        maxPlayers = lobby.maxPlayers,
+                    ),
+                )
+            }.onFailure { error ->
+                _lobbyError.value = error.message ?: "Could not create lobby"
+            }
+        }
+    }
+
+    fun joinLobbyByCode(username: String, joinCode: String) {
+        _myPlayerName.value = username
+        viewModelScope.launch {
+            _lobbyError.value = null
+            runCatching {
+                val lobby = apiClient.joinLobby(joinCode)
+                connectToLobby(lobby.joinCode)
+                gameClient.applyLobbyState(
+                    LobbyUpdateMessage(
+                        lobbyId = lobby.lobbyId,
+                        joinCode = lobby.joinCode,
+                        players = lobby.players,
+                        status = lobby.status,
+                        maxPlayers = lobby.maxPlayers,
+                    ),
+                )
+            }.onFailure { error ->
+                _lobbyError.value = error.message ?: "Could not join lobby"
+            }
+        }
+    }
+
+    fun acceptLobbyInvite(username: String, inviteId: String) {
+        _myPlayerName.value = username
+        viewModelScope.launch {
+            runCatching {
+                val invite = apiClient.acceptLobbyInvite(inviteId)
+                val lobby = apiClient.currentLobby()
+                connectToLobby(invite.joinCode)
+                lobby?.let {
+                    gameClient.applyLobbyState(
+                        LobbyUpdateMessage(
+                            lobbyId = it.lobbyId,
+                            joinCode = it.joinCode,
+                            players = it.players,
+                            status = it.status,
+                            maxPlayers = it.maxPlayers,
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _lobbyError.value = error.message ?: "Could not accept invite"
+            }
+        }
+    }
+
     fun leaveLobby() {
-        gameClient.leaveLobby()
-        gameClient.clearStoredGame()
-        gameClient.disconnect()
-        _myPlayerName.value = ""
+        viewModelScope.launch {
+            lobbyState.value?.lobbyId?.let { lobbyId ->
+                runCatching { apiClient.leaveLobby(lobbyId) }
+            } ?: run { gameClient.leaveLobby() }
+            gameClient.clearStoredGame()
+            gameClient.disconnect()
+            _myPlayerName.value = ""
+        }
     }
 
     fun startGame(maxRounds: Int = 3, targetScore: Int = 100) =
@@ -152,5 +272,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         gameClient.close()
+    }
+
+    private suspend fun connectToLobby(joinCode: String) {
+        val ticket = apiClient.createWebSocketTicket().ticket
+        gameClient.connect(ticket = ticket, lobbyJoinCode = joinCode)
     }
 }

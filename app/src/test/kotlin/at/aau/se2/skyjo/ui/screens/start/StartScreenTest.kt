@@ -1,11 +1,9 @@
 package at.aau.se2.skyjo.ui.screens.start
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
@@ -31,11 +29,11 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("PLAY").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Lobby").assertIsDisplayed()
     }
 
     @Test
-    fun startScreen_shows_action_mode_label() {
+    fun startScreen_shows_authenticated_player_context() {
         composeTestRule.setContent {
             SkyjoTheme {
                 StartScreen(
@@ -44,11 +42,11 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("ACTION MODE").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Ready for the next lobby").assertIsDisplayed()
     }
 
     @Test
-    fun startScreen_shows_start_session_button() {
+    fun startScreen_shows_create_lobby_button() {
         composeTestRule.setContent {
             SkyjoTheme {
                 StartScreen(
@@ -57,11 +55,11 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("START NEW SESSION").assertExists()
+        composeTestRule.onNodeWithText("CREATE LOBBY").assertExists()
     }
 
     @Test
-    fun startScreen_shows_name_input_field() {
+    fun startScreen_shows_join_code_input_field() {
         composeTestRule.setContent {
             SkyjoTheme {
                 StartScreen(
@@ -70,7 +68,7 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Your Name").assertExists()
+        composeTestRule.onNodeWithText("Join Code").assertExists()
     }
 
     @Test
@@ -89,7 +87,7 @@ class StartScreenTest {
     }
 
     @Test
-    fun startScreen_shows_challenge_subtitle() {
+    fun startScreen_shows_lobby_subtitle() {
         composeTestRule.setContent {
             SkyjoTheme {
                 StartScreen(
@@ -98,20 +96,7 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Challenge your friends", substring = true).assertExists()
-    }
-
-    @Test
-    fun startScreen_shows_online_player_count() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                StartScreen(
-                    onPlayClicked = {},
-                    onNavigate = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("1,284 online").assertExists()
+        composeTestRule.onNodeWithText("Ready for", substring = true).assertExists()
     }
 
     @Test
@@ -124,8 +109,8 @@ class StartScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithText("Total Wins").assertExists()
-        composeTestRule.onNodeWithText("Win Rate").assertExists()
+        composeTestRule.onNodeWithText("Wins").assertExists()
+        composeTestRule.onNodeWithText("Games").assertExists()
     }
 
     @Test
@@ -138,21 +123,7 @@ class StartScreenTest {
                 )
             }
         }
-        // "3 online" subtitle is unique to the Friends FeatureCard
-        composeTestRule.onNodeWithText("3 online").assertExists()
-    }
-
-    @Test
-    fun startScreen_shows_player_level() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                StartScreen(
-                    onPlayClicked = {},
-                    onNavigate = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Level 42").assertExists()
+        composeTestRule.onAllNodesWithText("Friends")[0].assertExists()
     }
 
     @Test

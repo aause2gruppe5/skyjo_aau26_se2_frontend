@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
@@ -20,7 +21,10 @@ import at.aau.se2.skyjo.model.GameUpdateMessage
 import at.aau.se2.skyjo.model.LobbyPlayer
 import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.model.TotalScore
-import at.aau.se2.skyjo.network.GameStompClient
+import at.aau.se2.skyjo.model.auth.WsTicketResponse
+import at.aau.se2.skyjo.model.social.LobbyInviteDto
+import at.aau.se2.skyjo.network.GameRealtimeClient
+import at.aau.se2.skyjo.network.SkyjoApi
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.viewmodel.GameViewModel
 import io.mockk.clearAllMocks
@@ -28,7 +32,6 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.mockkConstructor
 import io.mockk.runs
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -54,10 +57,13 @@ class AppNavHostTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val mockApplication = mockk<Application>(relaxed = true)
+    private val mockApi = mockk<SkyjoApi>(relaxed = true)
+    private val mockGameClient = mockk<GameRealtimeClient>(relaxed = true)
 
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
     private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
+    private val fakeIncomingInvites = MutableSharedFlow<LobbyInviteDto>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
     private val fakeIsConnected = MutableStateFlow(false)
@@ -66,23 +72,32 @@ class AppNavHostTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        mockkConstructor(GameStompClient::class)
-        every { anyConstructed<GameStompClient>().lobbyState } returns fakeLobbyState
-        every { anyConstructed<GameStompClient>().gameState } returns fakeGameState
-        every { anyConstructed<GameStompClient>().actionCardResults } returns fakeActionCardResults
-        every { anyConstructed<GameStompClient>().errorMessage } returns fakeErrorMessage
-        every { anyConstructed<GameStompClient>().connectionError } returns fakeConnectionError
-        every { anyConstructed<GameStompClient>().isConnected } returns fakeIsConnected
-        every { anyConstructed<GameStompClient>().hasRejoinedGame } returns fakeHasRejoinedGame
-        coEvery { anyConstructed<GameStompClient>().connect() } just runs
-        coEvery { anyConstructed<GameStompClient>().reconnect(any()) } just runs
-        every { anyConstructed<GameStompClient>().joinLobby(any(), any()) } just runs
-        every { anyConstructed<GameStompClient>().leaveLobby() } just runs
-        every { anyConstructed<GameStompClient>().startGame(any(), any()) } just runs
-        every { anyConstructed<GameStompClient>().sendAction(any()) } just runs
-        every { anyConstructed<GameStompClient>().playActionCard(any()) } just runs
-        every { anyConstructed<GameStompClient>().disconnect() } just runs
-        every { anyConstructed<GameStompClient>().close() } just runs
+        fakeLobbyState.value = null
+        fakeGameState.value = null
+        fakeConnectionError.value = null
+        fakeIsConnected.value = false
+        fakeHasRejoinedGame.value = false
+
+        every { mockGameClient.lobbyState } returns fakeLobbyState
+        every { mockGameClient.gameState } returns fakeGameState
+        every { mockGameClient.actionCardResults } returns fakeActionCardResults
+        every { mockGameClient.incomingInvites } returns fakeIncomingInvites
+        every { mockGameClient.errorMessage } returns fakeErrorMessage
+        every { mockGameClient.connectionError } returns fakeConnectionError
+        every { mockGameClient.isConnected } returns fakeIsConnected
+        every { mockGameClient.hasRejoinedGame } returns fakeHasRejoinedGame
+        coEvery { mockGameClient.connect() } just runs
+        coEvery { mockGameClient.connect(any(), any()) } just runs
+        coEvery { mockGameClient.reconnect(any()) } just runs
+        coEvery { mockApi.createWebSocketTicket() } returns WsTicketResponse("ticket", Long.MAX_VALUE)
+        every { mockGameClient.joinLobby(any(), any()) } just runs
+        every { mockGameClient.leaveLobby() } just runs
+        every { mockGameClient.startGame(any(), any()) } just runs
+        every { mockGameClient.sendAction(any()) } just runs
+        every { mockGameClient.playActionCard(any()) } just runs
+        every { mockGameClient.clearStoredGame() } just runs
+        every { mockGameClient.disconnect() } just runs
+        every { mockGameClient.close() } just runs
     }
 
     @After
@@ -118,7 +133,7 @@ class AppNavHostTest {
 
     @Test
     fun appNavHost_renders_start_screen_by_default() {
-        val viewModel = GameViewModel(mockApplication)
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         composeTestRule.setContent {
             SkyjoTheme {
                 AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
@@ -128,8 +143,94 @@ class AppNavHostTest {
     }
 
     @Test
+    fun appNavHost_navigates_to_friends_from_start_screen() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("No friends yet").assertExists()
+    }
+
+    @Test
+    fun appNavHost_renders_leaderboard_route() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.Leaderboard.route)
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("No games on the leaderboard yet").assertExists()
+    }
+
+    @Test
+    fun appNavHost_renders_lobby_route_with_current_lobby_state() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.setAuthenticatedUsername("Alice")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.Lobby.route)
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Join Code: ABC123").assertExists()
+        composeTestRule.onNodeWithText("1 / 6").assertExists()
+    }
+
+    @Test
+    fun appNavHost_shows_connection_banner_for_active_disconnected_session() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        viewModel.setAuthenticatedUsername("Alice")
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Alice", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+
+        composeTestRule.onNodeWithText("Connection interrupted, retrying...").assertExists()
+    }
+
+    @Test
     fun appNavHost_navigates_to_game_screen_when_lobby_status_is_in_game() {
-        val viewModel = GameViewModel(mockApplication)
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         fakeGameState.value = makeGameState()
 
         composeTestRule.setContent {
@@ -153,7 +254,7 @@ class AppNavHostTest {
 
     @Test
     fun appNavHost_game_screen_discard_action_card_reaches_viewmodel() {
-        val viewModel = GameViewModel(mockApplication)
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         fakeGameState.value = makeGameState()
         viewModel.connect("Alice")
 
@@ -173,7 +274,7 @@ class AppNavHostTest {
         composeTestRule.waitForIdle()
 
         verify {
-            anyConstructed<GameStompClient>().sendAction(
+            mockGameClient.sendAction(
                 GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 0)
             )
         }
@@ -181,7 +282,7 @@ class AppNavHostTest {
 
     @Test
     fun appNavHost_game_screen_play_swap_card_reaches_viewmodel() {
-        val viewModel = GameViewModel(mockApplication)
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         fakeGameState.value = makeGameState()
         viewModel.connect("Alice")
 
@@ -213,7 +314,7 @@ class AppNavHostTest {
         composeTestRule.waitForIdle()
 
         verify {
-            anyConstructed<GameStompClient>().sendAction(
+            mockGameClient.sendAction(
                 match { it.type == "PLAY_ACTION_CARD" && it.actionCardIndex == 0 }
             )
         }
@@ -221,9 +322,9 @@ class AppNavHostTest {
 
     @Test
     fun appNavHost_game_screen_play_swap_own_cards_reaches_viewmodel() {
-        val viewModel = GameViewModel(mockApplication)
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
 
-        // WICHTIG: Überschreibe den Typ der Aktionskarte!
+        // Important: override the action card type.
         fakeGameState.value = makeGameState(actionCardKind = "SWAP_OWN_CARDS")
         viewModel.connect("Alice")
 
@@ -234,39 +335,38 @@ class AppNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        // 1. In den GameScreen navigieren
+        // 1. Navigate to the game screen
         fakeHasRejoinedGame.value = true
         composeTestRule.waitForIdle()
 
-        // 2. Aktionskarte auswählen
+        // 2. Select action card
         composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 3. Erste eigene Karte auswählen
+        // 3. Select first own card
         composeTestRule.onAllNodesWithText("3").onFirst().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 4. Zweite eigene Karte auswählen
+        // 4. Select second own card
         composeTestRule.onAllNodesWithText("3").onLast().performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
-        // 5. Verifizieren
+        // 5. Verify
         verify {
-            anyConstructed<GameStompClient>().sendAction(
+            mockGameClient.sendAction(
                 match { action ->
-                    // Achte darauf, dass dies exakt mit deinem GameAction-Modell übereinstimmt.
-                    // Wenn dein ViewModel für SwapOwnCards z.B. einen anderen type-String schickt,
-                    // musst du das hier anpassen.
+                    // Make sure this matches the GameAction model exactly.
+                    // Adjust this if the ViewModel sends a different type string for SwapOwnCards.
                     action.type == "PLAY_ACTION_CARD" &&
                             action.actionCardIndex == 0
                 }
             )
         }
     }
-    //hilfsfunktion
+    // Helper function
     private fun makeGameState(
         myPlayerId: String = "p1",
-        actionCardKind: String = "PLAYER_SWAP" // Standardwert für alte Tests beibehalten
+        actionCardKind: String = "PLAYER_SWAP" // Keep the default value for older tests
     ) = GameUpdateMessage(
         phase = "AWAITING_DRAW",
         currentPlayerId = myPlayerId,

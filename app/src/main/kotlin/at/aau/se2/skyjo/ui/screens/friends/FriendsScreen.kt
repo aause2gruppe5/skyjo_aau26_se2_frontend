@@ -2,13 +2,13 @@ package at.aau.se2.skyjo.ui.screens.friends
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,55 +17,46 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.model.social.FriendDto
+import at.aau.se2.skyjo.model.social.FriendRequestDto
+import at.aau.se2.skyjo.model.social.LobbyInviteDto
+import at.aau.se2.skyjo.model.social.RelationshipStatus
+import at.aau.se2.skyjo.model.social.SocialUserDto
 import at.aau.se2.skyjo.ui.components.AvatarBadge
-import at.aau.se2.skyjo.ui.components.BadgeChip
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
 import at.aau.se2.skyjo.ui.navigation.AppDestination
-import at.aau.se2.skyjo.ui.theme.GoldSurface
-import at.aau.se2.skyjo.ui.theme.GoldYellow
 import at.aau.se2.skyjo.ui.theme.MintGreen
 import at.aau.se2.skyjo.ui.theme.MutedText
 import at.aau.se2.skyjo.ui.theme.OnlineGreen
 import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 
-private data class Friend(
-    val name: String,
-    val status: String,
-    val isOnline: Boolean,
-    val level: Int,
-)
-
-private val onlineFriends = listOf(
-    Friend("KiraBlaze", "In Lobby", isOnline = true, level = 38),
-    Friend("MaxStorm", "Playing", isOnline = true, level = 21),
-    Friend("RiverDawn", "Available", isOnline = true, level = 55),
-)
-
-private val suggestedFriends = listOf(
-    Friend("TideWatcher", "Level 14", isOnline = false, level = 14),
-    Friend("SkyRunner", "Level 29", isOnline = false, level = 29),
-)
-
 @Composable
 fun FriendsScreen(
     onNavigate: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
+    friends: List<FriendDto> = emptyList(),
+    incomingRequests: List<FriendRequestDto> = emptyList(),
+    lobbyInvites: List<LobbyInviteDto> = emptyList(),
+    searchResults: List<SocialUserDto> = emptyList(),
+    query: String = "",
+    activeLobbyId: String? = null,
+    onQueryChange: (String) -> Unit = {},
+    onSendRequest: (String) -> Unit = {},
+    onAcceptRequest: (String) -> Unit = {},
+    onDeclineRequest: (String) -> Unit = {},
+    onInviteFriend: (String) -> Unit = {},
+    onAcceptInvite: (String) -> Unit = {},
+    onDeclineInvite: (String) -> Unit = {},
 ) {
     SkyjoDrawerScaffold(
         currentDestination = AppDestination.Friends,
@@ -78,190 +69,138 @@ fun FriendsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            // Title
-            Text(
-                text = "Friends",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-
-            // Search bar
-            var query by remember { mutableStateOf("") }
+            Text("Friends", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
-                placeholder = { Text("Search players…", color = MutedText) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = MutedText,
-                    )
-                },
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search users") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 singleLine = true,
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    focusedBorderColor = PrimaryGreen,
-                ),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Online friends
-            SectionHeader(
-                title = "Online Friends",
-                count = onlineFriends.size,
-                indicatorColor = OnlineGreen,
-            )
-            SkyjoCard {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    onlineFriends.forEachIndexed { index, friend ->
-                        FriendRow(friend = friend, showInvite = true)
-                        if (index < onlineFriends.lastIndex) {
-                            androidx.compose.material3.HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                        }
+            if (searchResults.isNotEmpty()) {
+                SectionCard(title = "Search") {
+                    searchResults.forEach { user ->
+                        SearchRow(user = user, onSendRequest = onSendRequest)
                     }
                 }
             }
 
-            // Suggested friends
-            SectionHeader(title = "Suggested Friends", count = null)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                suggestedFriends.forEach { friend ->
-                    SuggestedFriendCard(friend = friend, modifier = Modifier.weight(1f))
+            if (incomingRequests.isNotEmpty()) {
+                SectionCard(title = "Requests") {
+                    incomingRequests.forEach { request ->
+                        RequestRow(request, onAcceptRequest, onDeclineRequest)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (lobbyInvites.isNotEmpty()) {
+                SectionCard(title = "Lobby Invites") {
+                    lobbyInvites.forEach { invite ->
+                        InviteRow(invite, onAcceptInvite, onDeclineInvite)
+                    }
+                }
+            }
+
+            SectionCard(title = "Your Friends") {
+                if (friends.isEmpty()) {
+                    Text("No friends yet", color = MutedText)
+                } else {
+                    friends.forEach { friend ->
+                        FriendRow(friend, showInvite = activeLobbyId != null, onInviteFriend = onInviteFriend)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(
-    title: String,
-    count: Int?,
-    indicatorColor: androidx.compose.ui.graphics.Color? = null,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (indicatorColor != null) {
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = indicatorColor,
-                modifier = Modifier.size(8.dp),
-            ) {}
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-        Text(
-            text = if (count != null) "$title ($count)" else title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    SkyjoCard {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
 }
 
 @Composable
-private fun FriendRow(friend: Friend, showInvite: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun FriendRow(friend: FriendDto, showInvite: Boolean, onInviteFriend: (String) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AvatarBadge(
-            initial = friend.name.first(),
+            initial = friend.username.firstOrNull() ?: '?',
             size = 44,
-            showOnlineIndicator = friend.isOnline,
+            showOnlineIndicator = friend.online,
             backgroundColor = MintGreen,
             textColor = PrimaryGreen,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = friend.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = friend.status,
-                style = MaterialTheme.typography.bodySmall,
-                color = MutedText,
-            )
+            Text(friend.username, fontWeight = FontWeight.SemiBold)
+            Text(if (friend.online) "Online" else "Offline", color = if (friend.online) OnlineGreen else MutedText)
         }
         if (showInvite) {
-            Surface(
-                onClick = {},
-                shape = MaterialTheme.shapes.extraLarge,
-                color = PrimaryGreen,
-            ) {
-                Text(
-                    text = "Invite",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                )
-            }
+            ActionPill("Invite") { onInviteFriend(friend.userId) }
         }
     }
 }
 
 @Composable
-private fun SuggestedFriendCard(friend: Friend, modifier: Modifier = Modifier) {
-    androidx.compose.material3.Card(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(2.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            AvatarBadge(
-                initial = friend.name.first(),
-                size = 48,
-                backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                textColor = PrimaryGreen,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = friend.name,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = "Lv. ${friend.level}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MutedText,
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Surface(
-                onClick = {},
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = "+ Add",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryGreen,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
+private fun SearchRow(user: SocialUserDto, onSendRequest: (String) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(user.username, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+        when (user.relationshipStatus) {
+            RelationshipStatus.NONE -> ActionPill("Add") { onSendRequest(user.userId) }
+            RelationshipStatus.FRIENDS -> Text("Friend", color = MutedText)
+            RelationshipStatus.INCOMING_REQUEST -> Text("Request pending", color = MutedText)
+            RelationshipStatus.OUTGOING_REQUEST -> Text("Sent", color = MutedText)
         }
+    }
+}
+
+@Composable
+private fun RequestRow(
+    request: FriendRequestDto,
+    onAcceptRequest: (String) -> Unit,
+    onDeclineRequest: (String) -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(request.from.username, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+        ActionPill("Accept") { onAcceptRequest(request.requestId) }
+        Spacer(modifier = Modifier.width(8.dp))
+        ActionPill("Decline") { onDeclineRequest(request.requestId) }
+    }
+}
+
+@Composable
+private fun InviteRow(
+    invite: LobbyInviteDto,
+    onAcceptInvite: (String) -> Unit,
+    onDeclineInvite: (String) -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(invite.from.username, fontWeight = FontWeight.SemiBold)
+            Text("Code ${invite.joinCode}", color = MutedText)
+        }
+        ActionPill("Join") { onAcceptInvite(invite.inviteId) }
+        Spacer(modifier = Modifier.width(8.dp))
+        ActionPill("Decline") { onDeclineInvite(invite.inviteId) }
+    }
+}
+
+@Composable
+private fun ActionPill(text: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.extraLarge, color = PrimaryGreen) {
+        Text(
+            text = text,
+            color = androidx.compose.ui.graphics.Color.White,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+        )
     }
 }
 

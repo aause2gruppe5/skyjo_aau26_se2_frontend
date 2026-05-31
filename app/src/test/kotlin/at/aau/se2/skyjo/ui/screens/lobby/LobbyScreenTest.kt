@@ -101,6 +101,41 @@ class LobbyScreenTest {
     }
 
     @Test
+    fun lobbyScreen_shows_join_code_and_error_message() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                LobbyScreen(
+                    joinCode = "ABC123",
+                    errorMessage = "Could not join lobby",
+                    onStartGame = {},
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Join Code: ABC123").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Could not join lobby").assertIsDisplayed()
+    }
+
+    @Test
+    fun lobbyScreen_shows_non_host_waiting_text() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                LobbyScreen(
+                    players = listOf(
+                        LobbyPlayer("Alice", isHost = true),
+                        LobbyPlayer("Bob", isHost = false),
+                    ),
+                    isHost = false,
+                    onStartGame = {},
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Only the host can change rules").assertExists()
+        composeTestRule.onNodeWithText("Waiting for host to start").assertExists()
+    }
+
+    @Test
     fun lobbyScreen_back_callback_works() {
         var backPressed = false
         composeTestRule.setContent {

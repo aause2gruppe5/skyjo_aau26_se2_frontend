@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -41,14 +40,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import at.aau.se2.skyjo.ui.components.BadgeChip
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
 import at.aau.se2.skyjo.ui.navigation.AppDestination
-import at.aau.se2.skyjo.ui.theme.BlueSurface
-import at.aau.se2.skyjo.ui.theme.DeepBlue
-import at.aau.se2.skyjo.ui.theme.GoldSurface
-import at.aau.se2.skyjo.ui.theme.GoldYellow
 import at.aau.se2.skyjo.ui.theme.MintGreen
 import at.aau.se2.skyjo.ui.theme.MutedText
 import at.aau.se2.skyjo.ui.theme.PrimaryGreen
@@ -93,7 +87,7 @@ fun SettingsScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "A",
+                                    text = "S",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = PrimaryGreen,
                                     fontWeight = FontWeight.ExtraBold,
@@ -102,82 +96,18 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "AcePlayer",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                BadgeChip(text = "Pro Tier")
-                            }
                             Text(
-                                text = "Level 42",
+                                text = "Skyjo Account",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "Session securely stored",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MutedText,
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "Progress to Level 43",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MutedText,
-                        )
-                        Text(
-                            text = "68%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = PrimaryGreen,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { 0.68f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(MaterialTheme.shapes.extraLarge),
-                        color = PrimaryGreen,
-                        trackColor = MaterialTheme.colorScheme.primaryContainer,
-                    )
-                }
-            }
-
-            // ── Rank Card ────────────────────────────────────────────────
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = BlueSurface,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(text = "🏆", style = MaterialTheme.typography.titleLarge)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Global Rank",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = DeepBlue.copy(alpha = 0.7f),
-                        )
-                        Text(
-                            text = "#1,247",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = DeepBlue,
-                            fontWeight = FontWeight.ExtraBold,
-                        )
-                    }
-                    BadgeChip(
-                        text = "Top 5%",
-                        containerColor = GoldSurface,
-                        contentColor = GoldYellow,
-                    )
                 }
             }
 
@@ -236,12 +166,12 @@ fun SettingsScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Link Account",
+                            text = "Session",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            text = "Connect →",
+                            text = "Active",
                             style = MaterialTheme.typography.labelMedium,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.SemiBold,
@@ -258,7 +188,7 @@ fun SettingsScreen(
                     color = MutedText,
                 )
                 Text(
-                    text = "Privacy Policy · Terms of Service",
+                    text = "Privacy Policy - Terms of Service",
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedText,
                 )
