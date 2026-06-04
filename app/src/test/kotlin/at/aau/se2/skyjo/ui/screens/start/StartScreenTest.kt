@@ -11,6 +11,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -137,5 +139,39 @@ class StartScreenTest {
             }
         }
         composeTestRule.onNodeWithText("Avg Score").assertExists()
+    }
+
+    @Test
+    fun startScreen_shows_how_to_play_feature_card() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                StartScreen(
+                    onPlayClicked = {},
+                    onNavigate = {},
+                )
+            }
+        }
+        // Nutzt onAllNodesWithText[0], da der Text auch im unsichtbaren Drawer existiert
+        composeTestRule.onAllNodesWithText("How to Play")[0].assertExists()
+    }
+
+    @Test
+    fun startScreen_how_to_play_clicks_navigates_to_rules() {
+        var navigatedTo: AppDestination? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                StartScreen(
+                    onPlayClicked = {},
+                    onNavigate = { navigatedTo = it },
+                )
+            }
+        }
+
+        // Zuerst zum Element scrollen (falls es verdeckt ist), dann klicken
+        composeTestRule.onAllNodesWithText("How to Play")[0]
+            .performScrollTo()
+            .performClick()
+
+        assert(navigatedTo == AppDestination.Rules)
     }
 }
