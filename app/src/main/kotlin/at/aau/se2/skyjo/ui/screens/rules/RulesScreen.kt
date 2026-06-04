@@ -28,10 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.graphics.toArgb
 import android.widget.TextView
-
-//Importiere hier dein bevorzugtes Scaffold, z.B.:
-//import at.aau.se2.skyjo.ui.components.*
-// import at.aau.se2.skyjo.ui.navigation.AppDestination
+import at.aau.se2.skyjo.ui.theme.*
 
 @Composable
 fun RulesScreen(
@@ -41,15 +38,12 @@ fun RulesScreen(
     // Ein eigenes Scaffold nur für diesen Unter-Screen
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        // Falls du BackgroundGray in deinem Theme definiert hast, trage es hier ein.
-        // Ansonsten nutzt es die Standard-Hintergrundfarbe.
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = BackgroundGray,
         topBar = {
             // Angepasste Top-Bar mit Zurück-Pfeil, passend zu deinem Design
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                // color = SurfaceWhite, // Nutze hier deine definierte SurfaceWhite Farbe
-                color = MaterialTheme.colorScheme.surface,
+                color = SurfaceWhite,
                 shadowElevation = 2.dp,
             ) {
                 Row(
@@ -64,8 +58,7 @@ fun RulesScreen(
                             // Nutze AutoMirrored für korrekte Darstellung in RTL-Sprachen
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            // tint = PrimaryGreen // Nutze hier deine PrimaryGreen Farbe
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = PrimaryGreen,
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
@@ -73,8 +66,7 @@ fun RulesScreen(
                         text = "HOW TO PLAY",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        // color = PrimaryGreen // Nutze hier deine PrimaryGreen Farbe
-                        color = MaterialTheme.colorScheme.primary,
+                        color = PrimaryGreen,
                     )
                 }
             }
@@ -95,12 +87,12 @@ fun RulesScreen(
                 text = "SKYJO ACTION",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = PrimaryGreen,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             // Hier binden wir den formatierten Text ein (Möglichkeit 2 mit AndroidView)
-            val textColor = MaterialTheme.colorScheme.onBackground.toArgb()
+            val textColor = DarkText.toArgb()
             val htmlText = skyjoRulesText.replace("\n", "<br>")
 
             AndroidView(
