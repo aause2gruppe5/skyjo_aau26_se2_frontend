@@ -8,4 +8,5 @@ sealed class AppDestination(val route: String) {
     object Friends : AppDestination("friends")
     object Leaderboard : AppDestination("leaderboard")
     object Settings : AppDestination("settings")
+    object Rules : AppDestination("rules")
 }
