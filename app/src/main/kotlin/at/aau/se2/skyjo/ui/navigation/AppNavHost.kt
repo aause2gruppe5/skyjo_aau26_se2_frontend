@@ -37,6 +37,7 @@ import at.aau.se2.skyjo.viewmodel.FriendsViewModel
 import at.aau.se2.skyjo.viewmodel.GameViewModel
 import at.aau.se2.skyjo.viewmodel.LeaderboardUiState
 import at.aau.se2.skyjo.viewmodel.LeaderboardViewModel
+import at.aau.se2.skyjo.ui.screens.rules.RulesScreen
 
 @Composable
 fun AppNavHost(
@@ -243,6 +244,12 @@ fun AppNavHost(
 
             composable(AppDestination.Settings.route) {
                 SettingsScreen(onNavigate = navigateMain)
+            }
+
+            composable(AppDestination.Rules.route) {
+                RulesScreen(
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
 
