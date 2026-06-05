@@ -632,6 +632,20 @@ class GameViewModelTest {
         }
     }
 
+    @Test
+    fun `startNextRound sends START_NEXT_ROUND action to game client`() {
+        // Arrange
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        // Act
+        viewModel.startNextRound()
+
+        // Assert
+        verify(exactly = 1) {
+            mockGameClient.sendAction(GameAction(type = "START_NEXT_ROUND"))
+        }
+    }
+
     private fun lobbySummary(
         lobbyId: String = "lobby-1",
         joinCode: String = "ABC123",
