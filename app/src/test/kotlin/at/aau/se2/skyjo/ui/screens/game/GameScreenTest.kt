@@ -1219,6 +1219,111 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Bob's Grid").performScrollTo().assertIsDisplayed()
     }
 
+    @Test
+    fun gameScreen_roundResultDialog_shows_start_next_round_for_host() {
+        var nextRoundClicked = false
+
+        val stateWithRoundResult = makeGameState(
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList() // Für diesen Test reicht eine leere Liste völlig aus
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResult,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onReadyForNextRoundClick = { nextRoundClicked = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Start next Round").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Start next Round").performClick()
+        assert(nextRoundClicked)
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_shows_waiting_for_non_host() {
+        val stateWithRoundResult = makeGameState(
+            roundResult = RoundResult(
+                finisherPlayerId = "p2",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResult,
+                    myPlayerId = "p2",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Waiting for Alice...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_shows_game_over_button() {
+        val stateWithRoundResultAndGameOver = makeGameState(
+            gameOver = true,
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResultAndGameOver,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Waiting for Alice...").assertDoesNotExist()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_closes_when_game_over_button_is_clicked() {
+        val stateWithRoundResultAndGameOver = makeGameState(
+            gameOver = true,
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResultAndGameOver,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Game Over! See Results").performClick()
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertDoesNotExist()
+    }
+
     private fun assertTextAbsent(text: String) {
         val matches = composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes()
         assert(matches.isEmpty()) { "Expected no visible text matching \"$text\"" }
