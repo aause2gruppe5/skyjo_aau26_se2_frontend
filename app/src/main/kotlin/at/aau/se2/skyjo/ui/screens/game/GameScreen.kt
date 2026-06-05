@@ -1474,8 +1474,7 @@ private fun RoundResultSection(
                     text = "${score.finalScore}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (score.finalScore <= 0) at.aau.se2.skyjo.ui.theme.CardNegativeBg
-                    else MaterialTheme.colorScheme.onSurface,
+                    color = if (score.finalScore <= 0) PrimaryGreen else MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.End,
                     modifier = Modifier.width(56.dp),
                 )
