@@ -79,6 +79,8 @@ import at.aau.se2.skyjo.ui.theme.MutedText
 import at.aau.se2.skyjo.ui.theme.PrimaryGreen
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
+import at.aau.se2.skyjo.model.*
+import androidx.compose.ui.window.Dialog
 
 private sealed class SwapSelectionState {
     data class AwaitingFirst(
@@ -123,10 +125,25 @@ fun GameScreen(
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onDismissActionCardResult: () -> Unit = {},
+    onReadyForNextRoundClick: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
+    var activeRoundResultDialog by remember {
+        mutableStateOf<Pair<Int, RoundResult>?>(null)
+    }
+
+    LaunchedEffect(gameState?.roundResult) {
+        val result = gameState?.roundResult
+        val number = gameState?.roundNumber
+        if (result != null && number != null) {
+            activeRoundResultDialog = Pair(number, result)
+        }else {
+            // Neue Runde gestartet (Server hat das Ergebnis gelöscht) -> Pop-up schließen!
+            activeRoundResultDialog = null
+        }
+    }
     var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
     var pendingEnlightenmentCardIndex by remember(isMyTurn, gameState?.roundNumber) {
         mutableStateOf<Int?>(null)
@@ -222,6 +239,84 @@ fun GameScreen(
                 onDrawFromDeck = onDrawFromDeck,
                 onDrawFromDiscard = onDrawFromDiscard,
             )
+        }
+    }
+    val dialogData = activeRoundResultDialog
+    if (dialogData != null) {
+
+        // Finde heraus, ob ICH der Host bin (Erster in der Liste)
+        val hostId = gameState?.players?.firstOrNull()?.playerId
+        val isHost = myPlayerId == hostId
+        val isGameOver = gameState?.gameOver == true
+
+        Dialog(onDismissRequest = { /* Leer lassen, damit man es nicht wegklicken kann */ }) {
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = SurfaceWhite,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    // Hier wird deine bestehende UI-Komponente aufgerufen!
+                    RoundResultSection(
+                        roundResult = dialogData.second,
+                        players = gameState?.players ?: emptyList(),
+                        roundNumber = dialogData.first
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // --- Fallunterscheidung Host vs. Mitspieler ---
+                    if (isGameOver) {
+                        // Wenn das Spiel vorbei ist, bekommen JEDER Spieler (Host & Mitspieler)
+                        // einen Button, um das Runden-Ergebnis wegzuklicken.
+                        PrimaryButton(
+                            text = "Game Over! See Results",
+                            onClick = {
+                                // Schließt das Pop-up lokal. Da gameOver = true ist,
+                                // wird im Hintergrund ohnehin schon das GameOverBanner angezeigt!
+                                activeRoundResultDialog = null
+                            },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                        )
+                    } else if (isHost) {
+                        PrimaryButton(
+                            text = "Start next Round",
+                            onClick = {
+                                activeRoundResultDialog = null
+                                // Kommando ans Backend feuern!
+                                onReadyForNextRoundClick()
+                            },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                        )
+                    } else {
+                        // Die anderen Spieler warten einfach
+                        Surface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            color = BlueSurface,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                        ) {
+                            val hostName = gameState?.players?.firstOrNull()?.nickname ?: "Host"
+                            Text(
+                                text = "Waiting for $hostName...",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -533,14 +628,6 @@ private fun GameContent(
                 onPendingEnlightenmentCardIndexChange(null)
             },
             onCancel = { onPendingEnlightenmentCardIndexChange(null) },
-        )
-    }
-
-    if (gameState.roundResult != null) {
-        RoundResultSection(
-            roundResult = gameState.roundResult,
-            players = gameState.players,
-            roundNumber = gameState.roundNumber,
         )
     }
 

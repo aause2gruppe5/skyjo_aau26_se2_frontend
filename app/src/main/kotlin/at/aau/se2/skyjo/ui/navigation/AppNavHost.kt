@@ -204,6 +204,7 @@ fun AppNavHost(
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
+                    onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
                 )
             }
