@@ -112,6 +112,7 @@ fun GameScreen(
     gameState: GameUpdateMessage? = null,
     myPlayerId: String? = null,
     isMyTurn: Boolean = false,
+    isHost: Boolean = false,
     privateActionCardResult: ActionCardResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
@@ -130,15 +131,19 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
+
     var activeRoundResultDialog by remember {
         mutableStateOf<Pair<Int, RoundResult>?>(null)
     }
+
+    var isStartingNextRound by remember { mutableStateOf(false) }
 
     LaunchedEffect(gameState?.roundResult) {
         val result = gameState?.roundResult
         val number = gameState?.roundNumber
         if (result != null && number != null) {
             activeRoundResultDialog = Pair(number, result)
+            isStartingNextRound = false
         }else {
             // Neue Runde gestartet (Server hat das Ergebnis gelöscht) -> Pop-up schließen!
             activeRoundResultDialog = null
@@ -245,8 +250,8 @@ fun GameScreen(
     if (dialogData != null) {
 
         // Finde heraus, ob ICH der Host bin (Erster in der Liste)
-        val hostId = gameState?.players?.firstOrNull()?.playerId
-        val isHost = myPlayerId == hostId
+        //val hostId = gameState?.players?.firstOrNull()?.playerId
+        //val isHost = myPlayerId == hostId
         val isGameOver = gameState?.gameOver == true
 
         Dialog(onDismissRequest = { /* Leer lassen, damit man es nicht wegklicken kann */ }) {
@@ -286,11 +291,12 @@ fun GameScreen(
                         )
                     } else if (isHost) {
                         PrimaryButton(
-                            text = "Start next Round",
+                            text = if (isStartingNextRound) "Starting..." else "Start next Round",
+                            enabled = !isStartingNextRound, // <--- Verhindert Spam-Klicks
                             onClick = {
-                                activeRoundResultDialog = null
-                                // Kommando ans Backend feuern!
-                                onReadyForNextRoundClick()
+                                // WICHTIG: activeRoundResultDialog = null WURDE HIER GELÖSCHT!
+                                isStartingNextRound = true // Ladeanimation starten
+                                onReadyForNextRoundClick() // Kommando ans Backend feuern
                             },
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)

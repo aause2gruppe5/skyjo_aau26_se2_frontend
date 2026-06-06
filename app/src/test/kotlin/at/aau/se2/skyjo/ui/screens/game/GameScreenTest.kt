@@ -29,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.assertIsNotEnabled
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -1236,15 +1237,24 @@ class GameScreenTest {
                     gameState = stateWithRoundResult,
                     myPlayerId = "p1",
                     isMyTurn = false,
+                    isHost = true, // <--- NEU: Explizit als Host deklariert
                     onReadyForNextRoundClick = { nextRoundClicked = true },
                     onBack = {},
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Start next Round").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Start next Round").performClick()
+        // Teste, ob der Button da ist und klicke ihn
+        val buttonNode = composeTestRule.onNodeWithText("Start next Round")
+        buttonNode.assertIsDisplayed()
+        buttonNode.performClick()
+
+        // Verifiziere den Klick
         assert(nextRoundClicked)
+
+        // Wenn du den Text auf "Starting..." änderst, überprüfe das hier:
+        composeTestRule.onNodeWithText("Starting...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Starting...").assertIsNotEnabled()
     }
 
     @Test
@@ -1262,6 +1272,7 @@ class GameScreenTest {
                     gameState = stateWithRoundResult,
                     myPlayerId = "p2",
                     isMyTurn = false,
+                    isHost = false, // <--- NEU: Explizit als NICHT-Host deklariert
                     onBack = {},
                 )
             }
@@ -1287,6 +1298,7 @@ class GameScreenTest {
                     gameState = stateWithRoundResultAndGameOver,
                     myPlayerId = "p1",
                     isMyTurn = false,
+                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
                     onBack = {},
                 )
             }
@@ -1313,6 +1325,7 @@ class GameScreenTest {
                     gameState = stateWithRoundResultAndGameOver,
                     myPlayerId = "p1",
                     isMyTurn = false,
+                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
                     onBack = {},
                 )
             }
