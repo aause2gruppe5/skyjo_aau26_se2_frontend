@@ -64,7 +64,7 @@ class AppNavHostTest {
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
     private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
-    private val fakeCheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>()
+    private val fakeCheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>(extraBufferCapacity = 1)
     private val fakeIncomingInvites = MutableSharedFlow<LobbyInviteDto>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
@@ -308,6 +308,38 @@ class AppNavHostTest {
                 GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 0)
             )
         }
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_private_cheat_peek_result() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatPeekResults.tryEmit(
+            CheatPeekResultMessage(
+                card = Card(id = 77, value = 6, type = "NUMBER"),
+                remainingCheatPeeks = 1,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Cheat Peek").assertExists()
+        composeTestRule.onNodeWithText("Top card of the draw pile").assertExists()
+        composeTestRule.onNodeWithText("1 cheat peeks left").assertExists()
+        composeTestRule.onNodeWithText("OK").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Cheat Peek").assertDoesNotExist()
     }
 
     @Test

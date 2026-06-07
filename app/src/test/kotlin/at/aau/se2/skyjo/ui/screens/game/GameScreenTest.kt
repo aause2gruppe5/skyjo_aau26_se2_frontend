@@ -16,6 +16,7 @@ import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
+import at.aau.se2.skyjo.model.CheatPeekResultMessage
 import at.aau.se2.skyjo.model.InspectedCard
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
@@ -195,6 +196,55 @@ class GameScreenTest {
             }
         }
         composeTestRule.onNodeWithText("DRAWN CARD").assertExists()
+    }
+
+    @Test
+    fun gameScreen_shows_private_cheat_peek_dialog() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateCheatPeekResult = CheatPeekResultMessage(
+                        card = Card(id = 77, value = -2, type = "NUMBER"),
+                        remainingCheatPeeks = 2,
+                    ),
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Cheat Peek").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Top card of the draw pile").assertIsDisplayed()
+        composeTestRule.onNodeWithText("-2").assertIsDisplayed()
+        composeTestRule.onNodeWithText("2 cheat peeks left").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_cheat_peek_dialog_dismisses_via_ok_button() {
+        var dismissed = false
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(phase = "AWAITING_DRAW"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateCheatPeekResult = CheatPeekResultMessage(
+                        card = Card(id = 78, value = 11, type = "NUMBER"),
+                        remainingCheatPeeks = 0,
+                    ),
+                    onDismissCheatPeekResult = { dismissed = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("OK").assertIsDisplayed().performClick()
+        composeTestRule.waitForIdle()
+
+        assert(dismissed)
     }
 
     @Test
