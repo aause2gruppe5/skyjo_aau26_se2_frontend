@@ -7,6 +7,11 @@ import org.junit.Test
 class AppDestinationTest {
 
     @Test
+    fun `auth destination has correct route`() {
+        assertEquals("auth", AppDestination.Auth.route)
+    }
+
+    @Test
     fun `start destination has correct route`() {
         assertEquals("start", AppDestination.Start.route)
     }
@@ -27,18 +32,31 @@ class AppDestinationTest {
     }
 
     @Test
+    fun `leaderboard destination has correct route`() {
+        assertEquals("leaderboard", AppDestination.Leaderboard.route)
+    }
+
+    @Test
     fun `settings destination has correct route`() {
         assertEquals("settings", AppDestination.Settings.route)
     }
 
     @Test
+    fun `rules destination has correct route`() {
+        assertEquals("rules", AppDestination.Rules.route)
+    }
+
+    @Test
     fun `all routes are non-empty strings`() {
         val destinations = listOf(
+            AppDestination.Auth,
             AppDestination.Start,
             AppDestination.Lobby,
             AppDestination.Game,
             AppDestination.Friends,
+            AppDestination.Leaderboard,
             AppDestination.Settings,
+            AppDestination.Rules,
         )
         destinations.forEach { dest ->
             assertTrue("route should not be empty for ${dest::class.simpleName}", dest.route.isNotBlank())
@@ -48,12 +66,16 @@ class AppDestinationTest {
     @Test
     fun `all routes are unique`() {
         val routes = listOf(
+            AppDestination.Auth.route,
             AppDestination.Start.route,
             AppDestination.Lobby.route,
             AppDestination.Game.route,
             AppDestination.Friends.route,
+            AppDestination.Leaderboard.route,
             AppDestination.Settings.route,
+            AppDestination.Rules.route,
         )
         assertEquals("routes must be unique", routes.distinct().size, routes.size)
     }
+
 }

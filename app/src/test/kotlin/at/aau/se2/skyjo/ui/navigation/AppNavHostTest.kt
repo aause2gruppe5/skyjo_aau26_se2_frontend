@@ -208,6 +208,32 @@ class AppNavHostTest {
     }
 
     @Test
+    fun appNavHost_renders_rules_route() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Simuliere die Navigation zur Rules-Route
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.Rules.route)
+        }
+        composeTestRule.waitForIdle()
+
+        // Überprüft, ob die Compose-TopBar des RulesScreens geladen wurde
+        composeTestRule.onNodeWithText("HOW TO PLAY").assertExists()
+
+        // Überprüft, ob die Compose-Überschrift des RulesScreens geladen wurde
+        composeTestRule.onNodeWithText("SKYJO ACTION").assertExists()
+    }
+
+    @Test
     fun appNavHost_shows_connection_banner_for_active_disconnected_session() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.setAuthenticatedUsername("Alice")
