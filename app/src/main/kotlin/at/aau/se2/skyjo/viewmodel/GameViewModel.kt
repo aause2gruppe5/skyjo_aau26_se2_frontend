@@ -34,6 +34,7 @@ class GameViewModel(
     val lobbyState = gameClient.lobbyState
     val gameState = gameClient.gameState
     val actionCardResults = gameClient.actionCardResults
+    val cheatPeekResults = gameClient.cheatPeekResults
     val incomingInvites = gameClient.incomingInvites
     val hasRejoinedGame = gameClient.hasRejoinedGame
     val errorMessage = gameClient.errorMessage
@@ -213,6 +214,9 @@ class GameViewModel(
 
     fun playActionCard(command: PlayActionCardCommand) =
         gameClient.playActionCard(command)
+
+    fun cheatPeekDrawPile() =
+        gameClient.cheatPeekDrawPile()
 
     fun playEnlightenment(
         actionCardIndex: Int,

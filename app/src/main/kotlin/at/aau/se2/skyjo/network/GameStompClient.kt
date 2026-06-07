@@ -40,6 +40,9 @@ class GameStompClient(context: Context) : GameRealtimeClient {
     private val _actionCardResults = MutableSharedFlow<ActionCardResultMessage>(extraBufferCapacity = 1)
     override val actionCardResults: SharedFlow<ActionCardResultMessage> = _actionCardResults.asSharedFlow()
 
+    private val _cheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>(extraBufferCapacity = 1)
+    override val cheatPeekResults: SharedFlow<CheatPeekResultMessage> = _cheatPeekResults.asSharedFlow()
+
     private val _incomingInvites = MutableSharedFlow<at.aau.se2.skyjo.model.social.LobbyInviteDto>(extraBufferCapacity = 4)
     override val incomingInvites: SharedFlow<at.aau.se2.skyjo.model.social.LobbyInviteDto> = _incomingInvites.asSharedFlow()
 
@@ -80,6 +83,7 @@ class GameStompClient(context: Context) : GameRealtimeClient {
             val errorsFlow      = s.subscribeText("/user/queue/errors")
             val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
             val actionCardResultsFlow = s.subscribeText("/user/queue/action-card-results")
+            val cheatPeekResultsFlow = s.subscribeText("/user/queue/cheat-peek-results")
             val invitesFlow = s.subscribeText("/user/queue/invites")
 
             subscriptionJobs += listOf(
@@ -89,6 +93,7 @@ class GameStompClient(context: Context) : GameRealtimeClient {
                 scope.launch { collectErrors(errorsFlow) },
                 scope.launch { collectRejoinState(rejoinFlow) },
                 scope.launch { collectActionCardResults(actionCardResultsFlow) },
+                scope.launch { collectCheatPeekResults(cheatPeekResultsFlow) },
                 scope.launch { collectInvites(invitesFlow) },
             )
         } catch (e: Exception) {
@@ -232,6 +237,21 @@ class GameStompClient(context: Context) : GameRealtimeClient {
         }
     }
 
+    private suspend fun collectCheatPeekResults(flow: kotlinx.coroutines.flow.Flow<String>) {
+        try {
+            flow.collect { jsonText ->
+                try {
+                    _cheatPeekResults.tryEmit(json.decodeFromString(jsonText))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Cheat peek parse error: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Cheat peek subscribe error: ${e.message}")
+        }
+    }
+
     private suspend fun collectInvites(flow: kotlinx.coroutines.flow.Flow<String>) {
         try {
             flow.collect { jsonText ->
@@ -313,6 +333,16 @@ class GameStompClient(context: Context) : GameRealtimeClient {
                 session?.sendText("/app/game.action-card", json.encodeToString(command))
             } catch (e: Exception) {
                 Log.e(TAG, "Play action card error: ${e.message}")
+            }
+        }
+    }
+
+    override fun cheatPeekDrawPile() {
+        scope.launch {
+            try {
+                session?.sendText("/app/game.cheat-peek", "")
+            } catch (e: Exception) {
+                Log.e(TAG, "Cheat peek error: ${e.message}")
             }
         }
     }

@@ -69,3 +69,9 @@ data class GameUpdateMessage(
     val lobbyId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
 )
+
+@Serializable
+data class CheatPeekResultMessage(
+    val card: Card,
+    val remainingCheatPeeks: Int,
+)
