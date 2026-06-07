@@ -1,5 +1,11 @@
 package at.aau.se2.skyjo.ui.screens.game
 
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,16 +41,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +90,7 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 import at.aau.se2.skyjo.model.*
 import androidx.compose.ui.window.Dialog
+import kotlin.math.sqrt
 
 private sealed class SwapSelectionState {
     data class AwaitingFirst(
@@ -106,6 +116,8 @@ private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
 private const val PHASE_FINAL_TURNS = "FINAL_TURNS"
+private const val SHAKE_THRESHOLD = 18f
+private const val SHAKE_COOLDOWN_MS = 1_500L
 
 @Composable
 fun GameScreen(
@@ -114,6 +126,7 @@ fun GameScreen(
     isMyTurn: Boolean = false,
     isHost: Boolean = false,
     privateActionCardResult: ActionCardResultMessage? = null,
+    privateCheatPeekResult: CheatPeekResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
@@ -126,6 +139,8 @@ fun GameScreen(
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onDismissActionCardResult: () -> Unit = {},
+    onCheatPeekDrawPile: () -> Unit = {},
+    onDismissCheatPeekResult: () -> Unit = {},
     onReadyForNextRoundClick: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -172,6 +187,16 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
+    val canCheatPeek = gameState != null &&
+        !gameState.gameOver &&
+        isMyTurn &&
+        privateCheatPeekResult == null &&
+        (currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS)
+
+    ShakeCheatDetector(
+        enabled = canCheatPeek,
+        onShake = onCheatPeekDrawPile,
+    )
 
     Column(
         modifier = modifier
@@ -246,6 +271,14 @@ fun GameScreen(
             )
         }
     }
+
+    if (privateCheatPeekResult != null) {
+        CheatPeekDialog(
+            result = privateCheatPeekResult,
+            onDismiss = onDismissCheatPeekResult,
+        )
+    }
+
     val dialogData = activeRoundResultDialog
     if (dialogData != null) {
 
@@ -326,6 +359,105 @@ fun GameScreen(
         }
     }
 
+}
+
+@Composable
+private fun ShakeCheatDetector(
+    enabled: Boolean,
+    onShake: () -> Unit,
+) {
+    val context = LocalContext.current
+    val currentOnShake by rememberUpdatedState(onShake)
+
+    DisposableEffect(context, enabled) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        if (!enabled || sensorManager == null || accelerometer == null) {
+            onDispose {}
+        } else {
+            var lastShakeAt = 0L
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    val x = event.values.getOrNull(0) ?: return
+                    val y = event.values.getOrNull(1) ?: return
+                    val z = event.values.getOrNull(2) ?: return
+                    val magnitude = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+                    val now = SystemClock.elapsedRealtime()
+
+                    if (magnitude >= SHAKE_THRESHOLD && now - lastShakeAt >= SHAKE_COOLDOWN_MS) {
+                        lastShakeAt = now
+                        currentOnShake()
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+
+            sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+            onDispose { sensorManager.unregisterListener(listener) }
+        }
+    }
+}
+
+@Composable
+private fun CheatPeekDialog(
+    result: CheatPeekResultMessage,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = SurfaceWhite,
+            shadowElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Cheat Peek",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "Top card of the draw pile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                    textAlign = TextAlign.Center,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 96.dp, height = 132.dp)
+                        .background(
+                            color = cardColor(result.card.value),
+                            shape = RoundedCornerShape(14.dp),
+                        )
+                        .border(2.dp, PrimaryGreen, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = cardDisplayValue(result.card),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                Text(
+                    text = "${result.remainingCheatPeeks} peeks left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MutedText,
+                )
+                PrimaryButton(
+                    text = "OK",
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
 }
 
 // ── Top-level section composables ────────────────────────────────────────────

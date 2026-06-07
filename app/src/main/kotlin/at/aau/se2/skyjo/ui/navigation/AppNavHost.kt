@@ -23,6 +23,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.CheatPeekResultMessage
 import at.aau.se2.skyjo.ui.screens.auth.AuthScreen
 import at.aau.se2.skyjo.ui.screens.friends.FriendsScreen
 import at.aau.se2.skyjo.ui.screens.game.GameScreen
@@ -178,10 +179,18 @@ fun AppNavHost(
                 var privateActionCardResult by remember {
                     mutableStateOf<ActionCardResultMessage?>(null)
                 }
+                var privateCheatPeekResult by remember {
+                    mutableStateOf<CheatPeekResultMessage?>(null)
+                }
 
                 LaunchedEffect(Unit) {
                     gameViewModel.actionCardResults.collect { result ->
                         privateActionCardResult = result
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    gameViewModel.cheatPeekResults.collect { result ->
+                        privateCheatPeekResult = result
                     }
                 }
 
@@ -191,6 +200,7 @@ fun AppNavHost(
                     isMyTurn = isMyTurn,
                     isHost = isHost,
                     privateActionCardResult = privateActionCardResult,
+                    privateCheatPeekResult = privateCheatPeekResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
                     onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
                     onDrawFromActionDeck = { gameViewModel.drawFromActionDeck() },
@@ -207,6 +217,8 @@ fun AppNavHost(
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
+                    onCheatPeekDrawPile = { gameViewModel.cheatPeekDrawPile() },
+                    onDismissCheatPeekResult = { privateCheatPeekResult = null },
                     onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
                 )
