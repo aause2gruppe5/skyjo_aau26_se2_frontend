@@ -336,7 +336,7 @@ class AppNavHostTest {
 
         composeTestRule.onNodeWithText("Cheat Peek").assertExists()
         composeTestRule.onNodeWithText("Top card of the draw pile").assertExists()
-        composeTestRule.onNodeWithText("1 cheat peeks left").assertExists()
+        composeTestRule.onNodeWithText("1 peeks left").assertExists()
         composeTestRule.onNodeWithText("OK").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Cheat Peek").assertDoesNotExist()

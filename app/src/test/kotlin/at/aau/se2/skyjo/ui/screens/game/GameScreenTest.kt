@@ -218,7 +218,7 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Cheat Peek").assertIsDisplayed()
         composeTestRule.onNodeWithText("Top card of the draw pile").assertIsDisplayed()
         composeTestRule.onNodeWithText("-2").assertIsDisplayed()
-        composeTestRule.onNodeWithText("2 cheat peeks left").assertIsDisplayed()
+        composeTestRule.onNodeWithText("2 peeks left").assertIsDisplayed()
     }
 
     @Test
