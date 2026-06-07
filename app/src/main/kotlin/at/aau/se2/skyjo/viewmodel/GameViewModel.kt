@@ -191,6 +191,8 @@ class GameViewModel(
     fun startGame(maxRounds: Int = 3, targetScore: Int = 100) =
         gameClient.startGame(maxRounds, targetScore)
 
+    fun startNextRound() = gameClient.sendAction(GameAction(type = "START_NEXT_ROUND"))
+
     fun drawFromDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "DECK"))
 
     fun drawFromActionDeck() = gameClient.sendAction(GameAction(type = "DRAW", source = "ACTION_DECK"))

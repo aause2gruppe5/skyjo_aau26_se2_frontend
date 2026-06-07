@@ -67,6 +67,7 @@ fun AppNavHost(
     val homeStats by gameViewModel.homeStats.collectAsState()
     val friendsState = friendsViewModel?.state?.collectAsState()?.value ?: fallbackFriendsState.value
     val leaderboardState = leaderboardViewModel?.state?.collectAsState()?.value ?: fallbackLeaderboardState.value
+    val isHost by gameViewModel.isHost.collectAsState()
 
     LaunchedEffect(hasRejoinedGame) {
         if (hasRejoinedGame && navController.currentDestination?.route != AppDestination.Game.route) {
@@ -187,6 +188,7 @@ fun AppNavHost(
                     gameState = gameState,
                     myPlayerId = myPlayerId,
                     isMyTurn = isMyTurn,
+                    isHost = isHost,
                     privateActionCardResult = privateActionCardResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
                     onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
@@ -204,6 +206,7 @@ fun AppNavHost(
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
+                    onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
                 )
             }

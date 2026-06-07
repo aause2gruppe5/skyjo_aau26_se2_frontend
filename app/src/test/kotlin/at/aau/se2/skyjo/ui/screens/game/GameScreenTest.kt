@@ -29,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.assertIsNotEnabled
 
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -1217,6 +1218,123 @@ class GameScreenTest {
 
         composeTestRule.onNodeWithTag("peek_banner").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Bob's Grid").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_shows_start_next_round_for_host() {
+        var nextRoundClicked = false
+
+        val stateWithRoundResult = makeGameState(
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList() // Für diesen Test reicht eine leere Liste völlig aus
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResult,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    isHost = true, // <--- NEU: Explizit als Host deklariert
+                    onReadyForNextRoundClick = { nextRoundClicked = true },
+                    onBack = {},
+                )
+            }
+        }
+
+        // Teste, ob der Button da ist und klicke ihn
+        val buttonNode = composeTestRule.onNodeWithText("Start next Round")
+        buttonNode.assertIsDisplayed()
+        buttonNode.performClick()
+
+        // Verifiziere den Klick
+        assert(nextRoundClicked)
+
+        // Wenn du den Text auf "Starting..." änderst, überprüfe das hier:
+        composeTestRule.onNodeWithText("Starting...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Starting...").assertIsNotEnabled()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_shows_waiting_for_non_host() {
+        val stateWithRoundResult = makeGameState(
+            roundResult = RoundResult(
+                finisherPlayerId = "p2",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResult,
+                    myPlayerId = "p2",
+                    isMyTurn = false,
+                    isHost = false, // <--- NEU: Explizit als NICHT-Host deklariert
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Waiting for Alice...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_shows_game_over_button() {
+        val stateWithRoundResultAndGameOver = makeGameState(
+            gameOver = true,
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResultAndGameOver,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Waiting for Alice...").assertDoesNotExist()
+    }
+
+    @Test
+    fun gameScreen_roundResultDialog_closes_when_game_over_button_is_clicked() {
+        val stateWithRoundResultAndGameOver = makeGameState(
+            gameOver = true,
+            roundResult = RoundResult(
+                finisherPlayerId = "p1",
+                scores = emptyList()
+            )
+        )
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = stateWithRoundResultAndGameOver,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Game Over! See Results").performClick()
+
+        composeTestRule.onNodeWithText("Game Over! See Results").assertDoesNotExist()
     }
 
     private fun assertTextAbsent(text: String) {
