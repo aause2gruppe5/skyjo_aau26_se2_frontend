@@ -128,6 +128,7 @@ fun GameScreen(
     onDismissActionCardResult: () -> Unit = {},
     onReadyForNextRoundClick: () -> Unit = {},
     onBack: () -> Unit,
+    onNavigateToGameOver: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
@@ -149,6 +150,13 @@ fun GameScreen(
             activeRoundResultDialog = null
         }
     }
+
+    LaunchedEffect(gameState?.gameOver) {
+        if (gameState?.gameOver == true) {
+            onNavigateToGameOver() // Feuert das Event an deinen NavHost
+        }
+    }
+
     var swapState by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<SwapSelectionState?>(null) }
     var pendingEnlightenmentCardIndex by remember(isMyTurn, gameState?.roundNumber) {
         mutableStateOf<Int?>(null)
@@ -247,12 +255,8 @@ fun GameScreen(
         }
     }
     val dialogData = activeRoundResultDialog
-    if (dialogData != null) {
-
-        // Finde heraus, ob ICH der Host bin (Erster in der Liste)
-        //val hostId = gameState?.players?.firstOrNull()?.playerId
-        //val isHost = myPlayerId == hostId
-        val isGameOver = gameState?.gameOver == true
+    val isGameOver = gameState?.gameOver == true
+    if (dialogData != null && !isGameOver) {
 
         Dialog(onDismissRequest = { /* Leer lassen, damit man es nicht wegklicken kann */ }) {
             Surface(
@@ -274,22 +278,7 @@ fun GameScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // --- Fallunterscheidung Host vs. Mitspieler ---
-                    if (isGameOver) {
-                        // Wenn das Spiel vorbei ist, bekommen JEDER Spieler (Host & Mitspieler)
-                        // einen Button, um das Runden-Ergebnis wegzuklicken.
-                        PrimaryButton(
-                            text = "Game Over! See Results",
-                            onClick = {
-                                // Schließt das Pop-up lokal. Da gameOver = true ist,
-                                // wird im Hintergrund ohnehin schon das GameOverBanner angezeigt!
-                                activeRoundResultDialog = null
-                            },
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth()
-                        )
-                    } else if (isHost) {
+                    if (isHost) {
                         PrimaryButton(
                             text = if (isStartingNextRound) "Starting..." else "Start next Round",
                             enabled = !isStartingNextRound, // <--- Verhindert Spam-Klicks
@@ -636,10 +625,6 @@ private fun GameContent(
             onCancel = { onPendingEnlightenmentCardIndexChange(null) },
         )
     }
-
-    if (gameState.gameOver) {
-        GameOverBanner(totalScores = gameState.totalScores)
-    }
 }
 
 @Composable
@@ -937,36 +922,6 @@ private fun PlayerGridCarousel(
                     onCardClick = { row, col ->
                         onOtherSlotSelected(viewedPlayer.playerId, row, col)
                     },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun GameOverBanner(totalScores: List<TotalScore>) {
-    val winner = totalScores.minByOrNull { it.totalScore }
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = PrimaryGreen,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "GAME OVER",
-                style = MaterialTheme.typography.titleLarge,
-                color = SurfaceWhite,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            if (winner != null) {
-                Text(
-                    text = "Winner: ${winner.nickname} (${winner.totalScore} pts)",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MintGreen,
                 )
             }
         }
@@ -1972,6 +1927,7 @@ private fun GameScreenPreview() {
             myPlayerId = "player1",
             isMyTurn = true,
             onBack = {},
+            onNavigateToGameOver = {},
         )
     }
 }
