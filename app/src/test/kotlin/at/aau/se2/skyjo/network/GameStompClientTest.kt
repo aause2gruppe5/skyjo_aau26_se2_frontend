@@ -7,6 +7,7 @@ import at.aau.se2.skyjo.model.ActionCardParameters
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
+import at.aau.se2.skyjo.model.CheatReportResultMessage
 import at.aau.se2.skyjo.model.PlayActionCardCommand
 import io.mockk.*
 import kotlinx.coroutines.delay
@@ -265,6 +266,23 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `cheatReportCurrentPlayer sends private cheat report command`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.cheatReportCurrentPlayer()
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.cheat-report",
+                body = "",
+            )
+        }
+    }
+
+    @Test
     fun `playActionCard handles send exception gracefully`() = runBlocking {
         coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
 
@@ -349,6 +367,16 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `cheatReportCurrentPlayer does nothing when session is null`() = runBlocking {
+        val client = GameStompClient(mockContext)
+
+        client.cheatReportCurrentPlayer()
+        delay(300)
+
+        coVerify(exactly = 0) { any<StompSession>().sendText(any(), any()) }
+    }
+
+    @Test
     fun `lobby invalid JSON is handled without crash`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
@@ -414,6 +442,20 @@ class GameStompClientTest {
         delay(300)
 
         verify { Log.e("GameStompClient", match { it.contains("Cheat peek error") }) }
+    }
+
+    @Test
+    fun `cheatReportCurrentPlayer handles send exception gracefully`() = runBlocking {
+        coEvery { any<StompSession>().sendText(any(), any()) } throws Exception("Network error")
+
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.cheatReportCurrentPlayer()
+        delay(300)
+
+        verify { Log.e("GameStompClient", match { it.contains("Cheat report error") }) }
     }
 
     @Test
@@ -547,6 +589,38 @@ class GameStompClientTest {
         assert(collected.isNotEmpty()) { "Expected cheat peek result to be emitted" }
         assertEquals(6, collected.first().card.value)
         assertEquals(1, collected.first().remainingCheatPeeks)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `cheat report result is emitted when valid private result arrives`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val validCheatReportResultJson = """
+            {
+                "successful": true,
+                "reporterPlayerId": "p2",
+                "targetPlayerId": "p1",
+                "penaltyPlayerId": "p1",
+                "penaltyPoints": 10,
+                "remainingCheatReports": 2
+            }
+        """.trimIndent()
+
+        val collected = mutableListOf<CheatReportResultMessage>()
+        val job = launch { client.cheatReportResults.collect { collected.add(it) } }
+        delay(100)
+
+        topicFlow.emit(validCheatReportResultJson)
+        delay(500)
+
+        assert(collected.isNotEmpty()) { "Expected cheat report result to be emitted" }
+        assertEquals(true, collected.first().successful)
+        assertEquals("p1", collected.first().penaltyPlayerId)
+        assertEquals(2, collected.first().remainingCheatReports)
 
         job.cancel()
     }

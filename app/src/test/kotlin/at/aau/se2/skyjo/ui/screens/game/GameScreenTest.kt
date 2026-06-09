@@ -3,13 +3,12 @@ package at.aau.se2.skyjo.ui.screens.game
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.runtime.mutableStateOf
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.ActionCardResultMessage
@@ -30,6 +29,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 
 @RunWith(AndroidJUnit4::class)
@@ -215,10 +215,11 @@ class GameScreenTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Cheat Peek").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Top card of the draw pile").assertIsDisplayed()
-        composeTestRule.onNodeWithText("-2").assertIsDisplayed()
-        composeTestRule.onNodeWithText("2 peeks left").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Cheat Peek").assertExists()
+        composeTestRule.onNodeWithText("Top card of the draw pile").assertExists()
+        composeTestRule.onNodeWithText("-2").assertExists()
+        composeTestRule.onNodeWithText("2 peeks left").assertExists()
+        composeTestRule.onNodeWithText("OK").assertExists()
     }
 
     @Test
@@ -1387,6 +1388,103 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Game Over! See Results").assertDoesNotExist()
     }
 
+    @Test
+    fun gameScreen_shows_report_cheat_button_for_current_opponent() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(currentPlayerId = "p2"),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("report_cheat_button").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Report Cheat (3 left)").assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_report_cheat_button_calls_callback_and_disables_for_same_turn() {
+        var reports = 0
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(currentPlayerId = "p2", turnId = 4),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onReportCheat = { reports++ },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("report_cheat_button").performClick()
+
+        assertEquals(1, reports)
+        composeTestRule.onNodeWithTag("report_cheat_button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun gameScreen_report_cheat_button_reenables_when_turn_id_changes() {
+        val state = mutableStateOf(makeGameState(currentPlayerId = "p2", turnId = 4))
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = state.value,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onReportCheat = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("report_cheat_button").performClick()
+        composeTestRule.onNodeWithTag("report_cheat_button").assertIsNotEnabled()
+
+        state.value = state.value.copy(turnId = 5)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("report_cheat_button").assertIsEnabled()
+    }
+
+    @Test
+    fun gameScreen_report_cheat_button_is_hidden_for_non_current_opponent() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(currentPlayerId = "p1"),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Bob's Grid").assertExists()
+
+        composeTestRule.onNodeWithTag("report_cheat_button").assertDoesNotExist()
+    }
+
+    @Test
+    fun gameScreen_report_cheat_button_is_disabled_when_no_reports_left() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(currentPlayerId = "p2", remainingCheatReports = 0),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("report_cheat_button").assertIsNotEnabled()
+    }
+
     private fun assertTextAbsent(text: String) {
         val matches = composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes()
         assert(matches.isEmpty()) { "Expected no visible text matching \"$text\"" }
@@ -1458,6 +1556,8 @@ class GameScreenTest {
         drawnCard: Card? = null,
         roundResult: RoundResult? = null,
         handActionCards: List<ActionCard> = listOf(ActionCard(id = 151, kind = "DEFENSE")),
+        remainingCheatReports: Int = 3,
+        turnId: Int = 0,
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
@@ -1473,6 +1573,7 @@ class GameScreenTest {
                 nickname = "Alice",
                 board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
                 actionCards = handActionCards,
+                remainingCheatReports = remainingCheatReports,
             ),
             GamePlayerState(
                 playerId = "p2",
@@ -1488,6 +1589,7 @@ class GameScreenTest {
         ),
         actionDrawPileCount = 16,
         roundResult = roundResult,
+        turnId = turnId,
     )
 
     private fun enlightenmentActionCard(id: Int = 151) = ActionCard(

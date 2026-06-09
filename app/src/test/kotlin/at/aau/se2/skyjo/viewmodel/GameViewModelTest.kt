@@ -7,6 +7,7 @@ import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
+import at.aau.se2.skyjo.model.CheatReportResultMessage
 import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
@@ -54,6 +55,7 @@ class GameViewModelTest {
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
     private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeCheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>()
+    private val fakeCheatReportResults = MutableSharedFlow<CheatReportResultMessage>()
     private val fakeIncomingInvites = MutableSharedFlow<LobbyInviteDto>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
@@ -73,6 +75,7 @@ class GameViewModelTest {
         every { mockGameClient.gameState } returns fakeGameState
         every { mockGameClient.actionCardResults } returns fakeActionCardResults
         every { mockGameClient.cheatPeekResults } returns fakeCheatPeekResults
+        every { mockGameClient.cheatReportResults } returns fakeCheatReportResults
         every { mockGameClient.incomingInvites } returns fakeIncomingInvites
         every { mockGameClient.errorMessage } returns fakeErrorMessage
         every { mockGameClient.connectionError } returns fakeConnectionError
@@ -90,6 +93,7 @@ class GameViewModelTest {
         every { mockGameClient.sendAction(any()) } just runs
         every { mockGameClient.playActionCard(any()) } just runs
         every { mockGameClient.cheatPeekDrawPile() } just runs
+        every { mockGameClient.cheatReportCurrentPlayer() } just runs
         every { mockGameClient.clearStoredGame() } just runs
         every { mockGameClient.disconnect() } just runs
         every { mockGameClient.close() } just runs
@@ -370,6 +374,17 @@ class GameViewModelTest {
 
         verify(exactly = 1) {
             mockGameClient.cheatPeekDrawPile()
+        }
+    }
+
+    @Test
+    fun `cheatReportCurrentPlayer delegates to private cheat report endpoint`() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.cheatReportCurrentPlayer()
+
+        verify(exactly = 1) {
+            mockGameClient.cheatReportCurrentPlayer()
         }
     }
 

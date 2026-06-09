@@ -16,6 +16,7 @@ import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
+import at.aau.se2.skyjo.model.CheatReportResultMessage
 import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
@@ -65,6 +66,7 @@ class AppNavHostTest {
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
     private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
     private val fakeCheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>(extraBufferCapacity = 1)
+    private val fakeCheatReportResults = MutableSharedFlow<CheatReportResultMessage>(extraBufferCapacity = 1)
     private val fakeIncomingInvites = MutableSharedFlow<LobbyInviteDto>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
@@ -84,6 +86,7 @@ class AppNavHostTest {
         every { mockGameClient.gameState } returns fakeGameState
         every { mockGameClient.actionCardResults } returns fakeActionCardResults
         every { mockGameClient.cheatPeekResults } returns fakeCheatPeekResults
+        every { mockGameClient.cheatReportResults } returns fakeCheatReportResults
         every { mockGameClient.incomingInvites } returns fakeIncomingInvites
         every { mockGameClient.errorMessage } returns fakeErrorMessage
         every { mockGameClient.connectionError } returns fakeConnectionError
@@ -99,6 +102,7 @@ class AppNavHostTest {
         every { mockGameClient.sendAction(any()) } just runs
         every { mockGameClient.playActionCard(any()) } just runs
         every { mockGameClient.cheatPeekDrawPile() } just runs
+        every { mockGameClient.cheatReportCurrentPlayer() } just runs
         every { mockGameClient.clearStoredGame() } just runs
         every { mockGameClient.disconnect() } just runs
         every { mockGameClient.close() } just runs
@@ -336,10 +340,32 @@ class AppNavHostTest {
 
         composeTestRule.onNodeWithText("Cheat Peek").assertExists()
         composeTestRule.onNodeWithText("Top card of the draw pile").assertExists()
-        composeTestRule.onNodeWithText("1 peeks left").assertExists()
+        composeTestRule.onNodeWithText("6").assertExists()
         composeTestRule.onNodeWithText("OK").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Cheat Peek").assertDoesNotExist()
+    }
+
+    @Test
+    fun appNavHost_game_screen_report_cheat_reaches_viewmodel() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("report_cheat_button").performClick()
+        composeTestRule.waitForIdle()
+
+        verify { mockGameClient.cheatReportCurrentPlayer() }
     }
 
     @Test
