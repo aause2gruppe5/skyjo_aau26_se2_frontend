@@ -60,7 +60,7 @@ class GameScreenTest {
     fun gameScreen_renders_without_crash() {
         composeTestRule.setContent {
             SkyjoTheme {
-                GameScreen(onBack = {})
+                GameScreen(onBack = {}, onNavigateToGameOver = {})
             }
         }
         composeTestRule.onNodeWithText("SKYJO ACTION").assertIsDisplayed()
@@ -70,7 +70,7 @@ class GameScreenTest {
     fun gameScreen_shows_connecting_when_no_state() {
         composeTestRule.setContent {
             SkyjoTheme {
-                GameScreen(onBack = {})
+                GameScreen(onBack = {}, onNavigateToGameOver = {})
             }
         }
         composeTestRule.onNodeWithText("Connecting...").assertIsDisplayed()
@@ -84,7 +84,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -99,7 +99,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -114,7 +114,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "AWAITING_DRAW"),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -129,7 +129,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "AWAITING_DRAW"),
                     myPlayerId = "p2",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -142,7 +142,7 @@ class GameScreenTest {
         var backPressed = false
         composeTestRule.setContent {
             SkyjoTheme {
-                GameScreen(onBack = { backPressed = true })
+                GameScreen(onBack = { backPressed = true }, onNavigateToGameOver = {})
             }
         }
         composeTestRule.waitForIdle()
@@ -150,18 +150,25 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_shows_game_over_banner() {
+    fun gameScreen_whenGameOver_callsNavigationCallback() {
+        // Ein Flag, um zu prüfen, ob die Navigation aufgerufen wurde
+        var navigationCalled = false
+
+        // Ein gefälschter GameState, der sofort auf GameOver steht
+        val testState = makeGameState(gameOver = true)
+
+        // Den Screen in die Test-Umgebung laden
         composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(gameOver = true),
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    onBack = {},
-                )
-            }
+            GameScreen(
+                gameState = testState,
+                onNavigateToGameOver = { navigationCalled = true }, // Flag auf true setzen
+                onBack = {}
+            )
         }
-        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+
+        // Da der LaunchedEffect sofort beim Start wegen gameOver = true anspringt,
+        // muss das Flag jetzt true sein.
+        assert(navigationCalled)
     }
 
     @Test
@@ -172,7 +179,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "ROUND_FINISHED"),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -190,7 +197,7 @@ class GameScreenTest {
                     ),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -205,7 +212,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "AWAITING_REPLACEMENT"),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -244,7 +251,7 @@ class GameScreenTest {
                     gameState = stateWithClearedSlot,
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -259,7 +266,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -274,7 +281,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -289,7 +296,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -307,7 +314,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onPlayActionCard = { playedIndex = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -330,7 +337,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onPlayActionCard = { playedIndex = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -361,7 +368,7 @@ class GameScreenTest {
                     onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
                         ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
                     },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -388,7 +395,7 @@ class GameScreenTest {
                     onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
                         ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
                     },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -422,7 +429,7 @@ class GameScreenTest {
                     onPlaySwapOwnCards = { actionCardIndex, firstRow, firstCol, secondRow, secondCol ->
                         ownSwapCall = OwnSwapCall(actionCardIndex, firstRow, firstCol, secondRow, secondCol)
                     },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -464,7 +471,7 @@ class GameScreenTest {
                             p2Col,
                         )
                     },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -515,7 +522,7 @@ class GameScreenTest {
                     ),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -555,7 +562,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onPlayPlayerSwapCard = { _, _, _, _, _, _, _ -> swapCalled = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -577,7 +584,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDiscardActionCard = { discardedIndex = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -600,7 +607,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawVisibleActionCard = { drawnIndex = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -621,7 +628,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "FINAL_TURNS"),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -636,43 +643,11 @@ class GameScreenTest {
                     gameState = makeGameState(gameOver = true),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
         composeTestRule.onNodeWithText("Game finished!", substring = true).assertIsDisplayed()
-    }
-
-    @Test
-    fun gameScreen_shows_winner_in_game_over_banner() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(gameOver = true),
-                    myPlayerId = "p2",
-                    isMyTurn = false,
-                    onBack = {},
-                )
-            }
-        }
-        composeTestRule.onNodeWithText("Winner:", substring = true).assertExists()
-    }
-
-    @Test
-    fun gameScreen_game_over_banner_handles_empty_scoreboard() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = makeGameState(gameOver = true).copy(totalScores = emptyList()),
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("GAME OVER").assertExists()
-        assertTextAbsent("Winner:")
     }
 
     @Test
@@ -683,7 +658,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -699,7 +674,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -716,7 +691,7 @@ class GameScreenTest {
                     gameState = makeGameState(),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -741,7 +716,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "ROUND_FINISHED", roundResult = roundResult),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -757,7 +732,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromActionDeck = {},
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -774,7 +749,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromActionDeck = { called = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -792,7 +767,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromDeck = { called = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -810,7 +785,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromDiscard = { called = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -829,7 +804,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onReplaceCard = { row, col -> replaced = row to col },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -850,7 +825,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDiscardAndReveal = { row, col -> discardedAndRevealed = row to col },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -871,7 +846,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromDeck = { called = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -889,7 +864,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onDrawFromDiscard = { called = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -908,7 +883,7 @@ class GameScreenTest {
                     ),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -931,7 +906,7 @@ class GameScreenTest {
                     gameState = makeGameState(phase = "ROUND_FINISHED", roundResult = roundResult),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -969,7 +944,7 @@ class GameScreenTest {
                     gameState = stateWithNullCard,
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -984,7 +959,7 @@ class GameScreenTest {
                     gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1006,7 +981,7 @@ class GameScreenTest {
                     gameState = makeGameStateWithHiddenCardValues(currentPlayerId = "p2"),
                     myPlayerId = "p1",
                     isMyTurn = false,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1028,7 +1003,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onPlayEnlightenmentCard = { sentCommand = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1053,7 +1028,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onPlayEnlightenmentCard = { sentCommand = it },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1075,7 +1050,7 @@ class GameScreenTest {
                     gameState = makeGameStateWithHiddenCardValues(),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1106,7 +1081,7 @@ class GameScreenTest {
                             InspectedCard(row = 0, col = 3, value = -2),
                         ),
                     ),
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1132,7 +1107,7 @@ class GameScreenTest {
                         lineIndex = 1,
                         inspectedValues = listOf(5, 9, 3, 1),
                     ),
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1157,7 +1132,7 @@ class GameScreenTest {
                         lineIndex = 0,
                         inspectedCards = listOf(InspectedCard(row = 0, col = 0, value = 4)),
                     ),
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1186,7 +1161,7 @@ class GameScreenTest {
                         inspectedCards = listOf(InspectedCard(row = 0, col = 2, value = 6)),
                     ),
                     onDismissActionCardResult = { dismissed = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1211,7 +1186,7 @@ class GameScreenTest {
                         lineIndex = 0,
                         inspectedCards = listOf(InspectedCard(row = 0, col = 0, value = 3)),
                     ),
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1239,7 +1214,7 @@ class GameScreenTest {
                     isMyTurn = false,
                     isHost = true, // <--- NEU: Explizit als Host deklariert
                     onReadyForNextRoundClick = { nextRoundClicked = true },
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
@@ -1273,68 +1248,13 @@ class GameScreenTest {
                     myPlayerId = "p2",
                     isMyTurn = false,
                     isHost = false, // <--- NEU: Explizit als NICHT-Host deklariert
-                    onBack = {},
+                    onBack = {}, onNavigateToGameOver = {},
                 )
             }
         }
 
         composeTestRule.onNodeWithText("Waiting for Alice...").assertIsDisplayed()
         composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
-    }
-
-    @Test
-    fun gameScreen_roundResultDialog_shows_game_over_button() {
-        val stateWithRoundResultAndGameOver = makeGameState(
-            gameOver = true,
-            roundResult = RoundResult(
-                finisherPlayerId = "p1",
-                scores = emptyList()
-            )
-        )
-
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = stateWithRoundResultAndGameOver,
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Start next Round").assertDoesNotExist()
-        composeTestRule.onNodeWithText("Waiting for Alice...").assertDoesNotExist()
-    }
-
-    @Test
-    fun gameScreen_roundResultDialog_closes_when_game_over_button_is_clicked() {
-        val stateWithRoundResultAndGameOver = makeGameState(
-            gameOver = true,
-            roundResult = RoundResult(
-                finisherPlayerId = "p1",
-                scores = emptyList()
-            )
-        )
-
-        composeTestRule.setContent {
-            SkyjoTheme {
-                GameScreen(
-                    gameState = stateWithRoundResultAndGameOver,
-                    myPlayerId = "p1",
-                    isMyTurn = false,
-                    isHost = true, // <--- NEU: Parameter muss vorhanden sein
-                    onBack = {},
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Game Over! See Results").performClick()
-
-        composeTestRule.onNodeWithText("Game Over! See Results").assertDoesNotExist()
     }
 
     private fun assertTextAbsent(text: String) {
