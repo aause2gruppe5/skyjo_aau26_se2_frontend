@@ -140,6 +140,7 @@ fun GameScreen(
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onDismissActionCardResult: () -> Unit = {},
     onCheatPeekDrawPile: () -> Unit = {},
+    onReportCheat: () -> Unit = {},
     onDismissCheatPeekResult: () -> Unit = {},
     onReadyForNextRoundClick: () -> Unit = {},
     onBack: () -> Unit,
@@ -173,6 +174,7 @@ fun GameScreen(
             gameState?.players?.indexOfFirst { it.playerId == myPlayerId }?.coerceAtLeast(0) ?: 0
         )
     }
+    var reportedCheatTurnId by remember(gameState?.roundNumber) { mutableStateOf<Int?>(null) }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -230,6 +232,7 @@ fun GameScreen(
                     drawnCard = drawnCard,
                     isMyTurn = isMyTurn,
                     currentPhase = currentPhase,
+                    hasReportedCheatThisTurn = reportedCheatTurnId == gameState.turnId,
                     pendingAction = pendingAction,
                     swapState = swapState,
                     pendingEnlightenmentCardIndex = pendingEnlightenmentCardIndex,
@@ -250,6 +253,10 @@ fun GameScreen(
                     onPlayActionCard = onPlayActionCard,
                     onPlayEnlightenmentCard = onPlayEnlightenmentCard,
                     onDiscardActionCard = onDiscardActionCard,
+                    onReportCheat = {
+                        reportedCheatTurnId = gameState.turnId
+                        onReportCheat()
+                    },
                     enlightenmentResult = if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) privateActionCardResult else null,
                     onDismissEnlightenmentResult = onDismissActionCardResult,
                 )
@@ -564,6 +571,7 @@ private fun GameContent(
     drawnCard: Card?,
     isMyTurn: Boolean,
     currentPhase: String?,
+    hasReportedCheatThisTurn: Boolean,
     pendingAction: String?,
     swapState: SwapSelectionState?,
     pendingEnlightenmentCardIndex: Int?,
@@ -584,15 +592,28 @@ private fun GameContent(
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+    onReportCheat: () -> Unit = {},
     enlightenmentResult: ActionCardResultMessage? = null,
     onDismissEnlightenmentResult: () -> Unit = {},
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
+    val reportsAvailable = gameState.players.find { it.playerId == myPlayerId }?.remainingCheatReports ?: 0
+    val canShowReportCheat = myPlayerId != null && !isMyTurn &&
+        !gameState.gameOver && currentPhase != PHASE_ROUND_FINISHED
+    val reportEnabled = reportsAvailable > 0 && !hasReportedCheatThisTurn
     val activeActionCardIndex = pendingEnlightenmentCardIndex ?: when (swapState) {
         is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
         is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
         null -> null
+    }
+
+    if (canShowReportCheat) {
+        ReportCheatSection(
+            reportsAvailable = reportsAvailable,
+            enabled = reportEnabled,
+            onReportCheat = onReportCheat,
+        )
     }
 
     ActionMarketSection(
@@ -808,6 +829,50 @@ private fun DrawPileRow(
             },
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun ReportCheatSection(
+    reportsAvailable: Int,
+    enabled: Boolean,
+    onReportCheat: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceWhite,
+        shadowElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Suspect cheating?",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MutedText,
+                )
+                Text(
+                    text = "$reportsAvailable reports left",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText,
+                )
+            }
+            TextButton(
+                onClick = onReportCheat,
+                enabled = enabled,
+                modifier = Modifier.testTag("report_cheat_button"),
+            ) {
+                Text(
+                    text = "Report Cheat ($reportsAvailable left)",
+                    color = if (enabled) PrimaryGreen else MutedText,
+                )
+            }
+        }
     }
 }
 

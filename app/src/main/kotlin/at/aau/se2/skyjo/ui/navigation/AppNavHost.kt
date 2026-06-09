@@ -218,6 +218,7 @@ fun AppNavHost(
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
                     onCheatPeekDrawPile = { gameViewModel.cheatPeekDrawPile() },
+                    onReportCheat = { gameViewModel.cheatReportCurrentPlayer() },
                     onDismissCheatPeekResult = { privateCheatPeekResult = null },
                     onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
