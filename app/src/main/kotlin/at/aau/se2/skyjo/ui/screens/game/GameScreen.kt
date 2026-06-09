@@ -6,6 +6,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.SystemClock
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -1325,6 +1327,21 @@ private fun PlayerPill(
         isActive -> MintGreen
         else -> MaterialTheme.colorScheme.onSurface
     }
+    val animatedSurfaceColor by animateColorAsState(
+        targetValue = surfaceColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreSurfaceColor",
+    )
+    val animatedTextColor by animateColorAsState(
+        targetValue = textColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreTextColor",
+    )
+    val animatedScoreColor by animateColorAsState(
+        targetValue = scoreColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreValueColor",
+    )
     val pillModifier = if (isPenaltyFlashing) {
         modifier.testTag("score_penalty_flash_${score.playerId}")
     } else {
@@ -1333,7 +1350,7 @@ private fun PlayerPill(
 
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        color = surfaceColor,
+        color = animatedSurfaceColor,
         border = if (!isActive && !isPenaltyFlashing) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
         modifier = pillModifier,
     ) {
@@ -1344,13 +1361,13 @@ private fun PlayerPill(
             Text(
                 text = score.nickname,
                 style = MaterialTheme.typography.labelSmall,
-                color = textColor,
+                color = animatedTextColor,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "${score.totalScore} pts",
                 style = MaterialTheme.typography.labelMedium,
-                color = scoreColor,
+                color = animatedScoreColor,
                 fontWeight = FontWeight.Bold,
             )
         }
