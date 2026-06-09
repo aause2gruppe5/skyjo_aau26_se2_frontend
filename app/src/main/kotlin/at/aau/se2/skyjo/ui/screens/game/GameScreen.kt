@@ -43,6 +43,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,6 +91,7 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 import at.aau.se2.skyjo.model.*
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
 import kotlin.math.sqrt
 
 private sealed class SwapSelectionState {
@@ -118,6 +120,7 @@ private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
 private const val PHASE_FINAL_TURNS = "FINAL_TURNS"
 private const val SHAKE_THRESHOLD = 18f
 private const val SHAKE_COOLDOWN_MS = 1_500L
+private const val SCORE_PENALTY_FLASH_MS = 900L
 
 @Composable
 fun GameScreen(
@@ -175,6 +178,8 @@ fun GameScreen(
         )
     }
     var reportedCheatTurnId by remember(gameState?.roundNumber) { mutableStateOf<Int?>(null) }
+    var previousTotalScores by remember { mutableStateOf<Map<String, Int>?>(null) }
+    var penaltyFlashPlayerIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -189,6 +194,32 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
+
+    val currentTotalScores = gameState?.totalScores?.associate { it.playerId to it.totalScore }
+
+    SideEffect {
+        val previousScores = previousTotalScores
+        previousTotalScores = currentTotalScores
+
+        if (gameState != null && currentTotalScores != null && previousScores != null &&
+            gameState.roundResult == null && gameState.phase != PHASE_ROUND_FINISHED
+        ) {
+            val penalizedPlayerIds = currentTotalScores
+                .filter { (playerId, totalScore) -> totalScore > (previousScores[playerId] ?: totalScore) }
+                .keys
+            if (penalizedPlayerIds.isNotEmpty()) {
+                penaltyFlashPlayerIds = penaltyFlashPlayerIds + penalizedPlayerIds
+            }
+        }
+    }
+
+    LaunchedEffect(penaltyFlashPlayerIds) {
+        if (penaltyFlashPlayerIds.isNotEmpty()) {
+            delay(SCORE_PENALTY_FLASH_MS)
+            penaltyFlashPlayerIds = emptySet()
+        }
+    }
+
     val canCheatPeek = gameState != null &&
         !gameState.gameOver &&
         isMyTurn &&
@@ -210,6 +241,7 @@ fun GameScreen(
             isMyTurn = isMyTurn,
             currentPlayerNickname = currentPlayerNickname,
             currentPhase = currentPhase,
+            penaltyFlashPlayerIds = penaltyFlashPlayerIds,
             onBack = onBack,
         )
 
@@ -475,6 +507,7 @@ private fun GameScreenHeader(
     isMyTurn: Boolean,
     currentPlayerNickname: String,
     currentPhase: String?,
+    penaltyFlashPlayerIds: Set<String>,
     onBack: () -> Unit,
 ) {
     Surface(
@@ -522,6 +555,7 @@ private fun GameScreenHeader(
                         PlayerPill(
                             score = score,
                             isActive = score.playerId == gameState.currentPlayerId,
+                            isPenaltyFlashing = score.playerId in penaltyFlashPlayerIds,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -1273,13 +1307,35 @@ private fun GameScreenActionBar(
 private fun PlayerPill(
     score: TotalScore,
     isActive: Boolean,
+    isPenaltyFlashing: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val surfaceColor = when {
+        isPenaltyFlashing -> Color(0xFFD32F2F)
+        isActive -> PrimaryGreen
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val textColor = when {
+        isPenaltyFlashing -> SurfaceWhite
+        isActive -> SurfaceWhite
+        else -> MutedText
+    }
+    val scoreColor = when {
+        isPenaltyFlashing -> SurfaceWhite
+        isActive -> MintGreen
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val pillModifier = if (isPenaltyFlashing) {
+        modifier.testTag("score_penalty_flash_${score.playerId}")
+    } else {
+        modifier
+    }
+
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
-        border = if (!isActive) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
-        modifier = modifier,
+        color = surfaceColor,
+        border = if (!isActive && !isPenaltyFlashing) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
+        modifier = pillModifier,
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1288,13 +1344,13 @@ private fun PlayerPill(
             Text(
                 text = score.nickname,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isActive) SurfaceWhite else MutedText,
+                color = textColor,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "${score.totalScore} pts",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isActive) MintGreen else MaterialTheme.colorScheme.onSurface,
+                color = scoreColor,
                 fontWeight = FontWeight.Bold,
             )
         }

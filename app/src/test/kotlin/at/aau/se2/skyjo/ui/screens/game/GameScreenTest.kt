@@ -3,6 +3,7 @@ package at.aau.se2.skyjo.ui.screens.game
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -1485,6 +1486,91 @@ class GameScreenTest {
         composeTestRule.onNodeWithTag("report_cheat_button").assertIsNotEnabled()
     }
 
+    @Test
+    fun gameScreen_flashes_score_when_player_gets_mid_round_penalty() {
+        val state = mutableStateOf(makeGameState())
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = state.value,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("score_penalty_flash_p1").assertDoesNotExist()
+
+        composeTestRule.mainClock.autoAdvance = false
+        try {
+            composeTestRule.runOnIdle {
+                state.value = state.value.copy(
+                    totalScores = listOf(
+                        TotalScore("p1", "Alice", 5),
+                        TotalScore("p2", "Bob", 0),
+                    ),
+                )
+            }
+            composeTestRule.mainClock.advanceTimeUntil(1_000L) {
+                composeTestRule.onAllNodesWithTag("score_penalty_flash_p1", useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+
+            composeTestRule.onNodeWithTag("score_penalty_flash_p1", useUnmergedTree = true).assertExists()
+            composeTestRule.mainClock.advanceTimeUntil(2_000L) {
+                composeTestRule.onAllNodesWithTag("score_penalty_flash_p1", useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isEmpty()
+            }
+            composeTestRule.onNodeWithTag("score_penalty_flash_p1", useUnmergedTree = true).assertDoesNotExist()
+        } finally {
+            composeTestRule.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
+    fun gameScreen_does_not_flash_score_for_round_result_points() {
+        val state = mutableStateOf(makeGameState())
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = state.value,
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    onBack = {},
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.mainClock.autoAdvance = false
+        try {
+            composeTestRule.runOnIdle {
+                state.value = state.value.copy(
+                    phase = "ROUND_FINISHED",
+                    roundResult = RoundResult(
+                        finisherPlayerId = "p1",
+                        scores = listOf(PlayerRoundScore("p1", rawScore = 5, finalScore = 5)),
+                    ),
+                    totalScores = listOf(
+                        TotalScore("p1", "Alice", 5),
+                        TotalScore("p2", "Bob", 0),
+                    ),
+                )
+            }
+            composeTestRule.mainClock.advanceTimeByFrame()
+            composeTestRule.mainClock.advanceTimeByFrame()
+
+            composeTestRule.onNodeWithTag("score_penalty_flash_p1", useUnmergedTree = true).assertDoesNotExist()
+        } finally {
+            composeTestRule.mainClock.autoAdvance = true
+        }
+    }
+
     private fun assertTextAbsent(text: String) {
         val matches = composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes()
         assert(matches.isEmpty()) { "Expected no visible text matching \"$text\"" }
@@ -1558,15 +1644,16 @@ class GameScreenTest {
         handActionCards: List<ActionCard> = listOf(ActionCard(id = 151, kind = "DEFENSE")),
         remainingCheatReports: Int = 3,
         turnId: Int = 0,
+        totalScores: List<TotalScore> = listOf(
+            TotalScore("p1", "Alice", 0),
+            TotalScore("p2", "Bob", 0),
+        ),
     ) = GameUpdateMessage(
         phase = phase,
         currentPlayerId = currentPlayerId,
         roundNumber = 1,
         gameOver = gameOver,
-        totalScores = listOf(
-            TotalScore("p1", "Alice", 0),
-            TotalScore("p2", "Bob", 0),
-        ),
+        totalScores = totalScores,
         players = listOf(
             GamePlayerState(
                 playerId = "p1",
