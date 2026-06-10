@@ -30,6 +30,7 @@ data class GamePlayerState(
     val nickname: String,
     val board: List<List<BoardSlot>>,
     val actionCards: List<ActionCard> = emptyList(),
+    val remainingCheatReports: Int = 3,
 )
 
 @Serializable
@@ -68,4 +69,21 @@ data class GameUpdateMessage(
     val gameId: String? = null,
     val lobbyId: String? = null,
     val disconnectedPlayers: List<String> = emptyList(),
+    val turnId: Int = 0,
+)
+
+@Serializable
+data class CheatPeekResultMessage(
+    val card: Card,
+    val remainingCheatPeeks: Int,
+)
+
+@Serializable
+data class CheatReportResultMessage(
+    val successful: Boolean,
+    val reporterPlayerId: String,
+    val targetPlayerId: String,
+    val penaltyPlayerId: String,
+    val penaltyPoints: Int,
+    val remainingCheatReports: Int,
 )

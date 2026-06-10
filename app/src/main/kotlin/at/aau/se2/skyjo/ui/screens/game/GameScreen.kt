@@ -1,5 +1,13 @@
 package at.aau.se2.skyjo.ui.screens.game
 
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.SystemClock
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,16 +43,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +93,8 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.ui.theme.SurfaceWhite
 import at.aau.se2.skyjo.model.*
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
+import kotlin.math.sqrt
 
 private sealed class SwapSelectionState {
     data class AwaitingFirst(
@@ -106,6 +120,9 @@ private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
 private const val PHASE_FINAL_TURNS = "FINAL_TURNS"
+private const val SHAKE_THRESHOLD = 18f
+private const val SHAKE_COOLDOWN_MS = 1_500L
+private const val SCORE_PENALTY_FLASH_MS = 900L
 
 @Composable
 fun GameScreen(
@@ -114,6 +131,7 @@ fun GameScreen(
     isMyTurn: Boolean = false,
     isHost: Boolean = false,
     privateActionCardResult: ActionCardResultMessage? = null,
+    privateCheatPeekResult: CheatPeekResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
     onDrawFromDiscard: () -> Unit = {},
     onDrawFromActionDeck: () -> Unit = {},
@@ -126,6 +144,9 @@ fun GameScreen(
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onDismissActionCardResult: () -> Unit = {},
+    onCheatPeekDrawPile: () -> Unit = {},
+    onReportCheat: () -> Unit = {},
+    onDismissCheatPeekResult: () -> Unit = {},
     onReadyForNextRoundClick: () -> Unit = {},
     onBack: () -> Unit,
     onNavigateToGameOver: () -> Unit,
@@ -166,6 +187,9 @@ fun GameScreen(
             gameState?.players?.indexOfFirst { it.playerId == myPlayerId }?.coerceAtLeast(0) ?: 0
         )
     }
+    var reportedCheatTurnId by remember(gameState?.roundNumber) { mutableStateOf<Int?>(null) }
+    var previousTotalScores by remember { mutableStateOf<Map<String, Int>?>(null) }
+    var penaltyFlashPlayerIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val currentPhase = gameState?.phase
     val myPlayer = gameState?.players?.find { it.playerId == myPlayerId }
@@ -181,6 +205,42 @@ fun GameScreen(
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
 
+    val currentTotalScores = gameState?.totalScores?.associate { it.playerId to it.totalScore }
+
+    SideEffect {
+        val previousScores = previousTotalScores
+        previousTotalScores = currentTotalScores
+
+        if (gameState != null && currentTotalScores != null && previousScores != null &&
+            gameState.roundResult == null && gameState.phase != PHASE_ROUND_FINISHED
+        ) {
+            val penalizedPlayerIds = currentTotalScores
+                .filter { (playerId, totalScore) -> totalScore > (previousScores[playerId] ?: totalScore) }
+                .keys
+            if (penalizedPlayerIds.isNotEmpty()) {
+                penaltyFlashPlayerIds = penaltyFlashPlayerIds + penalizedPlayerIds
+            }
+        }
+    }
+
+    LaunchedEffect(penaltyFlashPlayerIds) {
+        if (penaltyFlashPlayerIds.isNotEmpty()) {
+            delay(SCORE_PENALTY_FLASH_MS)
+            penaltyFlashPlayerIds = emptySet()
+        }
+    }
+
+    val canCheatPeek = gameState != null &&
+        !gameState.gameOver &&
+        isMyTurn &&
+        privateCheatPeekResult == null &&
+        (currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS)
+
+    ShakeCheatDetector(
+        enabled = canCheatPeek,
+        onShake = onCheatPeekDrawPile,
+    )
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -191,6 +251,7 @@ fun GameScreen(
             isMyTurn = isMyTurn,
             currentPlayerNickname = currentPlayerNickname,
             currentPhase = currentPhase,
+            penaltyFlashPlayerIds = penaltyFlashPlayerIds,
             onBack = onBack,
         )
 
@@ -213,6 +274,7 @@ fun GameScreen(
                     drawnCard = drawnCard,
                     isMyTurn = isMyTurn,
                     currentPhase = currentPhase,
+                    hasReportedCheatThisTurn = reportedCheatTurnId == gameState.turnId,
                     pendingAction = pendingAction,
                     swapState = swapState,
                     pendingEnlightenmentCardIndex = pendingEnlightenmentCardIndex,
@@ -233,6 +295,10 @@ fun GameScreen(
                     onPlayActionCard = onPlayActionCard,
                     onPlayEnlightenmentCard = onPlayEnlightenmentCard,
                     onDiscardActionCard = onDiscardActionCard,
+                    onReportCheat = {
+                        reportedCheatTurnId = gameState.turnId
+                        onReportCheat()
+                    },
                     enlightenmentResult = if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) privateActionCardResult else null,
                     onDismissEnlightenmentResult = onDismissActionCardResult,
                 )
@@ -254,6 +320,14 @@ fun GameScreen(
             )
         }
     }
+
+    if (privateCheatPeekResult != null) {
+        CheatPeekDialog(
+            result = privateCheatPeekResult,
+            onDismiss = onDismissCheatPeekResult,
+        )
+    }
+
     val dialogData = activeRoundResultDialog
     val isGameOver = gameState?.gameOver == true
     if (dialogData != null && !isGameOver) {
@@ -317,6 +391,105 @@ fun GameScreen(
 
 }
 
+@Composable
+private fun ShakeCheatDetector(
+    enabled: Boolean,
+    onShake: () -> Unit,
+) {
+    val context = LocalContext.current
+    val currentOnShake by rememberUpdatedState(onShake)
+
+    DisposableEffect(context, enabled) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        if (!enabled || sensorManager == null || accelerometer == null) {
+            onDispose {}
+        } else {
+            var lastShakeAt = 0L
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    val x = event.values.getOrNull(0) ?: return
+                    val y = event.values.getOrNull(1) ?: return
+                    val z = event.values.getOrNull(2) ?: return
+                    val magnitude = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+                    val now = SystemClock.elapsedRealtime()
+
+                    if (magnitude >= SHAKE_THRESHOLD && now - lastShakeAt >= SHAKE_COOLDOWN_MS) {
+                        lastShakeAt = now
+                        currentOnShake()
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+
+            sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+            onDispose { sensorManager.unregisterListener(listener) }
+        }
+    }
+}
+
+@Composable
+private fun CheatPeekDialog(
+    result: CheatPeekResultMessage,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = SurfaceWhite,
+            shadowElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Cheat Peek",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "Top card of the draw pile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                    textAlign = TextAlign.Center,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 96.dp, height = 132.dp)
+                        .background(
+                            color = cardColor(result.card.value),
+                            shape = RoundedCornerShape(14.dp),
+                        )
+                        .border(2.dp, PrimaryGreen, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = cardDisplayValue(result.card),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                Text(
+                    text = "${result.remainingCheatPeeks} peeks left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MutedText,
+                )
+                PrimaryButton(
+                    text = "OK",
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
 // ── Top-level section composables ────────────────────────────────────────────
 
 @Composable
@@ -325,6 +498,7 @@ private fun GameScreenHeader(
     isMyTurn: Boolean,
     currentPlayerNickname: String,
     currentPhase: String?,
+    penaltyFlashPlayerIds: Set<String>,
     onBack: () -> Unit,
 ) {
     Surface(
@@ -372,6 +546,7 @@ private fun GameScreenHeader(
                         PlayerPill(
                             score = score,
                             isActive = score.playerId == gameState.currentPlayerId,
+                            isPenaltyFlashing = score.playerId in penaltyFlashPlayerIds,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -421,6 +596,7 @@ private fun GameContent(
     drawnCard: Card?,
     isMyTurn: Boolean,
     currentPhase: String?,
+    hasReportedCheatThisTurn: Boolean,
     pendingAction: String?,
     swapState: SwapSelectionState?,
     pendingEnlightenmentCardIndex: Int?,
@@ -441,15 +617,28 @@ private fun GameContent(
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
+    onReportCheat: () -> Unit = {},
     enlightenmentResult: ActionCardResultMessage? = null,
     onDismissEnlightenmentResult: () -> Unit = {},
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
+    val reportsAvailable = gameState.players.find { it.playerId == myPlayerId }?.remainingCheatReports ?: 0
+    val canShowReportCheat = myPlayerId != null && !isMyTurn &&
+        !gameState.gameOver && currentPhase != PHASE_ROUND_FINISHED
+    val reportEnabled = reportsAvailable > 0 && !hasReportedCheatThisTurn
     val activeActionCardIndex = pendingEnlightenmentCardIndex ?: when (swapState) {
         is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
         is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
         null -> null
+    }
+
+    if (canShowReportCheat) {
+        ReportCheatSection(
+            reportsAvailable = reportsAvailable,
+            enabled = reportEnabled,
+            onReportCheat = onReportCheat,
+        )
     }
 
     ActionMarketSection(
@@ -661,6 +850,50 @@ private fun DrawPileRow(
             },
             modifier = Modifier.weight(1f),
         )
+    }
+}
+
+@Composable
+private fun ReportCheatSection(
+    reportsAvailable: Int,
+    enabled: Boolean,
+    onReportCheat: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = SurfaceWhite,
+        shadowElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Suspect cheating?",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MutedText,
+                )
+                Text(
+                    text = "$reportsAvailable reports left",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedText,
+                )
+            }
+            TextButton(
+                onClick = onReportCheat,
+                enabled = enabled,
+                modifier = Modifier.testTag("report_cheat_button"),
+            ) {
+                Text(
+                    text = "Report Cheat ($reportsAvailable left)",
+                    color = if (enabled) PrimaryGreen else MutedText,
+                )
+            }
+        }
     }
 }
 
@@ -1031,13 +1264,50 @@ private fun GameScreenActionBar(
 private fun PlayerPill(
     score: TotalScore,
     isActive: Boolean,
+    isPenaltyFlashing: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val surfaceColor = when {
+        isPenaltyFlashing -> Color(0xFFD32F2F)
+        isActive -> PrimaryGreen
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val textColor = when {
+        isPenaltyFlashing -> SurfaceWhite
+        isActive -> SurfaceWhite
+        else -> MutedText
+    }
+    val scoreColor = when {
+        isPenaltyFlashing -> SurfaceWhite
+        isActive -> MintGreen
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val animatedSurfaceColor by animateColorAsState(
+        targetValue = surfaceColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreSurfaceColor",
+    )
+    val animatedTextColor by animateColorAsState(
+        targetValue = textColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreTextColor",
+    )
+    val animatedScoreColor by animateColorAsState(
+        targetValue = scoreColor,
+        animationSpec = tween(durationMillis = 250),
+        label = "penaltyScoreValueColor",
+    )
+    val pillModifier = if (isPenaltyFlashing) {
+        modifier.testTag("score_penalty_flash_${score.playerId}")
+    } else {
+        modifier
+    }
+
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (isActive) PrimaryGreen else MaterialTheme.colorScheme.surface,
-        border = if (!isActive) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
-        modifier = modifier,
+        color = animatedSurfaceColor,
+        border = if (!isActive && !isPenaltyFlashing) androidx.compose.foundation.BorderStroke(1.dp, BorderColor) else null,
+        modifier = pillModifier,
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1046,13 +1316,13 @@ private fun PlayerPill(
             Text(
                 text = score.nickname,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isActive) SurfaceWhite else MutedText,
+                color = animatedTextColor,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "${score.totalScore} pts",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isActive) MintGreen else MaterialTheme.colorScheme.onSurface,
+                color = animatedScoreColor,
                 fontWeight = FontWeight.Bold,
             )
         }
