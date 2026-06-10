@@ -15,6 +15,8 @@ import at.aau.se2.skyjo.model.ActionCard
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
+import at.aau.se2.skyjo.model.CheatPeekResultMessage
+import at.aau.se2.skyjo.model.CheatReportResultMessage
 import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
@@ -40,12 +42,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import org.junit.Assert.assertEquals
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 import androidx.compose.ui.test.onLast
 
 @RunWith(AndroidJUnit4::class)
@@ -63,6 +67,8 @@ class AppNavHostTest {
     private val fakeLobbyState = MutableStateFlow<LobbyUpdateMessage?>(null)
     private val fakeGameState = MutableStateFlow<GameUpdateMessage?>(null)
     private val fakeActionCardResults = MutableSharedFlow<ActionCardResultMessage>()
+    private val fakeCheatPeekResults = MutableSharedFlow<CheatPeekResultMessage>(extraBufferCapacity = 1)
+    private val fakeCheatReportResults = MutableSharedFlow<CheatReportResultMessage>(extraBufferCapacity = 1)
     private val fakeIncomingInvites = MutableSharedFlow<LobbyInviteDto>()
     private val fakeErrorMessage = MutableSharedFlow<String>()
     private val fakeConnectionError = MutableStateFlow<String?>(null)
@@ -81,6 +87,8 @@ class AppNavHostTest {
         every { mockGameClient.lobbyState } returns fakeLobbyState
         every { mockGameClient.gameState } returns fakeGameState
         every { mockGameClient.actionCardResults } returns fakeActionCardResults
+        every { mockGameClient.cheatPeekResults } returns fakeCheatPeekResults
+        every { mockGameClient.cheatReportResults } returns fakeCheatReportResults
         every { mockGameClient.incomingInvites } returns fakeIncomingInvites
         every { mockGameClient.errorMessage } returns fakeErrorMessage
         every { mockGameClient.connectionError } returns fakeConnectionError
@@ -95,6 +103,8 @@ class AppNavHostTest {
         every { mockGameClient.startGame(any(), any()) } just runs
         every { mockGameClient.sendAction(any()) } just runs
         every { mockGameClient.playActionCard(any()) } just runs
+        every { mockGameClient.cheatPeekDrawPile() } just runs
+        every { mockGameClient.cheatReportCurrentPlayer() } just runs
         every { mockGameClient.clearStoredGame() } just runs
         every { mockGameClient.disconnect() } just runs
         every { mockGameClient.close() } just runs
@@ -304,6 +314,122 @@ class AppNavHostTest {
                 GameAction(type = "DISCARD_ACTION_CARD", actionCardIndex = 0)
             )
         }
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_private_cheat_peek_result() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatPeekResults.tryEmit(
+            CheatPeekResultMessage(
+                card = Card(id = 77, value = 6, type = "NUMBER"),
+                remainingCheatPeeks = 1,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("Cheat Peek").assertExists()
+        composeTestRule.onNodeWithText("Top card of the draw pile").assertExists()
+        composeTestRule.onNodeWithText("6").assertExists()
+        composeTestRule.onNodeWithText("OK").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Cheat Peek").assertDoesNotExist()
+    }
+
+    @Test
+    fun appNavHost_game_screen_report_cheat_reaches_viewmodel() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("report_cheat_button").performClick()
+        composeTestRule.waitForIdle()
+
+        verify { mockGameClient.cheatReportCurrentPlayer() }
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_successful_cheat_report_toast() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatReportResults.tryEmit(
+            CheatReportResultMessage(
+                successful = true,
+                reporterPlayerId = "p1",
+                targetPlayerId = "p2",
+                penaltyPlayerId = "p2",
+                penaltyPoints = 10,
+                remainingCheatReports = 2,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        assertEquals("Report successful! Reported player gets +10 points.", ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_false_cheat_report_toast() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatReportResults.tryEmit(
+            CheatReportResultMessage(
+                successful = false,
+                reporterPlayerId = "p1",
+                targetPlayerId = "p2",
+                penaltyPlayerId = "p1",
+                penaltyPoints = 5,
+                remainingCheatReports = 2,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        assertEquals("False report! You get +5 points.", ShadowToast.getTextOfLatestToast())
     }
 
     @Test

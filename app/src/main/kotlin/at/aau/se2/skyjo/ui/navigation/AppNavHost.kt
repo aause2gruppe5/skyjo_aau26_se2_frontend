@@ -1,5 +1,6 @@
 package at.aau.se2.skyjo.ui.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,12 +18,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import at.aau.se2.skyjo.model.ActionCardResultMessage
+import at.aau.se2.skyjo.model.CheatPeekResultMessage
 import at.aau.se2.skyjo.ui.screens.auth.AuthScreen
 import at.aau.se2.skyjo.ui.screens.friends.FriendsScreen
 import at.aau.se2.skyjo.ui.screens.game.GameScreen
@@ -172,16 +175,35 @@ fun AppNavHost(
             }
 
             composable(AppDestination.Game.route) {
+                val context = LocalContext.current
                 val gameState by gameViewModel.gameState.collectAsState()
                 val myPlayerId by gameViewModel.myPlayerId.collectAsState()
                 val isMyTurn by gameViewModel.isMyTurn.collectAsState()
                 var privateActionCardResult by remember {
                     mutableStateOf<ActionCardResultMessage?>(null)
                 }
+                var privateCheatPeekResult by remember {
+                    mutableStateOf<CheatPeekResultMessage?>(null)
+                }
 
                 LaunchedEffect(Unit) {
                     gameViewModel.actionCardResults.collect { result ->
                         privateActionCardResult = result
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    gameViewModel.cheatPeekResults.collect { result ->
+                        privateCheatPeekResult = result
+                    }
+                }
+                LaunchedEffect(context) {
+                    gameViewModel.cheatReportResults.collect { result ->
+                        val message = if (result.successful) {
+                            "Report successful! Reported player gets +${result.penaltyPoints} points."
+                        } else {
+                            "False report! You get +${result.penaltyPoints} points."
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 }
 
@@ -191,6 +213,7 @@ fun AppNavHost(
                     isMyTurn = isMyTurn,
                     isHost = isHost,
                     privateActionCardResult = privateActionCardResult,
+                    privateCheatPeekResult = privateCheatPeekResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
                     onDrawFromDiscard = { gameViewModel.drawFromDiscard() },
                     onDrawFromActionDeck = { gameViewModel.drawFromActionDeck() },
@@ -207,6 +230,9 @@ fun AppNavHost(
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
+                    onCheatPeekDrawPile = { gameViewModel.cheatPeekDrawPile() },
+                    onReportCheat = { gameViewModel.cheatReportCurrentPlayer() },
+                    onDismissCheatPeekResult = { privateCheatPeekResult = null },
                     onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
                 )

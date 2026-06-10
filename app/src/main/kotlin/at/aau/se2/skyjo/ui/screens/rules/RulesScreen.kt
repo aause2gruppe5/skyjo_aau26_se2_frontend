@@ -188,6 +188,13 @@ This rule also applies in the last turn of a game round when the remaining face-
 
 If the row of cards is obtained as a result of a swap with the draw pile or discard pile, the triplet/quad must always be placed on the discard pile after the swapped card.
 
+<b>CHEAT PEEK AND REPORTS</b>
+During their own draw phase, a player may shake their device to use a Cheat Peek. A Cheat Peek privately shows the top card of the playing card draw pile before the player chooses whether to draw from the discard pile or from the draw pile. It does not draw the card or end the turn. Each player may use up to three Cheat Peeks per round.
+
+When another player is currently taking their turn, a player may use Report Cheat. A report always targets the player whose turn it is. Each player may report up to three times per round.
+
+If the current player used a Cheat Peek during that same turn and it has not already been successfully reported, the report is successful and the current player immediately receives a 10 point penalty. If the report is false, the reporting player immediately receives a 5 point penalty. Penalty score changes are shown immediately in the total score display.
+
 <b>ACTION CARDS</b>
 All action cards taken into a player's hand must not be played until the next turn.
 
