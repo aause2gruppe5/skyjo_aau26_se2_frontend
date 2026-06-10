@@ -1,5 +1,6 @@
 package at.aau.se2.skyjo.ui.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -173,6 +175,7 @@ fun AppNavHost(
             }
 
             composable(AppDestination.Game.route) {
+                val context = LocalContext.current
                 val gameState by gameViewModel.gameState.collectAsState()
                 val myPlayerId by gameViewModel.myPlayerId.collectAsState()
                 val isMyTurn by gameViewModel.isMyTurn.collectAsState()
@@ -191,6 +194,16 @@ fun AppNavHost(
                 LaunchedEffect(Unit) {
                     gameViewModel.cheatPeekResults.collect { result ->
                         privateCheatPeekResult = result
+                    }
+                }
+                LaunchedEffect(context) {
+                    gameViewModel.cheatReportResults.collect { result ->
+                        val message = if (result.successful) {
+                            "Report successful! Reported player gets +${result.penaltyPoints} points."
+                        } else {
+                            "False report! You get +${result.penaltyPoints} points."
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 }
 

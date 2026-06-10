@@ -42,12 +42,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import org.junit.Assert.assertEquals
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 import androidx.compose.ui.test.onLast
 
 @RunWith(AndroidJUnit4::class)
@@ -366,6 +368,68 @@ class AppNavHostTest {
         composeTestRule.waitForIdle()
 
         verify { mockGameClient.cheatReportCurrentPlayer() }
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_successful_cheat_report_toast() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatReportResults.tryEmit(
+            CheatReportResultMessage(
+                successful = true,
+                reporterPlayerId = "p1",
+                targetPlayerId = "p2",
+                penaltyPlayerId = "p2",
+                penaltyPoints = 10,
+                remainingCheatReports = 2,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        assertEquals("Report successful! Reported player gets +10 points.", ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun appNavHost_game_screen_shows_false_cheat_report_toast() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState().copy(currentPlayerId = "p2")
+        viewModel.connect("Alice")
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(navController = rememberNavController(), gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+
+        fakeCheatReportResults.tryEmit(
+            CheatReportResultMessage(
+                successful = false,
+                reporterPlayerId = "p1",
+                targetPlayerId = "p2",
+                penaltyPlayerId = "p1",
+                penaltyPoints = 5,
+                remainingCheatReports = 2,
+            ),
+        )
+        composeTestRule.waitForIdle()
+
+        assertEquals("False report! You get +5 points.", ShadowToast.getTextOfLatestToast())
     }
 
     @Test
