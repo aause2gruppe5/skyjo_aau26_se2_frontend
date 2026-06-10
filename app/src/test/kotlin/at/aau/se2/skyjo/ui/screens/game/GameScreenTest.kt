@@ -219,6 +219,7 @@ class GameScreenTest {
                         remainingCheatPeeks = 2,
                     ),
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -246,6 +247,7 @@ class GameScreenTest {
                     ),
                     onDismissCheatPeekResult = { dismissed = true },
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1327,6 +1329,7 @@ class GameScreenTest {
                     isMyTurn = false,
                     isHost = true, // <--- NEU: Parameter muss vorhanden sein
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1354,6 +1357,7 @@ class GameScreenTest {
                     isMyTurn = false,
                     isHost = true, // <--- NEU: Parameter muss vorhanden sein
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1373,6 +1377,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = false,
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1392,6 +1397,7 @@ class GameScreenTest {
                     isMyTurn = false,
                     onReportCheat = { reports++ },
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1413,6 +1419,7 @@ class GameScreenTest {
                     isMyTurn = false,
                     onReportCheat = {},
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1435,6 +1442,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = true,
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1454,6 +1462,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = false,
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1472,6 +1481,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = false,
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }
@@ -1517,6 +1527,7 @@ class GameScreenTest {
                     myPlayerId = "p1",
                     isMyTurn = false,
                     onBack = {},
+                    onNavigateToGameOver = {},
                 )
             }
         }

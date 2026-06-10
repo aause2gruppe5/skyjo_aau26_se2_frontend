@@ -2,7 +2,6 @@ package at.aau.se2.skyjo.ui.screens.gameOver
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,11 +12,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,13 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import at.aau.se2.skyjo.model.social.FriendDto
-import at.aau.se2.skyjo.model.social.FriendRequestDto
-import at.aau.se2.skyjo.model.social.LobbyInviteDto
-import at.aau.se2.skyjo.model.social.RelationshipStatus
-import at.aau.se2.skyjo.model.social.SocialUserDto
 import at.aau.se2.skyjo.ui.components.*
-import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.*
 import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.model.TotalScore
@@ -120,7 +111,12 @@ fun GameOverScreen(
 
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                        .fillMaxWidth()
+                        // 1. Takes the remaining space below the title
+                        .weight(1f)
+                        // 2. Makes the column scrollable
+                        .verticalScroll(rememberScrollState())
                     ) {
                         sortedScores.forEachIndexed { index, score ->
                             LeaderboardRow(index = index, totalScore = score)
