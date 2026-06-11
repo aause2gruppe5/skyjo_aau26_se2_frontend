@@ -330,7 +330,7 @@ fun GameScreen(
 
     val dialogData = activeRoundResultDialog
     val isGameOver = gameState?.gameOver == true
-    if (dialogData != null && !isGameOver) {
+    if (dialogData != null) {
 
         Dialog(onDismissRequest = { /* Leer lassen, damit man es nicht wegklicken kann */ }) {
             Surface(
@@ -352,7 +352,18 @@ fun GameScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (isHost) {
+                    if (isGameOver) {
+                        PrimaryButton(
+                            text = "Game Over! See Results",
+                            onClick = {
+                                activeRoundResultDialog = null
+                                onNavigateToGameOver()
+                            },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                        )
+                    } else if (isHost) {
                         PrimaryButton(
                             text = if (isStartingNextRound) "Starting..." else "Start next Round",
                             enabled = !isStartingNextRound, // <--- Verhindert Spam-Klicks

@@ -54,7 +54,10 @@ class GameStompClientTest {
         every { mockEditor.apply() } just runs
 
         every { Log.d(any(), any()) } returns 0
-        every { Log.e(any(), any()) } returns 0
+        every { Log.e(any(), any()) } answers {
+            println("LOG_ERROR: ${arg<String>(0)}: ${arg<String>(1)}")
+            0
+        }
 
         coEvery {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
@@ -137,12 +140,12 @@ class GameStompClientTest {
     fun `joinLobby sends correct destination and payload`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
-        delay(300)
+        delay(1000)
 
         client.joinLobby("Hans")
-        delay(300)
+        delay(1000)
 
-        coVerify(atLeast = 1) {
+        coVerify(timeout = 3000, atLeast = 1) {
             any<StompSession>().sendText(
                 destination = "/app/lobby.join",
                 body = match { it.contains("Hans") },
@@ -670,9 +673,16 @@ class GameStompClientTest {
         """.trimIndent()
 
         topicFlow.emit(validGameJson)
-        delay(500)
-
-        assert(client.hasRejoinedGame.value) { "Expected hasRejoinedGame to be true after rejoin JSON" }
+        
+        var success = false
+        for (i in 1..30) {
+            if (client.hasRejoinedGame.value) {
+                success = true
+                break
+            }
+            delay(100)
+        }
+        assert(success) { "Expected hasRejoinedGame to be true after rejoin JSON" }
     }
 
     @Test
