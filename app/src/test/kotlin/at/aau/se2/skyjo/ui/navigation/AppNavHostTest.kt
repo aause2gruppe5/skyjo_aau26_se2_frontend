@@ -546,6 +546,32 @@ class AppNavHostTest {
     }
 
     @Test
+    fun appNavHost_navigates_to_gameOver_when_game_state_becomes_game_over() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+        assertEquals(AppDestination.Game.route, navController.currentDestination?.route)
+
+        fakeGameState.value = makeGameState().copy(gameOver = true)
+        composeTestRule.waitForIdle()
+
+        assertEquals(AppDestination.GameOver.route, navController.currentDestination?.route)
+        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+    }
+
+    @Test
     fun appNavHost_gameOver_back_button_clears_lobby_and_navigates_to_start() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         fakeGameState.value = makeGameState()

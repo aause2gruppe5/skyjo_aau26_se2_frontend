@@ -119,7 +119,7 @@ fun GameOverScreen(
                         .verticalScroll(rememberScrollState())
                     ) {
                         sortedScores.forEachIndexed { index, score ->
-                            LeaderboardRow(index = index, totalScore = score)
+                            LeaderboardRow(rank = competitionRank(sortedScores, index), totalScore = score)
 
                             if (index < sortedScores.lastIndex) {
                                 HorizontalDivider(color = BorderColor)
@@ -140,16 +140,21 @@ fun GameOverScreen(
     }
 }
 
+private fun competitionRank(sortedScores: List<TotalScore>, index: Int): Int {
+    val score = sortedScores[index].totalScore
+    return sortedScores.count { it.totalScore < score } + 1
+}
+
 @Composable
-private fun LeaderboardRow(index: Int, totalScore: TotalScore) {
-    val rankIndicator = when (index) {
-        0 -> "🏆"
-        1 -> "🥈"
-        2 -> "🥉"
-        else -> "${index + 1}."
+private fun LeaderboardRow(rank: Int, totalScore: TotalScore) {
+    val rankIndicator = when (rank) {
+        1 -> "\uD83C\uDFC6"
+        2 -> "\uD83E\uDD48"
+        3 -> "\uD83E\uDD49"
+        else -> "$rank."
     }
 
-    val isWinner = index == 0
+    val isWinner = rank == 1
 
     Row(
         modifier = Modifier

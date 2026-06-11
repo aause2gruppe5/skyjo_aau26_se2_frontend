@@ -172,9 +172,9 @@ fun GameScreen(
         }
     }
 
-    LaunchedEffect(gameState?.gameOver) {
-        if (gameState?.gameOver == true) {
-            onNavigateToGameOver() // Feuert das Event an deinen NavHost
+    LaunchedEffect(gameState?.gameOver, gameState?.roundResult) {
+        if (gameState?.gameOver == true && gameState.roundResult == null) {
+            onNavigateToGameOver()
         }
     }
 

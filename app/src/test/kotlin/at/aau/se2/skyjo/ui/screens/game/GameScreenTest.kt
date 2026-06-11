@@ -152,11 +152,11 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_whenGameOver_callsNavigationCallback() {
+    fun gameScreen_whenGameOverWithoutRoundResult_callsNavigationCallback() {
         // Ein Flag, um zu prüfen, ob die Navigation aufgerufen wurde
         var navigationCalled = false
 
-        // Ein gefälschter GameState, der sofort auf GameOver steht
+        // Ein gefälschter GameState, der sofort auf GameOver steht und kein Ergebnisdialog anzeigen kann
         val testState = makeGameState(gameOver = true)
 
         // Den Screen in die Test-Umgebung laden
@@ -168,7 +168,7 @@ class GameScreenTest {
             )
         }
 
-        // Da der LaunchedEffect sofort beim Start wegen gameOver = true anspringt,
+        // Da kein RoundResult vorhanden ist, soll direkt der größere GameOver-Screen geöffnet werden.
         // muss das Flag jetzt true sein.
         assert(navigationCalled)
     }
@@ -1341,6 +1341,7 @@ class GameScreenTest {
 
     @Test
     fun gameScreen_roundResultDialog_closes_when_game_over_button_is_clicked() {
+        var navigationCalls = 0
         val stateWithRoundResultAndGameOver = makeGameState(
             gameOver = true,
             roundResult = RoundResult(
@@ -1357,14 +1358,19 @@ class GameScreenTest {
                     isMyTurn = false,
                     isHost = true, // <--- NEU: Parameter muss vorhanden sein
                     onBack = {},
-                    onNavigateToGameOver = {},
+                    onNavigateToGameOver = { navigationCalls++ },
                 )
             }
         }
 
+        composeTestRule.waitForIdle()
+        assertEquals(0, navigationCalls)
+
         composeTestRule.onNodeWithText("Game Over! See Results").assertIsDisplayed()
         composeTestRule.onNodeWithText("Game Over! See Results").performClick()
+        composeTestRule.waitForIdle()
 
+        assertEquals(1, navigationCalls)
         composeTestRule.onNodeWithText("Game Over! See Results").assertDoesNotExist()
     }
 

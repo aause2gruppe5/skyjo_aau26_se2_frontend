@@ -1,7 +1,9 @@
 package at.aau.se2.skyjo.ui.screens.gameOver
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,7 +26,7 @@ class GameOverScreenTest {
     private val mockScores = listOf(
         TotalScore(nickname = "Bob", playerId = "2", totalScore = 34),    // Wird 2.
         TotalScore(nickname = "Alice", playerId = "1", totalScore = -15), // Wird 1.
-        TotalScore(nickname = "Charlie", playerId = "3", totalScore = 87),// Wird 3.
+        TotalScore(nickname = "Charlie", playerId = "3", totalScore = 34),// Wird ebenfalls 2.
         TotalScore(nickname = "Diana", playerId = "4", totalScore = 120)  // Wird 4.
     )
 
@@ -124,17 +126,14 @@ class GameOverScreenTest {
         // 1. Platz: Alice sollte mit der niedrigsten Punktzahl gewinnen und den Pokal haben
         composeTestRule.onNodeWithText("Alice", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithText("-15 pts", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("🏆", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText("\uD83C\uDFC6", useUnmergedTree = true).assertExists()
 
-        // 2. Platz: Bob (Nutzt assertExists, falls er auf dem kleinen Test-Screen abgeschnitten ist)
+        // 2. Platz: Bob und Charlie teilen sich denselben Rang
         composeTestRule.onNodeWithText("Bob", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("34 pts", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("🥈", useUnmergedTree = true).assertExists()
-
-        // 3. Platz: Charlie
         composeTestRule.onNodeWithText("Charlie", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("87 pts", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("🥉", useUnmergedTree = true).assertExists()
+        composeTestRule.onAllNodesWithText("34 pts", useUnmergedTree = true).assertCountEquals(2)
+        composeTestRule.onAllNodesWithText("\uD83E\uDD48", useUnmergedTree = true).assertCountEquals(2)
+        composeTestRule.onAllNodesWithText("\uD83E\uDD49", useUnmergedTree = true).assertCountEquals(0)
 
         // 4. Platz: Diana
         composeTestRule.onNodeWithText("Diana", useUnmergedTree = true).assertExists()

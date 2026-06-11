@@ -140,12 +140,10 @@ class GameStompClientTest {
     fun `joinLobby sends correct destination and payload`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
-        delay(1000)
 
         client.joinLobby("Hans")
-        delay(1000)
 
-        coVerify(timeout = 3000, atLeast = 1) {
+        coVerify(timeout = 1000, atLeast = 1) {
             any<StompSession>().sendText(
                 destination = "/app/lobby.join",
                 body = match { it.contains("Hans") },
@@ -673,16 +671,10 @@ class GameStompClientTest {
         """.trimIndent()
 
         topicFlow.emit(validGameJson)
-        
-        var success = false
-        for (i in 1..30) {
-            if (client.hasRejoinedGame.value) {
-                success = true
-                break
-            }
-            delay(100)
+
+        assert(waitUntil { client.hasRejoinedGame.value }) {
+            "Expected hasRejoinedGame to be true after rejoin JSON"
         }
-        assert(success) { "Expected hasRejoinedGame to be true after rejoin JSON" }
     }
 
     @Test
@@ -862,5 +854,18 @@ class GameStompClientTest {
         assert(collected.first().players.first().nickname == "Alice")
 
         job.cancel()
+    }
+
+    private suspend fun waitUntil(
+        timeoutMillis: Long = 1000,
+        intervalMillis: Long = 25,
+        condition: () -> Boolean,
+    ): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            delay(intervalMillis)
+        }
+        return condition()
     }
 }
