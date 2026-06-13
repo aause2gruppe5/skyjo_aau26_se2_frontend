@@ -8,6 +8,8 @@ import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
 import at.aau.se2.skyjo.model.CheatReportResultMessage
+import at.aau.se2.skyjo.model.DrawThreeCardsChoiceMode
+import at.aau.se2.skyjo.model.DrawThreeCardsDiscardReference
 import at.aau.se2.skyjo.model.PlayActionCardCommand
 import io.mockk.*
 import kotlinx.coroutines.delay
@@ -244,6 +246,64 @@ class GameStompClientTest {
                         it.contains("\"targetPlayerId\":\"p2\"") &&
                         it.contains("\"targetType\":\"ROW\"") &&
                         it.contains("\"lineIndex\":0")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `playActionCard sends draw three cards first step without parameters`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.playActionCard(PlayActionCardCommand(actionCardIndex = 0))
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action-card",
+                body = match {
+                    it.contains("\"actionCardIndex\":0") &&
+                            !it.contains("parameters")
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `playActionCard sends draw three cards choice command`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        client.playActionCard(
+            PlayActionCardCommand(
+                actionCardIndex = 0,
+                parameters = ActionCardParameters.DrawThreeCardsChoice(
+                    mode = DrawThreeCardsChoiceMode.DISCARD_ALL_AND_REVEAL,
+                    revealRow = 1,
+                    revealColumn = 2,
+                    discardOrder = listOf(
+                        DrawThreeCardsDiscardReference.DRAWN_CARD_2,
+                        DrawThreeCardsDiscardReference.DRAWN_CARD_0,
+                        DrawThreeCardsDiscardReference.DRAWN_CARD_1,
+                    ),
+                ),
+            ),
+        )
+        delay(300)
+
+        coVerify(atLeast = 1) {
+            any<StompSession>().sendText(
+                destination = "/app/game.action-card",
+                body = match {
+                    it.contains("\"actionCardIndex\":0") &&
+                            it.contains("\"mode\":\"DISCARD_ALL_AND_REVEAL\"") &&
+                            it.contains("\"revealRow\":1") &&
+                            it.contains("\"revealColumn\":2") &&
+                            it.contains("\"discardOrder\":[\"DRAWN_CARD_2\",\"DRAWN_CARD_0\",\"DRAWN_CARD_1\"]") &&
+                            !it.contains("DrawThreeCardsChoice")
                 },
             )
         }
@@ -563,6 +623,39 @@ class GameStompClientTest {
         assertEquals("ENLIGHTENMENT", collected.first().type)
         assertEquals(BoardLineTargetType.COLUMN, collected.first().targetType)
         assertEquals(listOf(3, null, 7), collected.first().inspectedValues)
+
+        job.cancel()
+    }
+
+    @Test
+    fun `draw three cards result is emitted when valid private result arrives`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connect()
+        delay(300)
+
+        val validActionCardResultJson = """
+            {
+                "type": "DRAW_THREE_CARDS",
+                "actionCardIndex": 0,
+                "drawnCards": [
+                    { "id": 201, "value": 8, "type": "NUMBER" },
+                    { "id": 202, "value": -2, "type": "NUMBER" },
+                    { "id": 203, "value": 13, "type": "NUMBER" }
+                ]
+            }
+        """.trimIndent()
+
+        val collected = mutableListOf<ActionCardResultMessage>()
+        val job = launch { client.actionCardResults.collect { collected.add(it) } }
+        delay(100)
+
+        topicFlow.emit(validActionCardResultJson)
+        delay(500)
+
+        assert(collected.isNotEmpty()) { "Expected action card result to be emitted" }
+        assertEquals("DRAW_THREE_CARDS", collected.first().type)
+        assertEquals(listOf(8, -2, 13), collected.first().drawnCards.map { it.value })
+        assertNull(collected.first().targetType)
 
         job.cancel()
     }
