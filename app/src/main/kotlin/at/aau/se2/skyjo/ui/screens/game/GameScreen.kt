@@ -157,6 +157,8 @@ fun GameScreen(
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
     var drawnFromDiscard by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf(false) }
+    val handleDrawFromDeck: () -> Unit = { drawnFromDiscard = false; onDrawFromDeck() }
+    val handleDrawFromDiscard: () -> Unit = { drawnFromDiscard = true; onDrawFromDiscard() }
 
     var activeRoundResultDialog by remember {
         mutableStateOf<Pair<Int, RoundResult>?>(null)
@@ -301,14 +303,8 @@ fun GameScreen(
                     onPendingActionChange = { pendingAction = it },
                     onSwapStateChange = { swapState = it },
                     onPendingEnlightenmentCardIndexChange = { pendingEnlightenmentCardIndex = it },
-                    onDrawFromDeck = {
-                        drawnFromDiscard = false
-                        onDrawFromDeck()
-                    },
-                    onDrawFromDiscard = {
-                        drawnFromDiscard = true
-                        onDrawFromDiscard()
-                    },
+                    onDrawFromDeck = handleDrawFromDeck,
+                    onDrawFromDiscard = handleDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
                     onDrawVisibleActionCard = onDrawVisibleActionCard,
                     onReplaceCard = onReplaceCard,
@@ -343,14 +339,8 @@ fun GameScreen(
                 actionCardChoicePending = isDrawThreeCardsChoicePending,
                 drawnFromDiscard = drawnFromDiscard,
                 onPendingActionChange = { pendingAction = it },
-                onDrawFromDeck = {
-                    drawnFromDiscard = false
-                    onDrawFromDeck()
-                },
-                onDrawFromDiscard = {
-                    drawnFromDiscard = true
-                    onDrawFromDiscard()
-                },
+                onDrawFromDeck = handleDrawFromDeck,
+                onDrawFromDiscard = handleDrawFromDiscard,
             )
         }
     }
