@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
+import at.aau.se2.skyjo.ui.components.screenHorizontalPadding
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.MintGreen
 import at.aau.se2.skyjo.ui.theme.MutedText
@@ -62,12 +64,18 @@ fun SettingsScreen(
         onNavigate = onNavigate,
         modifier = modifier,
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(horizontal = screenHorizontalPadding(), vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -196,6 +204,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+        } // Box
     }
 }
 

@@ -1,6 +1,7 @@
 package at.aau.se2.skyjo.ui.screens.friends
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.aau.se2.skyjo.model.social.FriendDto
@@ -33,6 +36,7 @@ import at.aau.se2.skyjo.model.social.SocialUserDto
 import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
+import at.aau.se2.skyjo.ui.components.screenHorizontalPadding
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.MintGreen
 import at.aau.se2.skyjo.ui.theme.MutedText
@@ -63,54 +67,61 @@ fun FriendsScreen(
         onNavigate = onNavigate,
         modifier = modifier,
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+                .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Text("Friends", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search users") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 560.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = screenHorizontalPadding(), vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Text("Friends", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Search users") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            if (searchResults.isNotEmpty()) {
-                SectionCard(title = "Search") {
-                    searchResults.forEach { user ->
-                        SearchRow(user = user, onSendRequest = onSendRequest)
+                if (searchResults.isNotEmpty()) {
+                    SectionCard(title = "Search") {
+                        searchResults.forEach { user ->
+                            SearchRow(user = user, onSendRequest = onSendRequest)
+                        }
                     }
                 }
-            }
 
-            if (incomingRequests.isNotEmpty()) {
-                SectionCard(title = "Requests") {
-                    incomingRequests.forEach { request ->
-                        RequestRow(request, onAcceptRequest, onDeclineRequest)
+                if (incomingRequests.isNotEmpty()) {
+                    SectionCard(title = "Requests") {
+                        incomingRequests.forEach { request ->
+                            RequestRow(request, onAcceptRequest, onDeclineRequest)
+                        }
                     }
                 }
-            }
 
-            if (lobbyInvites.isNotEmpty()) {
-                SectionCard(title = "Lobby Invites") {
-                    lobbyInvites.forEach { invite ->
-                        InviteRow(invite, onAcceptInvite, onDeclineInvite)
+                if (lobbyInvites.isNotEmpty()) {
+                    SectionCard(title = "Lobby Invites") {
+                        lobbyInvites.forEach { invite ->
+                            InviteRow(invite, onAcceptInvite, onDeclineInvite)
+                        }
                     }
                 }
-            }
 
-            SectionCard(title = "Your Friends") {
-                if (friends.isEmpty()) {
-                    Text("No friends yet", color = MutedText)
-                } else {
-                    friends.forEach { friend ->
-                        FriendRow(friend, showInvite = activeLobbyId != null, onInviteFriend = onInviteFriend)
+                SectionCard(title = "Your Friends") {
+                    if (friends.isEmpty()) {
+                        Text("No friends yet", color = MutedText)
+                    } else {
+                        friends.forEach { friend ->
+                            FriendRow(friend, showInvite = activeLobbyId != null, onInviteFriend = onInviteFriend)
+                        }
                     }
                 }
             }
@@ -139,7 +150,12 @@ private fun FriendRow(friend: FriendDto, showInvite: Boolean, onInviteFriend: (S
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(friend.username, fontWeight = FontWeight.SemiBold)
+            Text(
+                friend.username,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(if (friend.online) "Online" else "Offline", color = if (friend.online) OnlineGreen else MutedText)
         }
         if (showInvite) {
@@ -151,7 +167,14 @@ private fun FriendRow(friend: FriendDto, showInvite: Boolean, onInviteFriend: (S
 @Composable
 private fun SearchRow(user: SocialUserDto, onSendRequest: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(user.username, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+        Text(
+            user.username,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         when (user.relationshipStatus) {
             RelationshipStatus.NONE -> ActionPill("Add") { onSendRequest(user.userId) }
             RelationshipStatus.FRIENDS -> Text("Friend", color = MutedText)
@@ -168,9 +191,16 @@ private fun RequestRow(
     onDeclineRequest: (String) -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(request.from.username, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-        ActionPill("Accept") { onAcceptRequest(request.requestId) }
+        Text(
+            request.from.username,
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Spacer(modifier = Modifier.width(8.dp))
+        ActionPill("Accept") { onAcceptRequest(request.requestId) }
+        Spacer(modifier = Modifier.width(6.dp))
         ActionPill("Decline") { onDeclineRequest(request.requestId) }
     }
 }
@@ -183,11 +213,17 @@ private fun InviteRow(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(invite.from.username, fontWeight = FontWeight.SemiBold)
+            Text(
+                invite.from.username,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text("Code ${invite.joinCode}", color = MutedText)
         }
-        ActionPill("Join") { onAcceptInvite(invite.inviteId) }
         Spacer(modifier = Modifier.width(8.dp))
+        ActionPill("Join") { onAcceptInvite(invite.inviteId) }
+        Spacer(modifier = Modifier.width(6.dp))
         ActionPill("Decline") { onDeclineInvite(invite.inviteId) }
     }
 }
