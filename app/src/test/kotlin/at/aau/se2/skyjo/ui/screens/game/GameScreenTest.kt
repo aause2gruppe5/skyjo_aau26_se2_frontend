@@ -741,7 +741,7 @@ class GameScreenTest {
     }
 
     @Test
-    fun gameScreen_player_swap_shows_protected_indicator_when_target_has_defense() {
+    fun gameScreen_player_swap_has_defense_warning_when_target_has_defense() {
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
@@ -773,14 +773,14 @@ class GameScreenTest {
         composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
 
-        composeTestRule.onNodeWithTag("defense_protected_indicator").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Protected by Defense card — cannot swap").assertIsDisplayed()
-        assertTextAbsent("Tap a card to swap")
+        composeTestRule.onNodeWithTag("defense_protected_indicator").assertExists()
+        composeTestRule.onNodeWithText("Defense will block this swap").assertExists()
+        composeTestRule.onNodeWithText("Tap a card to swap").assertExists()
     }
 
     @Test
-    fun gameScreen_player_swap_grid_not_selectable_when_target_has_defense() {
-        var swapCalled = false
+    fun gameScreen_player_swap_grid_selectable_when_target_has_defense() {
+        var playerSwapCall: PlayerSwapCall? = null
         composeTestRule.setContent {
             SkyjoTheme {
                 GameScreen(
@@ -804,7 +804,17 @@ class GameScreenTest {
                     ),
                     myPlayerId = "p1",
                     isMyTurn = true,
-                    onPlayPlayerSwapCard = { _, _, _, _, _, _, _ -> swapCalled = true },
+                    onPlayPlayerSwapCard = { actionCardIndex, p1Id, p1Row, p1Col, p2Id, p2Row, p2Col ->
+                        playerSwapCall = PlayerSwapCall(
+                            actionCardIndex,
+                            p1Id,
+                            p1Row,
+                            p1Col,
+                            p2Id,
+                            p2Row,
+                            p2Col,
+                        )
+                    },
                     onBack = {}, onNavigateToGameOver = {},
                 )
             }
@@ -813,8 +823,10 @@ class GameScreenTest {
         composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
         composeTestRule.onNodeWithTag("board_slot_0_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("carousel_next").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("board_slot_0_1").performScrollTo().performClick()
 
-        assertEquals(false, swapCalled)
+        assertEquals(PlayerSwapCall(0, "p2", 0, 0, "p1", 0, 1), playerSwapCall)
     }
 
     @Test
