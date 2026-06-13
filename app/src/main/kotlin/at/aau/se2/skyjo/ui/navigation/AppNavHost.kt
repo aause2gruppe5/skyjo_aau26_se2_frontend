@@ -152,6 +152,13 @@ fun AppNavHost(
                 val lobbyError by gameViewModel.lobbyError.collectAsState()
                 val isHost by gameViewModel.isHost.collectAsState()
 
+                val leaveLobby: () -> Unit = {
+                    gameViewModel.leaveLobby()
+                    navController.popBackStack()
+                }
+
+                BackHandler(onBack = leaveLobby)
+
                 LaunchedEffect(lobbyState?.status) {
                     if (lobbyState?.status == "IN_GAME") {
                         navController.navigate(AppDestination.Game.route) {
@@ -169,10 +176,7 @@ fun AppNavHost(
                     onStartGame = { maxRounds ->
                         gameViewModel.startGame(maxRounds = maxRounds)
                     },
-                    onBack = {
-                        gameViewModel.leaveLobby()
-                        navController.popBackStack()
-                    },
+                    onBack = leaveLobby,
                 )
             }
 

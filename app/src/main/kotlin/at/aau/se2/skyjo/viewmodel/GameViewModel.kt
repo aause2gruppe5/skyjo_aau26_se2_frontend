@@ -51,6 +51,8 @@ class GameViewModel(
     private val _lobbyError = MutableStateFlow<String?>(null)
     val lobbyError: StateFlow<String?> = _lobbyError.asStateFlow()
 
+    private var leaveJob: kotlinx.coroutines.Job? = null
+
     val isHost: StateFlow<Boolean> = combine(lobbyState, myPlayerName) { lobby, name ->
         name.isNotEmpty() && lobby?.players?.find { it.nickname == name }?.isHost == true
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -114,6 +116,7 @@ class GameViewModel(
     fun createLobby(username: String) {
         _myPlayerName.value = username
         viewModelScope.launch {
+            runCatching { leaveJob?.join() }
             _lobbyError.value = null
             runCatching {
                 val lobby = apiClient.createLobby()
@@ -136,6 +139,7 @@ class GameViewModel(
     fun joinLobbyByCode(username: String, joinCode: String) {
         _myPlayerName.value = username
         viewModelScope.launch {
+            runCatching { leaveJob?.join() }
             _lobbyError.value = null
             runCatching {
                 val lobby = apiClient.joinLobby(joinCode)
@@ -180,7 +184,7 @@ class GameViewModel(
     }
 
     fun leaveLobby() {
-        viewModelScope.launch {
+        leaveJob = viewModelScope.launch {
             lobbyState.value?.lobbyId?.let { lobbyId ->
                 runCatching { apiClient.leaveLobby(lobbyId) }
             } ?: run { gameClient.leaveLobby() }
