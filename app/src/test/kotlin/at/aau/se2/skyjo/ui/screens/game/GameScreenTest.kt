@@ -12,11 +12,14 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.runtime.mutableStateOf
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import at.aau.se2.skyjo.model.ActionCard
+import at.aau.se2.skyjo.model.ActionCardParameters
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.BoardSlot
 import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
+import at.aau.se2.skyjo.model.DrawThreeCardsChoiceMode
+import at.aau.se2.skyjo.model.DrawThreeCardsDiscardReference
 import at.aau.se2.skyjo.model.InspectedCard
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
@@ -379,6 +382,192 @@ class GameScreenTest {
             .performClick()
 
         assertEquals(0, playedIndex)
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_action_card_click_sends_private_first_step_command() {
+        var publicPlayedIndex: Int? = null
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(handActionCards = listOf(drawThreeCardsActionCard())),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onPlayActionCard = { publicPlayedIndex = it },
+                    onPlayDrawThreeCardsCard = { sentCommand = it },
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag("play_action_card_0")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(null, publicPlayedIndex)
+        assertEquals(0, sentCommand?.actionCardIndex)
+        assertEquals(null, sentCommand?.parameters)
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_result_shows_private_drawn_cards_to_acting_player() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeDrawThreeCardsGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = drawThreeCardsResult(),
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithText("Draw Three Cards").assertCountEquals(2)
+        composeTestRule.onNodeWithTag("draw_three_cards_card_0").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("8").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("-2").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("13").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_result_is_not_shown_when_not_acting_player_turn() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeDrawThreeCardsGameState(currentPlayerId = "p2"),
+                    myPlayerId = "p1",
+                    isMyTurn = false,
+                    privateActionCardResult = drawThreeCardsResult(),
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onAllNodesWithTag("draw_three_cards_card_0").assertCountEquals(0)
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_visible_market_card_renders_label() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(
+                        handActionCards = emptyList(),
+                    ).copy(
+                        visibleActionCards = listOf(drawThreeCardsActionCard()),
+                    ),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Draw Three Cards").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_keep_one_and_swap_sends_choice_command() {
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeDrawThreeCardsGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = drawThreeCardsResult(),
+                    onPlayDrawThreeCardsCard = { sentCommand = it },
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("draw_three_cards_card_1").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_board_slot_0_1").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_DRAWN_CARD_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_DRAWN_CARD_2").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_SWAPPED_BOARD_CARD").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_submit").performScrollTo().performClick()
+
+        val parameters = sentCommand?.parameters as? ActionCardParameters.DrawThreeCardsChoice
+        assertEquals(0, sentCommand?.actionCardIndex)
+        assertEquals(DrawThreeCardsChoiceMode.KEEP_ONE_AND_SWAP, parameters?.mode)
+        assertEquals(1, parameters?.chosenDrawnCardIndex)
+        assertEquals(0, parameters?.targetRow)
+        assertEquals(1, parameters?.targetColumn)
+        assertEquals(null, parameters?.revealRow)
+        assertEquals(
+            listOf(
+                DrawThreeCardsDiscardReference.DRAWN_CARD_0,
+                DrawThreeCardsDiscardReference.DRAWN_CARD_2,
+                DrawThreeCardsDiscardReference.SWAPPED_BOARD_CARD,
+            ),
+            parameters?.discardOrder,
+        )
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_discard_all_and_reveal_sends_choice_command() {
+        var sentCommand: PlayActionCardCommand? = null
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeDrawThreeCardsGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = drawThreeCardsResult(),
+                    onPlayDrawThreeCardsCard = { sentCommand = it },
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("draw_three_cards_mode_discard_reveal").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_board_slot_0_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_DRAWN_CARD_2").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_DRAWN_CARD_0").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_discard_DRAWN_CARD_1").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("draw_three_cards_submit").performScrollTo().performClick()
+
+        val parameters = sentCommand?.parameters as? ActionCardParameters.DrawThreeCardsChoice
+        assertEquals(0, sentCommand?.actionCardIndex)
+        assertEquals(DrawThreeCardsChoiceMode.DISCARD_ALL_AND_REVEAL, parameters?.mode)
+        assertEquals(null, parameters?.chosenDrawnCardIndex)
+        assertEquals(null, parameters?.targetRow)
+        assertEquals(0, parameters?.revealRow)
+        assertEquals(0, parameters?.revealColumn)
+        assertEquals(
+            listOf(
+                DrawThreeCardsDiscardReference.DRAWN_CARD_2,
+                DrawThreeCardsDiscardReference.DRAWN_CARD_0,
+                DrawThreeCardsDiscardReference.DRAWN_CARD_1,
+            ),
+            parameters?.discardOrder,
+        )
+    }
+
+    @Test
+    fun gameScreen_drawThreeCards_pending_choice_blocks_normal_turn_actions() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeDrawThreeCardsGameState(),
+                    myPlayerId = "p1",
+                    isMyTurn = true,
+                    privateActionCardResult = drawThreeCardsResult(),
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Complete Draw Three Cards to continue.").assertIsDisplayed()
+        assertTextAbsent("DRAW FROM DECK")
     }
 
     @Test
@@ -1065,10 +1254,11 @@ class GameScreenTest {
         composeTestRule.onNodeWithTag("play_action_card_0").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
+        val parameters = sentCommand?.parameters as? ActionCardParameters.BoardLineTarget
         assertEquals(0, sentCommand?.actionCardIndex)
-        assertEquals("p1", sentCommand?.parameters?.targetPlayerId)
-        assertEquals(BoardLineTargetType.ROW, sentCommand?.parameters?.targetType)
-        assertEquals(0, sentCommand?.parameters?.lineIndex)
+        assertEquals("p1", parameters?.targetPlayerId)
+        assertEquals(BoardLineTargetType.ROW, parameters?.targetType)
+        assertEquals(0, parameters?.lineIndex)
     }
 
     @Test
@@ -1092,8 +1282,9 @@ class GameScreenTest {
         composeTestRule.onNodeWithText("Target: Bob").assertExists()
         composeTestRule.onNodeWithText("Row 0").performScrollTo().performClick()
 
-        assertEquals("p2", sentCommand?.parameters?.targetPlayerId)
-        assertEquals(BoardLineTargetType.ROW, sentCommand?.parameters?.targetType)
+        val parameters = sentCommand?.parameters as? ActionCardParameters.BoardLineTarget
+        assertEquals("p2", parameters?.targetPlayerId)
+        assertEquals(BoardLineTargetType.ROW, parameters?.targetType)
     }
 
     @Test
@@ -1578,6 +1769,37 @@ class GameScreenTest {
         List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) },
     )
 
+    private fun makeDrawThreeCardsGameState(
+        currentPlayerId: String = "p1",
+    ) = makeGameState(
+        currentPlayerId = currentPlayerId,
+        handActionCards = listOf(drawThreeCardsActionCard()),
+    ).copy(
+        players = listOf(
+            GamePlayerState(
+                playerId = "p1",
+                nickname = "Alice",
+                board = hiddenValueBoard(),
+                actionCards = listOf(drawThreeCardsActionCard()),
+            ),
+            GamePlayerState(
+                playerId = "p2",
+                nickname = "Bob",
+                board = List(3) { List(4) { BoardSlot(type = "OCCUPIED", faceUp = false) } },
+            ),
+        ),
+    )
+
+    private fun drawThreeCardsResult(actionCardIndex: Int = 0) = ActionCardResultMessage(
+        type = "DRAW_THREE_CARDS",
+        actionCardIndex = actionCardIndex,
+        drawnCards = listOf(
+            Card(id = 201, value = 8, type = "NUMBER"),
+            Card(id = 202, value = -2, type = "NUMBER"),
+            Card(id = 203, value = 13, type = "NUMBER"),
+        ),
+    )
+
     private fun makeGameStateWithHiddenCardValues(
         board: List<List<BoardSlot>> = hiddenValueBoard(),
         currentPlayerId: String = "p1",
@@ -1663,7 +1885,7 @@ class GameScreenTest {
         drawnCard = drawnCard,
         visibleActionCards = listOf(
             ActionCard(id = 151, kind = "DEFENSE"),
-            ActionCard(id = 152, kind = "PLACEHOLDER"), // Sprint 3: replace with real card kind
+            ActionCard(id = 152, kind = "PLAYER_SWAP"),
         ),
         actionDrawPileCount = 16,
         roundResult = roundResult,
@@ -1681,6 +1903,13 @@ class GameScreenTest {
         id = id,
         kind = "SWAP_OWN_CARDS",
         label = "Swap Own Cards",
+        value = 10,
+    )
+
+    private fun drawThreeCardsActionCard(id: Int = 166) = ActionCard(
+        id = id,
+        kind = "DRAW_THREE_CARDS",
+        label = "Draw Three Cards",
         value = 10,
     )
 }

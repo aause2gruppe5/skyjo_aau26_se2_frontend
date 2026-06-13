@@ -115,7 +115,9 @@ private const val ACTION_CARD_KIND_ENLIGHTENMENT = "ENLIGHTENMENT"
 private const val ACTION_CARD_KIND_PLAYER_SWAP = "PLAYER_SWAP"
 private const val ACTION_CARD_KIND_SWAP_OWN_CARDS = "SWAP_OWN_CARDS"
 private const val ACTION_CARD_KIND_DOUBLE_TURN = "DOUBLE_TURN"
+private const val ACTION_CARD_KIND_DRAW_THREE_CARDS = "DRAW_THREE_CARDS"
 private const val ACTION_CARD_RESULT_ENLIGHTENMENT = "ENLIGHTENMENT"
+private const val ACTION_CARD_RESULT_DRAW_THREE_CARDS = "DRAW_THREE_CARDS"
 private const val PHASE_AWAITING_DRAW = "AWAITING_DRAW"
 private const val PHASE_AWAITING_REPLACEMENT = "AWAITING_REPLACEMENT"
 private const val PHASE_ROUND_FINISHED = "ROUND_FINISHED"
@@ -142,6 +144,7 @@ fun GameScreen(
     onPlaySwapOwnCards: (actionCardIndex: Int, firstRow: Int, firstCol: Int, secondRow: Int, secondCol: Int) -> Unit = { _, _, _, _, _ -> },
     onPlayActionCard: (actionCardIndex: Int) -> Unit = {},
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit = {},
+    onPlayDrawThreeCardsCard: (PlayActionCardCommand) -> Unit = {},
     onDiscardActionCard: (actionCardIndex: Int) -> Unit = {},
     onDismissActionCardResult: () -> Unit = {},
     onCheatPeekDrawPile: () -> Unit = {},
@@ -204,8 +207,21 @@ fun GameScreen(
         ?.find { it.playerId == gameState.currentPlayerId }?.nickname ?: ""
     val discardCard = gameState?.discardTopCard
     val drawnCard = gameState?.drawnCard
+    val drawThreeCardsResult =
+        if (isMyTurn && privateActionCardResult?.type == ACTION_CARD_RESULT_DRAW_THREE_CARDS) {
+            privateActionCardResult
+        } else {
+            null
+        }
+    val isDrawThreeCardsChoicePending = drawThreeCardsResult != null
 
     val currentTotalScores = gameState?.totalScores?.associate { it.playerId to it.totalScore }
+
+    LaunchedEffect(privateActionCardResult, isMyTurn) {
+        if (privateActionCardResult?.type == ACTION_CARD_RESULT_DRAW_THREE_CARDS && !isMyTurn) {
+            onDismissActionCardResult()
+        }
+    }
 
     SideEffect {
         val previousScores = previousTotalScores
@@ -234,6 +250,7 @@ fun GameScreen(
         !gameState.gameOver &&
         isMyTurn &&
         privateCheatPeekResult == null &&
+        !isDrawThreeCardsChoicePending &&
         (currentPhase == PHASE_AWAITING_DRAW || currentPhase == PHASE_FINAL_TURNS)
 
     ShakeCheatDetector(
@@ -294,12 +311,14 @@ fun GameScreen(
                     onPlaySwapOwnCards = onPlaySwapOwnCards,
                     onPlayActionCard = onPlayActionCard,
                     onPlayEnlightenmentCard = onPlayEnlightenmentCard,
+                    onPlayDrawThreeCardsCard = onPlayDrawThreeCardsCard,
                     onDiscardActionCard = onDiscardActionCard,
                     onReportCheat = {
                         reportedCheatTurnId = gameState.turnId
                         onReportCheat()
                     },
                     enlightenmentResult = if (privateActionCardResult?.type == ACTION_CARD_RESULT_ENLIGHTENMENT) privateActionCardResult else null,
+                    drawThreeCardsResult = drawThreeCardsResult,
                     onDismissEnlightenmentResult = onDismissActionCardResult,
                 )
             }
@@ -314,6 +333,7 @@ fun GameScreen(
                 currentPlayerNickname = currentPlayerNickname,
                 discardCard = discardCard,
                 pendingAction = pendingAction,
+                actionCardChoicePending = isDrawThreeCardsChoicePending,
                 onPendingActionChange = { pendingAction = it },
                 onDrawFromDeck = onDrawFromDeck,
                 onDrawFromDiscard = onDrawFromDiscard,
@@ -627,18 +647,21 @@ private fun GameContent(
     onPlaySwapOwnCards: (Int, Int, Int, Int, Int) -> Unit,
     onPlayActionCard: (actionCardIndex: Int) -> Unit,
     onPlayEnlightenmentCard: (PlayActionCardCommand) -> Unit,
+    onPlayDrawThreeCardsCard: (PlayActionCardCommand) -> Unit,
     onDiscardActionCard: (actionCardIndex: Int) -> Unit,
     onReportCheat: () -> Unit = {},
     enlightenmentResult: ActionCardResultMessage? = null,
+    drawThreeCardsResult: ActionCardResultMessage? = null,
     onDismissEnlightenmentResult: () -> Unit = {},
 ) {
     val isDrawPhase = currentPhase == PHASE_AWAITING_DRAW
     val isReplacementPhase = currentPhase == PHASE_AWAITING_REPLACEMENT
+    val isDrawThreeCardsChoicePending = drawThreeCardsResult != null
     val reportsAvailable = gameState.players.find { it.playerId == myPlayerId }?.remainingCheatReports ?: 0
     val canShowReportCheat = myPlayerId != null && !isMyTurn &&
         !gameState.gameOver && currentPhase != PHASE_ROUND_FINISHED
     val reportEnabled = reportsAvailable > 0 && !hasReportedCheatThisTurn
-    val activeActionCardIndex = pendingEnlightenmentCardIndex ?: when (swapState) {
+    val activeActionCardIndex = drawThreeCardsResult?.actionCardIndex ?: pendingEnlightenmentCardIndex ?: when (swapState) {
         is SwapSelectionState.AwaitingFirst -> swapState.cardIndex
         is SwapSelectionState.AwaitingSecond -> swapState.cardIndex
         null -> null
@@ -655,14 +678,14 @@ private fun GameContent(
     ActionMarketSection(
         cards = gameState.visibleActionCards,
         actionDrawPileCount = gameState.actionDrawPileCount,
-        clickable = isMyTurn && isDrawPhase,
+        clickable = isMyTurn && isDrawPhase && !isDrawThreeCardsChoicePending,
         onDrawFromActionDeck = onDrawFromActionDeck,
         onDrawVisibleActionCard = onDrawVisibleActionCard,
     )
 
     DrawPileRow(
         isMyTurn = isMyTurn,
-        isDrawPhase = isDrawPhase,
+        isDrawPhase = isDrawPhase && !isDrawThreeCardsChoicePending,
         discardCard = discardCard,
         onPendingActionChange = onPendingActionChange,
         onDrawFromDeck = onDrawFromDeck,
@@ -771,7 +794,8 @@ private fun GameContent(
 
     HandActionCardsSection(
         cards = myActionCards,
-        canUseCards = isMyTurn && isDrawPhase && swapState == null && pendingEnlightenmentCardIndex == null,
+        canUseCards = isMyTurn && isDrawPhase && swapState == null &&
+                pendingEnlightenmentCardIndex == null && !isDrawThreeCardsChoicePending,
         activeCardIndex = activeActionCardIndex,
         onPlayActionCard = { index ->
             when (myActionCards.getOrNull(index)?.kind) {
@@ -790,6 +814,12 @@ private fun GameContent(
                     onSwapStateChange(null)
                     onPendingEnlightenmentCardIndexChange(index)
                 }
+                ACTION_CARD_KIND_DRAW_THREE_CARDS -> {
+                    onPendingActionChange(null)
+                    onSwapStateChange(null)
+                    onPendingEnlightenmentCardIndexChange(null)
+                    onPlayDrawThreeCardsCard(PlayActionCardCommand(actionCardIndex = index))
+                }
                 else -> {
                     onPendingActionChange(null)
                     onSwapStateChange(null)
@@ -804,6 +834,14 @@ private fun GameContent(
             onPendingEnlightenmentCardIndexChange(null)
         },
     )
+
+    if (isMyTurn && isDrawPhase && drawThreeCardsResult != null) {
+        DrawThreeCardsChoicePanel(
+            result = drawThreeCardsResult,
+            myBoard = myBoard ?: emptyList(),
+            onSubmit = onPlayDrawThreeCardsCard,
+        )
+    }
 
     if (isMyTurn && isDrawPhase && pendingEnlightenmentCardIndex != null && myPlayerId != null) {
         EnlightenmentTargetPicker(
@@ -1038,8 +1076,9 @@ private fun PlayerGridCarousel(
             if (peekedSlots.isNotEmpty()) {
                 val peekTargetLabel = peekResult?.let { r ->
                     when (r.targetType) {
-                        BoardLineTargetType.ROW -> "Row ${r.lineIndex}"
-                        BoardLineTargetType.COLUMN -> "Column ${r.lineIndex}"
+                        BoardLineTargetType.ROW -> r.lineIndex?.let { "Row $it" }
+                        BoardLineTargetType.COLUMN -> r.lineIndex?.let { "Column $it" }
+                        null -> null
                     }
                 } ?: ""
                 Surface(
@@ -1180,6 +1219,7 @@ private fun GameScreenActionBar(
     currentPlayerNickname: String,
     discardCard: Card?,
     pendingAction: String?,
+    actionCardChoicePending: Boolean,
     onPendingActionChange: (String?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
@@ -1222,6 +1262,22 @@ private fun GameScreenActionBar(
                     ) {
                         Text(
                             text = "Waiting for $currentPlayerNickname…",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+
+                actionCardChoicePending -> {
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = BlueSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "Complete Draw Three Cards to continue.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             textAlign = TextAlign.Center,
@@ -1534,6 +1590,11 @@ private fun CardGrid(
     selectable: Boolean,
     onCardClick: (row: Int, col: Int) -> Unit,
     peekedSlots: Map<Pair<Int, Int>, Int?> = emptyMap(),
+    selectedSlot: Pair<Int, Int>? = null,
+    isSlotSelectable: (row: Int, col: Int, slot: BoardSlot) -> Boolean = { _, _, slot ->
+        selectable && slot.type == "OCCUPIED"
+    },
+    testTagPrefix: String = "board_slot",
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -1549,13 +1610,14 @@ private fun CardGrid(
                     val key = Pair(rowIndex, colIndex)
                     BoardSlotTile(
                         slot = slot,
-                        selectable = selectable && slot.type == "OCCUPIED",
+                        selectable = isSlotSelectable(rowIndex, colIndex, slot),
                         onClick = { onCardClick(rowIndex, colIndex) },
                         isPeeked = peekedSlots.containsKey(key),
+                        isSelected = selectedSlot == key,
                         peekedValue = peekedSlots[key],
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("board_slot_${rowIndex}_${colIndex}"),
+                            .testTag("${testTagPrefix}_${rowIndex}_${colIndex}"),
                     )
                 }
             }
@@ -1569,6 +1631,7 @@ private fun BoardSlotTile(
     selectable: Boolean,
     onClick: () -> Unit,
     isPeeked: Boolean = false,
+    isSelected: Boolean = false,
     peekedValue: Int? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -1598,6 +1661,7 @@ private fun BoardSlotTile(
                 else -> "?"
             }
             val borderColor = when {
+                isSelected -> PrimaryGreen
                 selectable -> PrimaryGreen
                 isPeeked -> MintGreen
                 !isFaceUp -> MintGreen.copy(alpha = 0.4f)
@@ -1614,7 +1678,7 @@ private fun BoardSlotTile(
                     .aspectRatio(0.65f)
                     .background(color = bgColor, shape = RoundedCornerShape(10.dp))
                     .border(
-                        width = if (selectable || isPeeked) 2.dp else 1.dp,
+                        width = if (selectable || isPeeked || isSelected) 2.dp else 1.dp,
                         color = borderColor,
                         shape = RoundedCornerShape(10.dp),
                     )
@@ -1989,6 +2053,352 @@ private fun EnlightenmentTargetPicker(
     }
 }
 
+@Composable
+private fun DrawThreeCardsChoicePanel(
+    result: ActionCardResultMessage,
+    myBoard: List<List<BoardSlot>>,
+    onSubmit: (PlayActionCardCommand) -> Unit,
+) {
+    var mode by remember(result.actionCardIndex, result.drawnCards) {
+        mutableStateOf(DrawThreeCardsChoiceMode.KEEP_ONE_AND_SWAP)
+    }
+    var selectedDrawnCardIndex by remember(result.actionCardIndex, result.drawnCards) {
+        mutableStateOf<Int?>(null)
+    }
+    var selectedBoardSlot by remember(result.actionCardIndex, result.drawnCards) {
+        mutableStateOf<Pair<Int, Int>?>(null)
+    }
+    var discardOrder by remember(result.actionCardIndex, result.drawnCards) {
+        mutableStateOf<List<DrawThreeCardsDiscardReference>>(emptyList())
+    }
+    var submitted by remember(result.actionCardIndex, result.drawnCards) {
+        mutableStateOf(false)
+    }
+
+    val drawnCards = result.drawnCards.take(3)
+    val requiredDiscardOrder = when (mode) {
+        DrawThreeCardsChoiceMode.KEEP_ONE_AND_SWAP ->
+            selectedDrawnCardIndex?.let(::drawThreeCardsSwapDiscardReferences).orEmpty()
+        DrawThreeCardsChoiceMode.DISCARD_ALL_AND_REVEAL -> drawThreeCardsAllDrawnReferences()
+    }
+    val availableDiscardReferences = requiredDiscardOrder.filterNot { it in discardOrder }
+    val isKeepMode = mode == DrawThreeCardsChoiceMode.KEEP_ONE_AND_SWAP
+    val canSubmit = !submitted &&
+            drawnCards.size == 3 &&
+            selectedBoardSlot != null &&
+            (!isKeepMode || selectedDrawnCardIndex != null) &&
+            requiredDiscardOrder.isNotEmpty() &&
+            discardOrder.size == requiredDiscardOrder.size
+
+    fun selectMode(nextMode: DrawThreeCardsChoiceMode) {
+        if (mode != nextMode) {
+            mode = nextMode
+            selectedDrawnCardIndex = null
+            selectedBoardSlot = null
+            discardOrder = emptyList()
+            submitted = false
+        }
+    }
+
+    SectionCard(title = "Draw Three Cards", badge = "Private") {
+        Text(
+            text = "Choose how to resolve the three private cards.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedText,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            drawnCards.forEachIndexed { index, card ->
+                DrawThreeCardsDrawnCard(
+                    index = index,
+                    card = card,
+                    selected = selectedDrawnCardIndex == index,
+                    selectable = isKeepMode && !submitted,
+                    onClick = {
+                        selectedDrawnCardIndex = index
+                        discardOrder = emptyList()
+                        submitted = false
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        if (drawnCards.size < 3) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Waiting for drawn cards...",
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedText,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DrawThreeCardsModeButton(
+                text = "Keep one and swap",
+                selected = isKeepMode,
+                enabled = !submitted,
+                testTag = "draw_three_cards_mode_keep",
+                onClick = { selectMode(DrawThreeCardsChoiceMode.KEEP_ONE_AND_SWAP) },
+                modifier = Modifier.weight(1f),
+            )
+            DrawThreeCardsModeButton(
+                text = "Discard all and reveal",
+                selected = !isKeepMode,
+                enabled = !submitted,
+                testTag = "draw_three_cards_mode_discard_reveal",
+                onClick = { selectMode(DrawThreeCardsChoiceMode.DISCARD_ALL_AND_REVEAL) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = if (isKeepMode) {
+                "Select one drawn card, then select one card on your board."
+            } else {
+                "Select one face-down card on your board to reveal."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MutedText,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (myBoard.isEmpty()) {
+            Text(
+                text = "Your board is not available.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedText,
+            )
+        } else {
+            CardGrid(
+                board = myBoard,
+                selectable = !submitted,
+                selectedSlot = selectedBoardSlot,
+                testTagPrefix = "draw_three_cards_board_slot",
+                isSlotSelectable = { _, _, slot ->
+                    !submitted &&
+                            slot.type == "OCCUPIED" &&
+                            (isKeepMode || slot.faceUp != true)
+                },
+                onCardClick = { row, col ->
+                    selectedBoardSlot = row to col
+                    submitted = false
+                },
+            )
+        }
+
+        selectedBoardSlot?.let { (row, col) ->
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Selected board card: Row $row, Column $col",
+                style = MaterialTheme.typography.labelSmall,
+                color = PrimaryGreen,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        DrawThreeCardsDiscardOrderPicker(
+            drawnCards = drawnCards,
+            requiredReferences = requiredDiscardOrder,
+            discardOrder = discardOrder,
+            availableReferences = availableDiscardReferences,
+            enabled = !submitted,
+            onAddReference = { reference -> discardOrder = discardOrder + reference },
+            onClear = { discardOrder = emptyList() },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        PrimaryButton(
+            text = if (submitted) "Resolving..." else "Confirm Choice",
+            enabled = canSubmit,
+            onClick = {
+                val boardSlot = selectedBoardSlot ?: return@PrimaryButton
+                submitted = true
+                onSubmit(
+                    PlayActionCardCommand(
+                        actionCardIndex = result.actionCardIndex,
+                        parameters = ActionCardParameters.DrawThreeCardsChoice(
+                            mode = mode,
+                            chosenDrawnCardIndex = selectedDrawnCardIndex.takeIf { isKeepMode },
+                            targetRow = boardSlot.first.takeIf { isKeepMode },
+                            targetColumn = boardSlot.second.takeIf { isKeepMode },
+                            revealRow = boardSlot.first.takeIf { !isKeepMode },
+                            revealColumn = boardSlot.second.takeIf { !isKeepMode },
+                            discardOrder = discardOrder,
+                        ),
+                    ),
+                )
+            },
+            modifier = Modifier.testTag("draw_three_cards_submit"),
+        )
+    }
+}
+
+@Composable
+private fun DrawThreeCardsDrawnCard(
+    index: Int,
+    card: Card,
+    selected: Boolean,
+    selectable: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = cardColor(card.value),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) PrimaryGreen else BorderColor,
+        ),
+        modifier = modifier
+            .testTag("draw_three_cards_card_$index")
+            .then(if (selectable) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.65f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = cardDisplayValue(card),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Text(
+                text = "Card ${index + 1}",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) PrimaryGreen else MutedText,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawThreeCardsModeButton(
+    text: String,
+    selected: Boolean,
+    enabled: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = if (selected) PrimaryGreen else SurfaceWhite,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (selected) PrimaryGreen else BorderColor,
+        ),
+        modifier = modifier
+            .testTag(testTag)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) SurfaceWhite else PrimaryGreen,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+        )
+    }
+}
+
+@Composable
+private fun DrawThreeCardsDiscardOrderPicker(
+    drawnCards: List<Card>,
+    requiredReferences: List<DrawThreeCardsDiscardReference>,
+    discardOrder: List<DrawThreeCardsDiscardReference>,
+    availableReferences: List<DrawThreeCardsDiscardReference>,
+    enabled: Boolean,
+    onAddReference: (DrawThreeCardsDiscardReference) -> Unit,
+    onClear: () -> Unit,
+) {
+    Text(
+        text = "Discard Order",
+        style = MaterialTheme.typography.labelMedium,
+        color = PrimaryGreen,
+        fontWeight = FontWeight.Bold,
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+
+    if (requiredReferences.isEmpty()) {
+        Text(
+            text = "Select a drawn card before choosing discard order.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MutedText,
+        )
+        return
+    }
+
+    if (discardOrder.isEmpty()) {
+        Text(
+            text = "Tap each item in the order it should be discarded.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MutedText,
+        )
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            discardOrder.forEachIndexed { index, reference ->
+                Text(
+                    text = "${index + 1}. ${reference.drawThreeCardsDiscardLabel(drawnCards)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        availableReferences.forEach { reference ->
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = at.aau.se2.skyjo.ui.theme.GreenSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("draw_three_cards_discard_${reference.name}")
+                    .then(if (enabled) Modifier.clickable { onAddReference(reference) } else Modifier),
+            ) {
+                Text(
+                    text = reference.drawThreeCardsDiscardLabel(drawnCards),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+
+    if (discardOrder.isNotEmpty() && enabled) {
+        TextButton(onClick = onClear) {
+            Text(text = "Clear discard order")
+        }
+    }
+}
+
 
 @Composable
 private fun HandActionCardsRow(
@@ -2133,6 +2543,39 @@ private fun cardColor(value: Int): Color = when {
 private fun cardDisplayValue(card: Card): String =
     if (card.type == "ACTION") "A" else card.value.toString()
 
+private fun drawThreeCardsAllDrawnReferences(): List<DrawThreeCardsDiscardReference> =
+    listOf(
+        DrawThreeCardsDiscardReference.DRAWN_CARD_0,
+        DrawThreeCardsDiscardReference.DRAWN_CARD_1,
+        DrawThreeCardsDiscardReference.DRAWN_CARD_2,
+    )
+
+private fun drawThreeCardsSwapDiscardReferences(
+    chosenDrawnCardIndex: Int,
+): List<DrawThreeCardsDiscardReference> =
+    drawThreeCardsAllDrawnReferences()
+        .filterNot { it == drawThreeCardsDiscardReference(chosenDrawnCardIndex) } +
+            DrawThreeCardsDiscardReference.SWAPPED_BOARD_CARD
+
+private fun drawThreeCardsDiscardReference(index: Int): DrawThreeCardsDiscardReference =
+    when (index) {
+        0 -> DrawThreeCardsDiscardReference.DRAWN_CARD_0
+        1 -> DrawThreeCardsDiscardReference.DRAWN_CARD_1
+        2 -> DrawThreeCardsDiscardReference.DRAWN_CARD_2
+        else -> DrawThreeCardsDiscardReference.DRAWN_CARD_0
+    }
+
+private fun DrawThreeCardsDiscardReference.drawThreeCardsDiscardLabel(drawnCards: List<Card>): String =
+    when (this) {
+        DrawThreeCardsDiscardReference.DRAWN_CARD_0 -> drawnCards.getOrNull(0)
+            ?.let { "Drawn card 1 (${cardDisplayValue(it)})" } ?: "Drawn card 1"
+        DrawThreeCardsDiscardReference.DRAWN_CARD_1 -> drawnCards.getOrNull(1)
+            ?.let { "Drawn card 2 (${cardDisplayValue(it)})" } ?: "Drawn card 2"
+        DrawThreeCardsDiscardReference.DRAWN_CARD_2 -> drawnCards.getOrNull(2)
+            ?.let { "Drawn card 3 (${cardDisplayValue(it)})" } ?: "Drawn card 3"
+        DrawThreeCardsDiscardReference.SWAPPED_BOARD_CARD -> "Swapped board card"
+    }
+
 private fun actionCardIcon(card: ActionCard): ImageVector =
     when (card.kind) {
         "DEFENSE" -> Icons.Default.Shield
@@ -2140,6 +2583,7 @@ private fun actionCardIcon(card: ActionCard): ImageVector =
         ACTION_CARD_KIND_DOUBLE_TURN -> Icons.Default.FastForward
         ACTION_CARD_KIND_SWAP_OWN_CARDS -> Icons.Default.Autorenew
         ACTION_CARD_KIND_ENLIGHTENMENT -> Icons.Default.Lightbulb
+        ACTION_CARD_KIND_DRAW_THREE_CARDS -> Icons.Default.Style
         else -> Icons.Default.Style
     }
 
@@ -2150,6 +2594,7 @@ private fun actionCardAccessibilityLabel(card: ActionCard): String =
         ACTION_CARD_KIND_DOUBLE_TURN -> "Double turn"
         ACTION_CARD_KIND_SWAP_OWN_CARDS -> "Swap own cards"
         ACTION_CARD_KIND_ENLIGHTENMENT -> "Enlightenment"
+        ACTION_CARD_KIND_DRAW_THREE_CARDS -> "Draw Three Cards"
         else -> card.label.ifBlank { "Action" }
     }
 
@@ -2157,11 +2602,13 @@ private fun ActionCardResultMessage.toPeekedSlots(): Map<Pair<Int, Int>, Int?> {
     if (inspectedCards.isNotEmpty()) {
         return inspectedCards.associate { Pair(it.row, it.col) to it.value }
     }
-    return when (targetType) {
+    val peekTargetType = targetType ?: return emptyMap()
+    val peekLineIndex = lineIndex ?: return emptyMap()
+    return when (peekTargetType) {
         BoardLineTargetType.ROW ->
-            inspectedValues.mapIndexed { col, value -> Pair(lineIndex, col) to value }.toMap()
+            inspectedValues.mapIndexed { col, value -> Pair(peekLineIndex, col) to value }.toMap()
         BoardLineTargetType.COLUMN ->
-            inspectedValues.mapIndexed { row, value -> Pair(row, lineIndex) to value }.toMap()
+            inspectedValues.mapIndexed { row, value -> Pair(row, peekLineIndex) to value }.toMap()
     }
 }
 

@@ -230,6 +230,7 @@ fun AppNavHost(
                     },
                     onPlayActionCard = { index -> gameViewModel.playActionCard(index) },
                     onPlayEnlightenmentCard = { command -> gameViewModel.playActionCard(command) },
+                    onPlayDrawThreeCardsCard = { command -> gameViewModel.playActionCard(command) },
                     onDiscardActionCard = { index -> gameViewModel.discardActionCard(index) },
                     onDismissActionCardResult = { privateActionCardResult = null },
                     onCheatPeekDrawPile = { gameViewModel.cheatPeekDrawPile() },
