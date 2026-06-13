@@ -3,7 +3,6 @@ package at.aau.se2.skyjo.ui.components
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -27,22 +26,10 @@ class SkyjoScaffoldTest {
     fun topBar_shows_app_title() {
         composeTestRule.setContent {
             SkyjoTheme {
-                SkyjoTopBar(onMenuClick = {})
+                SkyjoTopBar()
             }
         }
         composeTestRule.onNodeWithText("SKYJO ACTION").assertIsDisplayed()
-    }
-
-    @Test
-    fun topBar_menu_button_triggers_callback() {
-        var clicked = false
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SkyjoTopBar(onMenuClick = { clicked = true })
-            }
-        }
-        composeTestRule.onNodeWithContentDescription("Menu").performClick()
-        assert(clicked)
     }
 
     // ── SkyjoBottomNavBar ────────────────────────────────────────────────
@@ -110,52 +97,6 @@ class SkyjoScaffoldTest {
                     currentDestination = AppDestination.Start,
                     onNavigate = { navigatedTo = it },
                 )
-            }
-        }
-        composeTestRule.onNodeWithText("Settings").performClick()
-        assert(navigatedTo == AppDestination.Settings)
-    }
-
-    // ── SkyjoDrawerContent ───────────────────────────────────────────────
-
-    @Test
-    fun drawerContent_shows_player_name() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SkyjoDrawerContent(onNavigate = {})
-            }
-        }
-        composeTestRule.onNodeWithText("Skyjo").assertIsDisplayed()
-    }
-
-    @Test
-    fun drawerContent_shows_settings_menu_item() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SkyjoDrawerContent(onNavigate = {})
-            }
-        }
-        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
-    }
-
-    // "Log Out" is pushed to the bottom of the drawer by a weight(1f) spacer;
-    // use assertExists() since it may be outside the visible viewport in tests
-    @Test
-    fun drawerContent_shows_log_out_button() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SkyjoDrawerContent(onNavigate = {})
-            }
-        }
-        composeTestRule.onNodeWithText("Log Out").assertExists()
-    }
-
-    @Test
-    fun drawerContent_settings_item_triggers_navigate() {
-        var navigatedTo: AppDestination? = null
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SkyjoDrawerContent(onNavigate = { navigatedTo = it })
             }
         }
         composeTestRule.onNodeWithText("Settings").performClick()
