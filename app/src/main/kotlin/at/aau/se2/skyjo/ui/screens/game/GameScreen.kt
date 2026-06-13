@@ -73,6 +73,9 @@ import at.aau.se2.skyjo.model.Card
 import at.aau.se2.skyjo.model.GamePlayerState
 import at.aau.se2.skyjo.model.GameUpdateMessage
 import at.aau.se2.skyjo.model.PlayActionCardCommand
+import at.aau.se2.skyjo.audio.LocalAudio
+import at.aau.se2.skyjo.audio.SoundEffect
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.model.RoundResult
 import at.aau.se2.skyjo.model.TotalScore
 import at.aau.se2.skyjo.ui.components.PrimaryButton
@@ -155,10 +158,14 @@ fun GameScreen(
     onNavigateToGameOver: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptic = LocalHaptic.current
+    val audio = LocalAudio.current
     var pendingAction by remember { mutableStateOf<String?>(null) }
     var drawnFromDiscard by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf(false) }
-    val handleDrawFromDeck: () -> Unit = { drawnFromDiscard = false; onDrawFromDeck() }
-    val handleDrawFromDiscard: () -> Unit = { drawnFromDiscard = true; onDrawFromDiscard() }
+    val handleDrawFromDeck: () -> Unit = { haptic?.event(); drawnFromDiscard = false; onDrawFromDeck() }
+    val handleDrawFromDiscard: () -> Unit = { haptic?.event(); drawnFromDiscard = true; onDrawFromDiscard() }
+    val handleReplaceCard: (Int, Int) -> Unit = { row, col -> haptic?.event(); onReplaceCard(row, col) }
+    val handleDiscardAndReveal: (Int, Int) -> Unit = { row, col -> haptic?.event(); onDiscardAndReveal(row, col) }
 
     var activeRoundResultDialog by remember {
         mutableStateOf<Pair<Int, RoundResult>?>(null)
@@ -172,6 +179,10 @@ fun GameScreen(
         if (result != null && number != null) {
             activeRoundResultDialog = Pair(number, result)
             isStartingNextRound = false
+            if (gameState?.gameOver != true) {
+                audio?.playSfx(SoundEffect.ROUND_COMPLETE)
+                haptic?.event()
+            }
         }else {
             // Neue Runde gestartet (Server hat das Ergebnis gelöscht) -> Pop-up schließen!
             activeRoundResultDialog = null
@@ -307,8 +318,8 @@ fun GameScreen(
                     onDrawFromDiscard = handleDrawFromDiscard,
                     onDrawFromActionDeck = onDrawFromActionDeck,
                     onDrawVisibleActionCard = onDrawVisibleActionCard,
-                    onReplaceCard = onReplaceCard,
-                    onDiscardAndReveal = onDiscardAndReveal,
+                    onReplaceCard = handleReplaceCard,
+                    onDiscardAndReveal = handleDiscardAndReveal,
                     myActionCards = myActionCards,
                     onPlayPlayerSwapCard = onPlayPlayerSwapCard,
                     onPlaySwapOwnCards = onPlaySwapOwnCards,

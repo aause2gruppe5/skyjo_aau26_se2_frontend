@@ -25,6 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import at.aau.se2.skyjo.audio.AudioController
+import at.aau.se2.skyjo.audio.SoundEffect
+import at.aau.se2.skyjo.settings.SettingsRepository
 import at.aau.se2.skyjo.model.ActionCardResultMessage
 import at.aau.se2.skyjo.model.CheatPeekResultMessage
 import at.aau.se2.skyjo.ui.screens.auth.AuthScreen
@@ -52,6 +56,8 @@ fun AppNavHost(
     gameViewModel: GameViewModel,
     friendsViewModel: FriendsViewModel? = null,
     leaderboardViewModel: LeaderboardViewModel? = null,
+    settings: SettingsRepository? = null,
+    audioController: AudioController? = null,
 ) {
     val navigateMain: (AppDestination) -> Unit = { dest ->
         navController.navigate(dest.route) {
@@ -87,6 +93,14 @@ fun AppNavHost(
         gameViewModel.incomingInvites.collect { invite ->
             friendsViewModel?.addLobbyInvite(invite)
         }
+    }
+
+    // Drive per-screen background music from the active destination and the music toggle.
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentEntry?.destination?.route
+    val musicEnabled = settings?.musicEnabled?.collectAsState()?.value ?: false
+    LaunchedEffect(currentRoute, musicEnabled) {
+        audioController?.playForDestination(AppDestination.fromRoute(currentRoute))
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -287,7 +301,21 @@ fun AppNavHost(
             }
 
             composable(AppDestination.Settings.route) {
-                SettingsScreen(onNavigate = navigateMain)
+                val musicOn = settings?.musicEnabled?.collectAsState()?.value
+                    ?: SettingsRepository.DEFAULT_MUSIC
+                val soundOn = settings?.soundEnabled?.collectAsState()?.value
+                    ?: SettingsRepository.DEFAULT_SOUND
+                val hapticOn = settings?.hapticEnabled?.collectAsState()?.value
+                    ?: SettingsRepository.DEFAULT_HAPTIC
+                SettingsScreen(
+                    onNavigate = navigateMain,
+                    musicEnabled = musicOn,
+                    soundEnabled = soundOn,
+                    hapticEnabled = hapticOn,
+                    onMusicChange = { settings?.setMusicEnabled(it) },
+                    onSoundChange = { settings?.setSoundEnabled(it) },
+                    onHapticChange = { settings?.setHapticEnabled(it) },
+                )
             }
 
             composable(AppDestination.Rules.route) {
@@ -314,9 +342,23 @@ fun AppNavHost(
 
                 BackHandler(onBack = ::exitGameOver)
 
+                // Play the victory/defeat stinger once when the final scores arrive.
+                val totalScores = gameState?.totalScores ?: emptyList()
+                LaunchedEffect(totalScores) {
+                    if (totalScores.isNotEmpty()) {
+                        val bestScore = totalScores.minOf { it.totalScore }
+                        val localPlayerWon = totalScores.any {
+                            it.nickname == myPlayerName && it.totalScore == bestScore
+                        }
+                        audioController?.playSfx(
+                            if (localPlayerWon) SoundEffect.VICTORY else SoundEffect.DEFEAT,
+                        )
+                    }
+                }
+
                 // 2. Screen aufrufen und die Scores übergeben
                 GameOverScreen(
-                    totalScores = gameState?.totalScores ?: emptyList(),
+                    totalScores = totalScores,
                     onBackToStart = ::exitGameOver
                 )
             }

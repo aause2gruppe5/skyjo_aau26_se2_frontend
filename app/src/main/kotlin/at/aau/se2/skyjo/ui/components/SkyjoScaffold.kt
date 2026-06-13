@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.BackgroundGray
 import at.aau.se2.skyjo.ui.theme.MintGreen
@@ -103,12 +104,16 @@ fun SkyjoBottomNavBar(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
             ) {
+                val haptic = LocalHaptic.current
                 navTabs.forEach { tab ->
                     val selected = currentDestination == tab.destination
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .clickable { onNavigate(tab.destination) }
+                            .clickable {
+                                haptic?.tick()
+                                onNavigate(tab.destination)
+                            }
                             .padding(horizontal = 16.dp, vertical = 6.dp),
                     ) {
                         Box(
