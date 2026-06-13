@@ -1885,7 +1885,7 @@ class GameScreenTest {
         drawnCard = drawnCard,
         visibleActionCards = listOf(
             ActionCard(id = 151, kind = "DEFENSE"),
-            ActionCard(id = 152, kind = "PLACEHOLDER"), // Sprint 3: replace with real card kind
+            ActionCard(id = 152, kind = "PLAYER_SWAP"),
         ),
         actionDrawPileCount = 16,
         roundResult = roundResult,
