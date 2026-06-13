@@ -178,7 +178,7 @@ private fun SearchRow(user: SocialUserDto, onSendRequest: (String) -> Unit) {
         when (user.relationshipStatus) {
             RelationshipStatus.NONE -> ActionPill("Add") { onSendRequest(user.userId) }
             RelationshipStatus.FRIENDS -> Text("Friend", color = MutedText)
-            RelationshipStatus.INCOMING_REQUEST -> Text("Pending", color = MutedText)
+            RelationshipStatus.INCOMING_REQUEST -> Text("Request pending", color = MutedText)
             RelationshipStatus.OUTGOING_REQUEST -> Text("Sent", color = MutedText)
         }
     }
