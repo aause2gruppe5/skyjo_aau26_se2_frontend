@@ -54,7 +54,10 @@ class GameStompClientTest {
         every { mockEditor.apply() } just runs
 
         every { Log.d(any(), any()) } returns 0
-        every { Log.e(any(), any()) } returns 0
+        every { Log.e(any(), any()) } answers {
+            println("LOG_ERROR: ${arg<String>(0)}: ${arg<String>(1)}")
+            0
+        }
 
         coEvery {
             anyConstructed<StompClient>().connect(url = any(), any(), any(), any(), any(), any())
@@ -137,12 +140,10 @@ class GameStompClientTest {
     fun `joinLobby sends correct destination and payload`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()
-        delay(300)
 
         client.joinLobby("Hans")
-        delay(300)
 
-        coVerify(atLeast = 1) {
+        coVerify(timeout = 1000, atLeast = 1) {
             any<StompSession>().sendText(
                 destination = "/app/lobby.join",
                 body = match { it.contains("Hans") },
@@ -670,9 +671,10 @@ class GameStompClientTest {
         """.trimIndent()
 
         topicFlow.emit(validGameJson)
-        delay(500)
 
-        assert(client.hasRejoinedGame.value) { "Expected hasRejoinedGame to be true after rejoin JSON" }
+        assert(waitUntil { client.hasRejoinedGame.value }) {
+            "Expected hasRejoinedGame to be true after rejoin JSON"
+        }
     }
 
     @Test
@@ -852,5 +854,18 @@ class GameStompClientTest {
         assert(collected.first().players.first().nickname == "Alice")
 
         job.cancel()
+    }
+
+    private suspend fun waitUntil(
+        timeoutMillis: Long = 1000,
+        intervalMillis: Long = 25,
+        condition: () -> Boolean,
+    ): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            delay(intervalMillis)
+        }
+        return condition()
     }
 }

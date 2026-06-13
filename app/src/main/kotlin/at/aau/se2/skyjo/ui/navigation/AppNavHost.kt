@@ -1,6 +1,7 @@
 package at.aau.se2.skyjo.ui.navigation
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import at.aau.se2.skyjo.ui.screens.friends.FriendsScreen
 import at.aau.se2.skyjo.ui.screens.game.GameScreen
 import at.aau.se2.skyjo.ui.screens.leaderboard.LeaderboardScreen
 import at.aau.se2.skyjo.ui.screens.lobby.LobbyScreen
+import at.aau.se2.skyjo.ui.screens.gameOver.GameOverScreen
 import at.aau.se2.skyjo.ui.screens.settings.SettingsScreen
 import at.aau.se2.skyjo.ui.screens.start.StartScreen
 import at.aau.se2.skyjo.viewmodel.AuthViewModel
@@ -235,6 +237,14 @@ fun AppNavHost(
                     onDismissCheatPeekResult = { privateCheatPeekResult = null },
                     onReadyForNextRoundClick = { gameViewModel.startNextRound() },
                     onBack = { navController.popBackStack() },
+                    onNavigateToGameOver = {
+                        navController.navigate(AppDestination.GameOver.route) {
+                            // Das Spiel wird aus dem Verlauf gelöscht,
+                            // damit man mit "Zurück" nicht ins beendete Spiel kommt.
+                            popUpTo(AppDestination.Game.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 
@@ -280,6 +290,32 @@ fun AppNavHost(
                     onBack = { navController.popBackStack() }
                 )
             }
+
+            composable(AppDestination.GameOver.route) {
+                // 1. Wir holen uns den aktuellen State aus dem ViewModel
+                val gameState by gameViewModel.gameState.collectAsState()
+                fun exitGameOver() {
+                    // Optional: Aufräumen, falls der ViewModel-State zurückgesetzt werden muss
+                    gameViewModel.leaveLobby()
+
+                    // Navigation zurück zum Start
+                    navController.navigate(AppDestination.Start.route) {
+                        // Löscht alles bis zum Start-Screen aus der Back-History
+                        popUpTo(AppDestination.Start.route) { inclusive = true }
+                        // Verhindert, dass der Start-Screen mehrfach auf dem Stack liegt
+                        launchSingleTop = true
+                    }
+                }
+
+                BackHandler(onBack = ::exitGameOver)
+
+                // 2. Screen aufrufen und die Scores übergeben
+                GameOverScreen(
+                    totalScores = gameState?.totalScores ?: emptyList(),
+                    onBackToStart = ::exitGameOver
+                )
+            }
+
         }
 
         if (!isConnected && myPlayerName.isNotEmpty() && (currentLobbyState != null || currentGameState != null)) {

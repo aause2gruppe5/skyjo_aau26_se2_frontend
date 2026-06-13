@@ -47,6 +47,11 @@ class AppDestinationTest {
     }
 
     @Test
+    fun `gameOver destination has correct route`(){
+        assertEquals("gameOver", AppDestination.GameOver.route)
+    }
+
+    @Test
     fun `all routes are non-empty strings`() {
         val destinations = listOf(
             AppDestination.Auth,
@@ -57,6 +62,7 @@ class AppDestinationTest {
             AppDestination.Leaderboard,
             AppDestination.Settings,
             AppDestination.Rules,
+            AppDestination.GameOver,
         )
         destinations.forEach { dest ->
             assertTrue("route should not be empty for ${dest::class.simpleName}", dest.route.isNotBlank())
@@ -74,6 +80,7 @@ class AppDestinationTest {
             AppDestination.Leaderboard.route,
             AppDestination.Settings.route,
             AppDestination.Rules.route,
+            AppDestination.GameOver.route,
         )
         assertEquals("routes must be unique", routes.distinct().size, routes.size)
     }

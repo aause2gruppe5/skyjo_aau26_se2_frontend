@@ -515,6 +515,95 @@ class AppNavHostTest {
             )
         }
     }
+
+    @Test
+    fun appNavHost_renders_gameOver_route_with_scores() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        // Wir setzen einen Fake-GameState, damit totalScores vorhanden sind (Alice und Bob)
+        fakeGameState.value = makeGameState()
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Simuliere die Navigation zum GameOver-Screen
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.GameOver.route)
+        }
+        composeTestRule.waitForIdle()
+
+        // Prüfe, ob die statischen Texte des Screens geladen wurden
+        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+
+        // Prüfe, ob die Spieler aus dem gameState übergeben wurden
+        composeTestRule.onNodeWithText("Alice", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText("Bob", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun appNavHost_navigates_to_gameOver_when_game_state_becomes_game_over() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+        assertEquals(AppDestination.Game.route, navController.currentDestination?.route)
+
+        fakeGameState.value = makeGameState().copy(gameOver = true)
+        composeTestRule.waitForIdle()
+
+        assertEquals(AppDestination.GameOver.route, navController.currentDestination?.route)
+        composeTestRule.onNodeWithText("GAME OVER").assertExists()
+    }
+
+    @Test
+    fun appNavHost_gameOver_back_button_clears_lobby_and_navigates_to_start() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Simuliere die Navigation zum GameOver-Screen
+        composeTestRule.runOnIdle {
+            navController.navigate(AppDestination.GameOver.route)
+        }
+        composeTestRule.waitForIdle()
+
+        // Klicke auf den Button "BACK TO START"
+        composeTestRule.onNodeWithText("BACK TO START").performClick()
+        composeTestRule.waitForIdle()
+
+        // Verifiziere, dass der Callback `gameViewModel.leaveLobby()` aufgerufen hat
+        // (was intern mockGameClient.leaveLobby() triggert)
+        verify(exactly = 1) { mockGameClient.leaveLobby() }
+
+        // Optional: Überprüfe, ob wir uns wieder auf der Startseite befinden,
+        // indem wir nach einem Element suchen, das spezifisch für den StartScreen ist.
+        composeTestRule.onNodeWithText("Create Lobby", ignoreCase = true, substring = true).assertExists()
+    }
+
     // Helper function
     private fun makeGameState(
         myPlayerId: String = "p1",
