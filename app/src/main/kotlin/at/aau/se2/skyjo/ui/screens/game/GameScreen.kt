@@ -156,6 +156,7 @@ fun GameScreen(
     modifier: Modifier = Modifier,
 ) {
     var pendingAction by remember { mutableStateOf<String?>(null) }
+    var drawnFromDiscard by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf(false) }
 
     var activeRoundResultDialog by remember {
         mutableStateOf<Pair<Int, RoundResult>?>(null)
@@ -300,8 +301,14 @@ fun GameScreen(
                     onPendingActionChange = { pendingAction = it },
                     onSwapStateChange = { swapState = it },
                     onPendingEnlightenmentCardIndexChange = { pendingEnlightenmentCardIndex = it },
-                    onDrawFromDeck = onDrawFromDeck,
-                    onDrawFromDiscard = onDrawFromDiscard,
+                    onDrawFromDeck = {
+                        drawnFromDiscard = false
+                        onDrawFromDeck()
+                    },
+                    onDrawFromDiscard = {
+                        drawnFromDiscard = true
+                        onDrawFromDiscard()
+                    },
                     onDrawFromActionDeck = onDrawFromActionDeck,
                     onDrawVisibleActionCard = onDrawVisibleActionCard,
                     onReplaceCard = onReplaceCard,
@@ -334,9 +341,16 @@ fun GameScreen(
                 discardCard = discardCard,
                 pendingAction = pendingAction,
                 actionCardChoicePending = isDrawThreeCardsChoicePending,
+                drawnFromDiscard = drawnFromDiscard,
                 onPendingActionChange = { pendingAction = it },
-                onDrawFromDeck = onDrawFromDeck,
-                onDrawFromDiscard = onDrawFromDiscard,
+                onDrawFromDeck = {
+                    drawnFromDiscard = false
+                    onDrawFromDeck()
+                },
+                onDrawFromDiscard = {
+                    drawnFromDiscard = true
+                    onDrawFromDiscard()
+                },
             )
         }
     }
@@ -1220,6 +1234,7 @@ private fun GameScreenActionBar(
     discardCard: Card?,
     pendingAction: String?,
     actionCardChoicePending: Boolean,
+    drawnFromDiscard: Boolean,
     onPendingActionChange: (String?) -> Unit,
     onDrawFromDeck: () -> Unit,
     onDrawFromDiscard: () -> Unit,
@@ -1315,10 +1330,12 @@ private fun GameScreenActionBar(
                         text = if (pendingAction == "REPLACE") "✓ Replace Mode — tap a card" else "REPLACE CARD",
                         onClick = { onPendingActionChange("REPLACE") },
                     )
-                    SecondaryButton(
-                        text = if (pendingAction == "DISCARD_AND_REVEAL") "✓ Reveal Mode — tap a card" else "Discard & Reveal",
-                        onClick = { onPendingActionChange("DISCARD_AND_REVEAL") },
-                    )
+                    if (!drawnFromDiscard) {
+                        SecondaryButton(
+                            text = if (pendingAction == "DISCARD_AND_REVEAL") "✓ Reveal Mode — tap a card" else "Discard & Reveal",
+                            onClick = { onPendingActionChange("DISCARD_AND_REVEAL") },
+                        )
+                    }
                 }
             }
         }
