@@ -1000,12 +1000,12 @@ private fun PlayerGridCarousel(
     }
 
     val viewedPlayerHasDefense = !isOwnGrid && viewedPlayer.actionCards.any { it.kind == "DEFENSE" }
-    val isProtectedFromSwap = swapState != null && !isOwnGrid && viewedPlayerHasDefense
+    val willDefenseBlockSwap = swapState != null && !isOwnGrid && viewedPlayerHasDefense
 
     val isSelectableOtherGrid = when (val state = swapState) {
-        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly && !isProtectedFromSwap
+        is SwapSelectionState.AwaitingFirst -> !state.ownCardsOnly
         is SwapSelectionState.AwaitingSecond -> !state.ownCardsOnly &&
-                state.player1Id != viewedPlayer.playerId && !isProtectedFromSwap
+                state.player1Id != viewedPlayer.playerId
         null -> false
     }
 
@@ -1173,7 +1173,7 @@ private fun PlayerGridCarousel(
                     )
                 }
 
-                if (isProtectedFromSwap) {
+                if (willDefenseBlockSwap) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1188,13 +1188,14 @@ private fun PlayerGridCarousel(
                             modifier = Modifier.size(16.dp),
                         )
                         Text(
-                            text = "Protected by Defense card — cannot swap",
+                            text = "Defense will block this swap",
                             style = MaterialTheme.typography.labelSmall,
                             color = MutedText,
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                } else if (isSelectableOtherGrid) {
+                }
+                if (isSelectableOtherGrid) {
                     Text(
                         text = "Tap a card to swap",
                         style = MaterialTheme.typography.labelSmall,
