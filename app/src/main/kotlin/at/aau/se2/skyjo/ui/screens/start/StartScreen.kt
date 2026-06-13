@@ -2,6 +2,7 @@ package at.aau.se2.skyjo.ui.screens.start
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -39,6 +41,7 @@ import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
+import at.aau.se2.skyjo.ui.components.screenHorizontalPadding
 import at.aau.se2.skyjo.ui.navigation.AppDestination
 import at.aau.se2.skyjo.ui.theme.MintGreen
 import at.aau.se2.skyjo.ui.theme.MutedText
@@ -64,107 +67,114 @@ fun StartScreen(
         onNavigate = onNavigate,
         modifier = modifier,
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            SkyjoCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AvatarBadge(
-                        initial = displayName.first().uppercaseChar(),
-                        size = 52,
-                        showOnlineIndicator = true,
-                        backgroundColor = MintGreen,
-                        textColor = PrimaryGreen,
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Ready for the next lobby",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MutedText,
-                        )
-                    }
-                    TextButton(onClick = onLogout) {
-                        Text("Logout")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                ) {
-                    StatItem(value = (stats?.wins ?: 0).toString(), label = "Wins")
-                    VerticalDivider()
-                    StatItem(value = (stats?.gamesPlayed ?: 0).toString(), label = "Games")
-                    VerticalDivider()
-                    StatItem(value = "%.1f".format(stats?.averageScore ?: 0.0), label = "Avg Score")
-                }
-            }
-
-            SkyjoCard {
-                Text(
-                    text = "Lobby",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                PrimaryButton(
-                    text = "CREATE LOBBY",
-                    onClick = onCreateLobby,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = joinCode,
-                    onValueChange = { joinCode = it.uppercase().take(6) },
-                    label = { Text("Join Code") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                PrimaryButton(
-                    text = "JOIN WITH CODE",
-                    onClick = { onJoinLobby(joinCode) },
-                    enabled = joinCode.isNotBlank(),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 560.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = screenHorizontalPadding(), vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                SkyjoCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AvatarBadge(
+                            initial = displayName.first().uppercaseChar(),
+                            size = 52,
+                            showOnlineIndicator = true,
+                            backgroundColor = MintGreen,
+                            textColor = PrimaryGreen,
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "Ready for the next lobby",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MutedText,
+                            )
+                        }
+                        TextButton(onClick = onLogout) {
+                            Text("Logout")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                    ) {
+                        StatItem(value = (stats?.wins ?: 0).toString(), label = "Wins")
+                        VerticalDivider()
+                        StatItem(value = (stats?.gamesPlayed ?: 0).toString(), label = "Games")
+                        VerticalDivider()
+                        StatItem(value = "%.1f".format(stats?.averageScore ?: 0.0), label = "Avg Score")
+                    }
+                }
+
+                SkyjoCard {
+                    Text(
+                        text = "Lobby",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PrimaryButton(
+                        text = "CREATE LOBBY",
+                        onClick = onCreateLobby,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = joinCode,
+                        onValueChange = { joinCode = it.uppercase().take(6) },
+                        label = { Text("Join Code") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PrimaryButton(
+                        text = "JOIN WITH CODE",
+                        onClick = { onJoinLobby(joinCode) },
+                        enabled = joinCode.isNotBlank(),
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HomeActionCard(
+                        icon = Icons.Default.Group,
+                        title = "Friends",
+                        onClick = { onNavigate(AppDestination.Friends) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    HomeActionCard(
+                        icon = Icons.Default.EmojiEvents,
+                        title = "Leaderboard",
+                        onClick = { onNavigate(AppDestination.Leaderboard) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 HomeActionCard(
-                    icon = Icons.Default.Group,
-                    title = "Friends",
-                    onClick = { onNavigate(AppDestination.Friends) },
-                    modifier = Modifier.weight(1f),
-                )
-                HomeActionCard(
-                    icon = Icons.Default.EmojiEvents,
-                    title = "Leaderboard",
-                    onClick = { onNavigate(AppDestination.Leaderboard) },
-                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.MenuBook,
+                    title = "How to Play",
+                    onClick = { onNavigate(AppDestination.Rules) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-            HomeActionCard(
-                icon = Icons.Default.MenuBook,
-                title = "How to Play",
-                onClick = { onNavigate(AppDestination.Rules) },
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }
@@ -212,12 +222,11 @@ private fun StatItem(value: String, label: String) {
 
 @Composable
 private fun VerticalDivider() {
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = Modifier
             .width(1.dp)
             .height(36.dp)
-            .background(Color(0xFFE5E7EB))
-            .padding(horizontal = 0.dp),
+            .background(Color(0xFFE5E7EB)),
     )
 }
 
