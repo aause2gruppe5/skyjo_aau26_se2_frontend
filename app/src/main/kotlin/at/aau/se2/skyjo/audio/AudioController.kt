@@ -53,6 +53,7 @@ class AudioController(
         val track = destination?.let(::trackFor)
         if (track == null) {
             stopBgm()
+            currentTrack = null
             return
         }
         if (track == currentTrack && bgmPlayer != null) {
@@ -99,8 +100,8 @@ class AudioController(
     }
 
     private fun startBgm(@RawRes track: Int) {
-        if (!settings.musicEnabled.value || paused) return
         stopBgm()
+        if (!settings.musicEnabled.value || paused) return
         bgmPlayer = MediaPlayer.create(appContext, track)?.apply {
             isLooping = true
             start()

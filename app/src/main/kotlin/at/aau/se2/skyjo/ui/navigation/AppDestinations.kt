@@ -12,10 +12,11 @@ sealed class AppDestination(val route: String) {
     object GameOver : AppDestination("gameOver")
 
     companion object {
-        private val all = listOf(
+        // Built on each call rather than cached in a companion `val`: the nested objects and this
+        // companion form an initialization cycle, so an eagerly-initialized list can capture a
+        // not-yet-initialized object as `null`. Deferring to call time guarantees fully-built objects.
+        fun fromRoute(route: String?): AppDestination? = listOf(
             Auth, Start, Lobby, Game, Friends, Leaderboard, Settings, Rules, GameOver,
-        )
-
-        fun fromRoute(route: String?): AppDestination? = all.find { it.route == route }
+        ).find { it.route == route }
     }
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -234,6 +235,7 @@ private fun SettingsToggleRow(
         )
         val haptic = LocalHaptic.current
         Switch(
+            modifier = Modifier.testTag("toggle_$label"),
             checked = checked,
             onCheckedChange = {
                 haptic?.tick()
