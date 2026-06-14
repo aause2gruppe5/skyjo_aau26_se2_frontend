@@ -29,18 +29,16 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
 import at.aau.se2.skyjo.ui.components.screenHorizontalPadding
@@ -54,11 +52,13 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 fun SettingsScreen(
     onNavigate: (AppDestination) -> Unit,
     modifier: Modifier = Modifier,
+    musicEnabled: Boolean = false,
+    soundEnabled: Boolean = true,
+    hapticEnabled: Boolean = true,
+    onMusicChange: (Boolean) -> Unit = {},
+    onSoundChange: (Boolean) -> Unit = {},
+    onHapticChange: (Boolean) -> Unit = {},
 ) {
-    var soundEnabled by remember { mutableStateOf(true) }
-    var musicEnabled by remember { mutableStateOf(true) }
-    var hapticEnabled by remember { mutableStateOf(false) }
-
     SkyjoDrawerScaffold(
         currentDestination = AppDestination.Settings,
         onNavigate = onNavigate,
@@ -132,21 +132,21 @@ fun SettingsScreen(
                         icon = Icons.Default.VolumeUp,
                         label = "Sound FX",
                         checked = soundEnabled,
-                        onCheckedChange = { soundEnabled = it },
+                        onCheckedChange = onSoundChange,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     SettingsToggleRow(
                         icon = Icons.Default.MusicNote,
                         label = "Music",
                         checked = musicEnabled,
-                        onCheckedChange = { musicEnabled = it },
+                        onCheckedChange = onMusicChange,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     SettingsToggleRow(
                         icon = Icons.Default.Vibration,
                         label = "Haptic Feedback",
                         checked = hapticEnabled,
-                        onCheckedChange = { hapticEnabled = it },
+                        onCheckedChange = onHapticChange,
                     )
                 }
             }
@@ -233,9 +233,14 @@ private fun SettingsToggleRow(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )
+        val haptic = LocalHaptic.current
         Switch(
+            modifier = Modifier.testTag("toggle_$label"),
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = {
+                haptic?.tick()
+                onCheckedChange(it)
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = PrimaryGreen,

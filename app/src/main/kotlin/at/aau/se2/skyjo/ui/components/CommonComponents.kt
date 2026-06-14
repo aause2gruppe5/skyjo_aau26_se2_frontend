@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.ui.theme.GoldSurface
 import at.aau.se2.skyjo.ui.theme.GoldYellow
 import at.aau.se2.skyjo.ui.theme.MintGreen
@@ -45,8 +46,12 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val haptic = LocalHaptic.current
     Button(
-        onClick = onClick,
+        onClick = {
+            haptic?.tick()
+            onClick()
+        },
         enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -69,8 +74,12 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptic = LocalHaptic.current
     OutlinedButton(
-        onClick = onClick,
+        onClick = {
+            haptic?.tick()
+            onClick()
+        },
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
     ) {

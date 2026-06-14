@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.MenuBook
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.PrimaryButton
@@ -186,8 +187,12 @@ private fun HomeActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptic = LocalHaptic.current
     androidx.compose.material3.Card(
-        onClick = onClick,
+        onClick = {
+            haptic?.tick()
+            onClick()
+        },
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
     ) {
