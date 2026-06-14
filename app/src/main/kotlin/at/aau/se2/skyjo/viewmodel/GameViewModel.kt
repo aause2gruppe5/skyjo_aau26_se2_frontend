@@ -15,6 +15,7 @@ import at.aau.se2.skyjo.network.SkyjoApi
 import at.aau.se2.skyjo.network.SkyjoApiClient
 import at.aau.se2.skyjo.session.EncryptedSessionStore
 import at.aau.se2.skyjo.session.SessionStore
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,19 @@ class GameViewModel(
 
     private val _lobbyError = MutableStateFlow<String?>(null)
     val lobbyError: StateFlow<String?> = _lobbyError.asStateFlow()
+
+    // One-shot navigation/toast events use a buffered Channel rather than a non-replaying
+    // SharedFlow: if the Activity (and the host-level collector) is recreated while a
+    // join/accept request is still in flight, the buffered element is delivered to the next
+    // collector instead of being dropped.
+
+    /** One-shot event: a join-by-code/invite succeeded; the UI should navigate to the lobby. */
+    private val _lobbyJoined = Channel<Unit>(Channel.BUFFERED)
+    val lobbyJoined: Flow<Unit> = _lobbyJoined.receiveAsFlow()
+
+    /** One-shot event: a join/accept failed; carries a user-facing message for a toast. */
+    private val _lobbyJoinError = Channel<String>(Channel.BUFFERED)
+    val lobbyJoinError: Flow<String> = _lobbyJoinError.receiveAsFlow()
 
     private var leaveJob: kotlinx.coroutines.Job? = null
 
@@ -153,8 +167,12 @@ class GameViewModel(
                         maxPlayers = lobby.maxPlayers,
                     ),
                 )
+            }.onSuccess {
+                _lobbyJoined.trySend(Unit)
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Could not join lobby"
+                // Surfaced as a toast on the Start screen; the backend sends "lobby not found"
+                // for an invalid code, "cannot join: lobby is not waiting", etc.
+                _lobbyJoinError.trySend(error.message ?: "Could not join lobby")
             }
         }
     }
@@ -164,21 +182,26 @@ class GameViewModel(
         viewModelScope.launch {
             runCatching {
                 val invite = apiClient.acceptLobbyInvite(inviteId)
+                // Treat a missing current lobby as a failure: emitting lobbyJoined without an
+                // applied lobby state would navigate the user into an empty lobby screen.
                 val lobby = apiClient.currentLobby()
+                    ?: error("Could not load lobby after accepting invite")
                 connectToLobby(invite.joinCode)
-                lobby?.let {
-                    gameClient.applyLobbyState(
-                        LobbyUpdateMessage(
-                            lobbyId = it.lobbyId,
-                            joinCode = it.joinCode,
-                            players = it.players,
-                            status = it.status,
-                            maxPlayers = it.maxPlayers,
-                        ),
-                    )
-                }
+                gameClient.applyLobbyState(
+                    LobbyUpdateMessage(
+                        lobbyId = lobby.lobbyId,
+                        joinCode = lobby.joinCode,
+                        players = lobby.players,
+                        status = lobby.status,
+                        maxPlayers = lobby.maxPlayers,
+                    ),
+                )
+            }.onSuccess {
+                // Navigate reactively only once the invite is accepted, connected and the lobby
+                // state is applied, mirroring joinLobbyByCode, so we never land in an empty lobby.
+                _lobbyJoined.trySend(Unit)
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Could not accept invite"
+                _lobbyJoinError.trySend(error.message ?: "Could not accept invite")
             }
         }
     }

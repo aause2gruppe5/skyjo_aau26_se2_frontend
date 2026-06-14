@@ -95,6 +95,20 @@ fun AppNavHost(
         }
     }
 
+    // Collected at the host level (not the Start route) so a join that completes after the
+    // user has navigated away still drives the navigation/toast instead of being dropped.
+    val appContext = LocalContext.current
+    LaunchedEffect(Unit) {
+        gameViewModel.lobbyJoined.collect {
+            navController.navigate(AppDestination.Lobby.route)
+        }
+    }
+    LaunchedEffect(Unit) {
+        gameViewModel.lobbyJoinError.collect { message ->
+            Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Drive per-screen background music from the active destination and the music toggle.
     val currentEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentEntry?.destination?.route
@@ -148,8 +162,10 @@ fun AppNavHost(
                         navController.navigate(AppDestination.Lobby.route)
                     },
                     onJoinLobby = { code ->
+                        // Navigation happens reactively via the host-level lobbyJoined /
+                        // lobbyJoinError collectors, so an invalid code no longer drops the
+                        // user into an empty lobby.
                         gameViewModel.joinLobbyByCode(username, code)
-                        navController.navigate(AppDestination.Lobby.route)
                     },
                     onLogout = {
                         authViewModel?.logout()
@@ -286,8 +302,10 @@ fun AppNavHost(
                     },
                     onAcceptInvite = { inviteId ->
                         friendsViewModel?.removeLobbyInvite(inviteId)
+                        // Navigation happens reactively via the host-level lobbyJoined /
+                        // lobbyJoinError collectors once the invite is actually accepted,
+                        // so a failed/slow accept no longer drops the user into an empty lobby.
                         gameViewModel.acceptLobbyInvite(username = authState.user?.username.orEmpty(), inviteId = inviteId)
-                        navController.navigate(AppDestination.Lobby.route)
                     },
                     onDeclineInvite = { inviteId ->
                         friendsViewModel?.declineLobbyInvite(inviteId)

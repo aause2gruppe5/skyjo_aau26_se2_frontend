@@ -160,7 +160,7 @@ fun GameScreen(
 ) {
     val haptic = LocalHaptic.current
     val audio = LocalAudio.current
-    var pendingAction by remember { mutableStateOf<String?>(null) }
+    var pendingAction by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf<String?>(null) }
     var drawnFromDiscard by remember(isMyTurn, gameState?.roundNumber) { mutableStateOf(false) }
     val handleDrawFromDeck: () -> Unit = { haptic?.event(); drawnFromDiscard = false; onDrawFromDeck() }
     val handleDrawFromDiscard: () -> Unit = { haptic?.event(); drawnFromDiscard = true; onDrawFromDiscard() }

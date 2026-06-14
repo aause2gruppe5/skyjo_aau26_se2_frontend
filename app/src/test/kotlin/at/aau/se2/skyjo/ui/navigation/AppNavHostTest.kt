@@ -2,12 +2,14 @@ package at.aau.se2.skyjo.ui.navigation
 
 import android.app.Application
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -150,6 +152,30 @@ class AppNavHostTest {
             }
         }
         composeTestRule.onNodeWithText("SKYJO", substring = true).assertExists()
+    }
+
+    @Test
+    fun appNavHost_invalid_join_code_does_not_navigate_into_lobby() {
+        coEvery { mockApi.joinLobby(any()) } throws IllegalStateException("lobby not found")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNode(hasSetTextAction()).performTextInput("BAD123")
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("JOIN WITH CODE").performClick()
+        composeTestRule.waitForIdle()
+
+        // The failed join must NOT drop the user into an (empty) lobby screen.
+        // The "lobby not found" toast itself is covered by GameViewModelTest (lobbyJoinError event).
+        assertEquals(AppDestination.Start.route, navController.currentDestination?.route)
+        verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
     }
 
     @Test
