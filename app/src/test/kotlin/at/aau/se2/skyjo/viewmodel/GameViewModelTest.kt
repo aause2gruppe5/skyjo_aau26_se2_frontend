@@ -31,7 +31,9 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -295,13 +297,51 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `joinLobbyByCode stores fallback error when exception has no message`() {
+    fun `joinLobbyByCode emits joined event and no error on success`() {
+        coEvery { mockApi.joinLobby("abc123") } returns lobbySummary()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        var joinedCount = 0
+        val errors = mutableListOf<String>()
+        val joinedJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoined.collect { joinedCount++ } }
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
+
+        viewModel.joinLobbyByCode("Alice", "abc123")
+
+        assertEquals(1, joinedCount)
+        assertTrue(errors.isEmpty())
+        joinedJob.cancel()
+        errorJob.cancel()
+    }
+
+    @Test
+    fun `joinLobbyByCode emits the server message and does not navigate on invalid code`() {
+        coEvery { mockApi.joinLobby("BAD123") } throws IllegalStateException("lobby not found")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        var joinedCount = 0
+        val errors = mutableListOf<String>()
+        val joinedJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoined.collect { joinedCount++ } }
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
+
+        viewModel.joinLobbyByCode("Alice", "BAD123")
+
+        assertEquals(listOf("lobby not found"), errors)
+        assertEquals(0, joinedCount)
+        verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
+        joinedJob.cancel()
+        errorJob.cancel()
+    }
+
+    @Test
+    fun `joinLobbyByCode emits fallback message when exception has no message`() {
         coEvery { mockApi.joinLobby("bad") } throws object : RuntimeException() {}
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        val errors = mutableListOf<String>()
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
 
         viewModel.joinLobbyByCode("Alice", "bad")
 
-        assertEquals("Could not join lobby", viewModel.lobbyError.value)
+        assertEquals(listOf("Could not join lobby"), errors)
+        errorJob.cancel()
     }
 
     @Test

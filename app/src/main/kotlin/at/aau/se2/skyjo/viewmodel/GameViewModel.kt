@@ -51,6 +51,14 @@ class GameViewModel(
     private val _lobbyError = MutableStateFlow<String?>(null)
     val lobbyError: StateFlow<String?> = _lobbyError.asStateFlow()
 
+    /** One-shot event: a join-by-code succeeded; the UI should navigate to the lobby. */
+    private val _lobbyJoined = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val lobbyJoined: SharedFlow<Unit> = _lobbyJoined.asSharedFlow()
+
+    /** One-shot event: a join-by-code failed; carries a user-facing message for a toast. */
+    private val _lobbyJoinError = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val lobbyJoinError: SharedFlow<String> = _lobbyJoinError.asSharedFlow()
+
     private var leaveJob: kotlinx.coroutines.Job? = null
 
     val isHost: StateFlow<Boolean> = combine(lobbyState, myPlayerName) { lobby, name ->
@@ -153,8 +161,12 @@ class GameViewModel(
                         maxPlayers = lobby.maxPlayers,
                     ),
                 )
+            }.onSuccess {
+                _lobbyJoined.tryEmit(Unit)
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Could not join lobby"
+                // Surfaced as a toast on the Start screen; the backend sends "lobby not found"
+                // for an invalid code, "cannot join: lobby is not waiting", etc.
+                _lobbyJoinError.tryEmit(error.message ?: "Could not join lobby")
             }
         }
     }
