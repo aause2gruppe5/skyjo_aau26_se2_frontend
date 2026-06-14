@@ -372,13 +372,38 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `acceptLobbyInvite stores fallback error when request fails without message`() {
-        coEvery { mockApi.acceptLobbyInvite("invite-1") } throws object : RuntimeException() {}
+    fun `acceptLobbyInvite emits joined event and no error on success`() {
+        coEvery { mockApi.acceptLobbyInvite("invite-1") } returns lobbyInvite()
+        coEvery { mockApi.currentLobby() } returns lobbySummary()
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        var joinedCount = 0
+        val errors = mutableListOf<String>()
+        val joinedJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoined.collect { joinedCount++ } }
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
 
         viewModel.acceptLobbyInvite("Alice", "invite-1")
 
-        assertEquals("Could not accept invite", viewModel.lobbyError.value)
+        assertEquals(1, joinedCount)
+        assertTrue(errors.isEmpty())
+        joinedJob.cancel()
+        errorJob.cancel()
+    }
+
+    @Test
+    fun `acceptLobbyInvite emits fallback error event and does not join when request fails without message`() {
+        coEvery { mockApi.acceptLobbyInvite("invite-1") } throws object : RuntimeException() {}
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        var joinedCount = 0
+        val errors = mutableListOf<String>()
+        val joinedJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoined.collect { joinedCount++ } }
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
+
+        viewModel.acceptLobbyInvite("Alice", "invite-1")
+
+        assertEquals(listOf("Could not accept invite"), errors)
+        assertEquals(0, joinedCount)
+        joinedJob.cancel()
+        errorJob.cancel()
     }
 
     @Test
