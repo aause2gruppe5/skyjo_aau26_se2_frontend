@@ -95,6 +95,20 @@ fun AppNavHost(
         }
     }
 
+    // Collected at the host level (not the Start route) so a join that completes after the
+    // user has navigated away still drives the navigation/toast instead of being dropped.
+    val appContext = LocalContext.current
+    LaunchedEffect(Unit) {
+        gameViewModel.lobbyJoined.collect {
+            navController.navigate(AppDestination.Lobby.route)
+        }
+    }
+    LaunchedEffect(Unit) {
+        gameViewModel.lobbyJoinError.collect { message ->
+            Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Drive per-screen background music from the active destination and the music toggle.
     val currentEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentEntry?.destination?.route
@@ -129,23 +143,10 @@ fun AppNavHost(
 
             composable(AppDestination.Start.route) {
                 val username = authState.user?.username.orEmpty()
-                val context = LocalContext.current
                 LaunchedEffect(username) {
                     if (username.isNotBlank()) {
                         gameViewModel.setAuthenticatedUsername(username)
                         gameViewModel.refreshHomeStats()
-                    }
-                }
-                // Navigate to the lobby only once a join-by-code actually succeeds…
-                LaunchedEffect(Unit) {
-                    gameViewModel.lobbyJoined.collect {
-                        navController.navigate(AppDestination.Lobby.route)
-                    }
-                }
-                // …and on an invalid/unjoinable code, stay here and show a toast instead.
-                LaunchedEffect(Unit) {
-                    gameViewModel.lobbyJoinError.collect { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 }
                 StartScreen(
@@ -161,8 +162,9 @@ fun AppNavHost(
                         navController.navigate(AppDestination.Lobby.route)
                     },
                     onJoinLobby = { code ->
-                        // Navigation happens reactively via lobbyJoined / lobbyJoinError above,
-                        // so an invalid code no longer drops the user into an empty lobby.
+                        // Navigation happens reactively via the host-level lobbyJoined /
+                        // lobbyJoinError collectors, so an invalid code no longer drops the
+                        // user into an empty lobby.
                         gameViewModel.joinLobbyByCode(username, code)
                     },
                     onLogout = {
