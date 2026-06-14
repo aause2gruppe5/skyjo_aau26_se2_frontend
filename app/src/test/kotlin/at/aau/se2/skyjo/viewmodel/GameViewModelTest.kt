@@ -360,15 +360,24 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `acceptLobbyInvite skips lobby state when current lobby is missing`() {
+    fun `acceptLobbyInvite emits error and does not connect or join when current lobby is missing`() {
         coEvery { mockApi.acceptLobbyInvite("invite-1") } returns lobbyInvite()
         coEvery { mockApi.currentLobby() } returns null
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        var joinedCount = 0
+        val errors = mutableListOf<String>()
+        val joinedJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoined.collect { joinedCount++ } }
+        val errorJob = CoroutineScope(testDispatcher).launch { viewModel.lobbyJoinError.collect { errors.add(it) } }
 
         viewModel.acceptLobbyInvite("Alice", "invite-1")
 
-        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        // A missing lobby must not navigate the user into an empty lobby screen.
+        assertEquals(listOf("Could not load lobby after accepting invite"), errors)
+        assertEquals(0, joinedCount)
+        coVerify(exactly = 0) { mockGameClient.connect(any(), any()) }
         verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
+        joinedJob.cancel()
+        errorJob.cancel()
     }
 
     @Test
