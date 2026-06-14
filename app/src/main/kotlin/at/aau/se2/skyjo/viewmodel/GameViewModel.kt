@@ -189,8 +189,12 @@ class GameViewModel(
                         ),
                     )
                 }
+            }.onSuccess {
+                // Navigate reactively once the invite is actually accepted and connected,
+                // mirroring joinLobbyByCode, so we never drop the user into an empty lobby.
+                _lobbyJoined.tryEmit(Unit)
             }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Could not accept invite"
+                _lobbyJoinError.tryEmit(error.message ?: "Could not accept invite")
             }
         }
     }

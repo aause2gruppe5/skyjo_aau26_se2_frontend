@@ -302,8 +302,10 @@ fun AppNavHost(
                     },
                     onAcceptInvite = { inviteId ->
                         friendsViewModel?.removeLobbyInvite(inviteId)
+                        // Navigation happens reactively via the host-level lobbyJoined /
+                        // lobbyJoinError collectors once the invite is actually accepted,
+                        // so a failed/slow accept no longer drops the user into an empty lobby.
                         gameViewModel.acceptLobbyInvite(username = authState.user?.username.orEmpty(), inviteId = inviteId)
-                        navController.navigate(AppDestination.Lobby.route)
                     },
                     onDeclineInvite = { inviteId ->
                         friendsViewModel?.declineLobbyInvite(inviteId)
