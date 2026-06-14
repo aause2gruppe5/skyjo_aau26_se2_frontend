@@ -33,6 +33,7 @@ import at.aau.se2.skyjo.model.social.FriendRequestDto
 import at.aau.se2.skyjo.model.social.LobbyInviteDto
 import at.aau.se2.skyjo.model.social.RelationshipStatus
 import at.aau.se2.skyjo.model.social.SocialUserDto
+import at.aau.se2.skyjo.haptic.LocalHaptic
 import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.SkyjoCard
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
@@ -230,7 +231,15 @@ private fun InviteRow(
 
 @Composable
 private fun ActionPill(text: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.extraLarge, color = PrimaryGreen) {
+    val haptic = LocalHaptic.current
+    Surface(
+        onClick = {
+            haptic?.tick()
+            onClick()
+        },
+        shape = MaterialTheme.shapes.extraLarge,
+        color = PrimaryGreen,
+    ) {
         Text(
             text = text,
             color = androidx.compose.ui.graphics.Color.White,
