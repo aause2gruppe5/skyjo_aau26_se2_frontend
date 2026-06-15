@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Skyjo motif: a 2x2 grid of rounded cards in the app's green/blue/gold palette. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- top-left: light green -->
+    <path
+        android:fillColor="#DCFCE7"
+        android:pathData="M33.5,23.5 h14 a4,4 0 0 1 4,4 v20 a4,4 0 0 1 -4,4 h-14 a4,4 0 0 1 -4,-4 v-20 a4,4 0 0 1 4,-4 z" />
+    <!-- top-right: blue -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M60.5,23.5 h14 a4,4 0 0 1 4,4 v20 a4,4 0 0 1 -4,4 h-14 a4,4 0 0 1 -4,-4 v-20 a4,4 0 0 1 4,-4 z" />
+    <!-- bottom-left: gold -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M33.5,56.5 h14 a4,4 0 0 1 4,4 v20 a4,4 0 0 1 -4,4 h-14 a4,4 0 0 1 -4,-4 v-20 a4,4 0 0 1 4,-4 z" />
+    <!-- bottom-right: mint -->
+    <path
+        android:fillColor="#86EFAC"
+        android:pathData="M60.5,56.5 h14 a4,4 0 0 1 4,4 v20 a4,4 0 0 1 -4,4 h-14 a4,4 0 0 1 -4,-4 v-20 a4,4 0 0 1 4,-4 z" />
+</vector>

@@ -86,6 +86,10 @@ class SkyjoApiClient(
     override suspend fun friends(): List<FriendDto> =
         get("/api/friends")
 
+    override suspend fun heartbeat() {
+        request<Unit>("POST", "/api/social/heartbeat", allowNoContent = true)
+    }
+
     override suspend fun friendRequests(): FriendRequestsResponse =
         get("/api/friends/requests")
 

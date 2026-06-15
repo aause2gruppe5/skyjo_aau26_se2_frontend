@@ -95,6 +95,18 @@ fun AppNavHost(
         }
     }
 
+    // When a friend is invited while the user is not yet in a lobby, we create one first and
+    // send the invite once the new lobby's id is available, so both players end up together.
+    var pendingInviteUserId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentLobbyState?.lobbyId) {
+        val lobbyId = currentLobbyState?.lobbyId
+        val pending = pendingInviteUserId
+        if (lobbyId != null && pending != null) {
+            friendsViewModel?.inviteFriend(lobbyId, pending)
+            pendingInviteUserId = null
+        }
+    }
+
     // Collected at the host level (not the Start route) so a join that completes after the
     // user has navigated away still drives the navigation/toast instead of being dropped.
     val appContext = LocalContext.current
@@ -292,13 +304,21 @@ fun AppNavHost(
                     lobbyInvites = friendsState.lobbyInvites,
                     searchResults = friendsState.searchResults,
                     query = friendsState.query,
-                    activeLobbyId = gameViewModel.lobbyState.collectAsState().value?.lobbyId,
                     onQueryChange = { friendsViewModel?.updateSearch(it) },
                     onSendRequest = { friendsViewModel?.sendFriendRequest(it) },
                     onAcceptRequest = { friendsViewModel?.acceptRequest(it) },
                     onDeclineRequest = { friendsViewModel?.declineRequest(it) },
                     onInviteFriend = { friendUserId ->
-                        friendsViewModel?.inviteFriend(gameViewModel.lobbyState.value?.lobbyId, friendUserId)
+                        val activeLobbyId = gameViewModel.lobbyState.value?.lobbyId
+                        if (activeLobbyId != null) {
+                            friendsViewModel?.inviteFriend(activeLobbyId, friendUserId)
+                        } else {
+                            // No lobby yet: create one, then the host-level effect sends the
+                            // invite once the new lobby id is known.
+                            pendingInviteUserId = friendUserId
+                            gameViewModel.createLobby(authState.user?.username.orEmpty())
+                        }
+                        navController.navigate(AppDestination.Lobby.route)
                     },
                     onAcceptInvite = { inviteId ->
                         friendsViewModel?.removeLobbyInvite(inviteId)

@@ -26,6 +26,7 @@ interface SkyjoApi {
     suspend fun leaveLobby(lobbyId: String): LobbySummaryResponse = unsupported()
     suspend fun searchUsers(query: String): List<SocialUserDto> = unsupported()
     suspend fun friends(): List<FriendDto> = unsupported()
+    suspend fun heartbeat(): Unit = unsupported()
     suspend fun friendRequests(): FriendRequestsResponse = unsupported()
     suspend fun sendFriendRequest(toUserId: String): FriendRequestDto = unsupported()
     suspend fun acceptFriendRequest(requestId: String): FriendRequestDto = unsupported()

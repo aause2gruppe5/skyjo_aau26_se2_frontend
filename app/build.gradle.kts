@@ -15,6 +15,9 @@ sonar {
         property("sonar.androidLint.reportPaths", "${project.projectDir}/build/reports/lint-results-debug.xml")
         property("sonar.kotlin.file.suffixes", ".kt,.kts")
         property("sonar.exclusions", "**/*.xml,**/res/**")
+        // MainActivity is a thin Android entry point (lifecycle wiring only); exclude it from
+        // coverage so glue code does not skew the new-code coverage gate.
+        property("sonar.coverage.exclusions", "**/MainActivity.kt")
         property("sonar.sourceEncoding", "UTF-8")
     }
 }

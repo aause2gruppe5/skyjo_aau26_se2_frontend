@@ -33,6 +33,7 @@ import at.aau.se2.skyjo.ui.theme.SkyjoTheme
 import at.aau.se2.skyjo.viewmodel.GameViewModel
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -192,6 +193,121 @@ class AppNavHostTest {
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("No friends yet").assertExists()
+    }
+
+    @Test
+    fun appNavHost_inviting_online_friend_without_lobby_creates_lobby_and_sends_invite() {
+        coEvery { mockApi.friends() } returns listOf(
+            at.aau.se2.skyjo.model.social.FriendDto("friend-1", "Buddy", online = true),
+        )
+        coEvery { mockApi.friendRequests() } returns
+            at.aau.se2.skyjo.model.social.FriendRequestsResponse(emptyList(), emptyList())
+        coEvery { mockApi.lobbyInvites() } returns emptyList()
+        val sentInvites = mutableListOf<Pair<String, String>>()
+        coEvery { mockApi.sendLobbyInvite(any(), any()) } answers {
+            sentInvites += (firstArg<String>() to secondArg<String>())
+            at.aau.se2.skyjo.model.social.LobbyInviteDto(
+                inviteId = "invite-1",
+                lobbyId = firstArg(),
+                joinCode = "ABC123",
+                from = at.aau.se2.skyjo.model.social.SocialUserDto("me", "Me"),
+                to = at.aau.se2.skyjo.model.social.SocialUserDto("friend-1", "Buddy"),
+                status = at.aau.se2.skyjo.model.social.LobbyInviteStatus.PENDING,
+                createdAt = 1L,
+            )
+        }
+        coEvery { mockApi.createLobby() } returns at.aau.se2.skyjo.model.lobby.LobbySummaryResponse(
+            lobbyId = "lobby-9",
+            joinCode = "XYZ789",
+            players = listOf(LobbyPlayer("Me", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        val friendsViewModel = at.aau.se2.skyjo.viewmodel.FriendsViewModel(mockApplication, mockApi)
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(
+                    navController = navController,
+                    gameViewModel = viewModel,
+                    friendsViewModel = friendsViewModel,
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Invite").performClick()
+        composeTestRule.waitForIdle()
+
+        // A lobby is created and the user is taken to the lobby screen.
+        coVerify { mockApi.createLobby() }
+        assertEquals(AppDestination.Lobby.route, navController.currentDestination?.route)
+
+        // Once the new lobby id is known, the queued invite is sent.
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-9",
+            joinCode = "XYZ789",
+            players = listOf(LobbyPlayer("Me", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf("lobby-9" to "friend-1"), sentInvites)
+    }
+
+    @Test
+    fun appNavHost_inviting_online_friend_while_in_lobby_sends_invite_without_creating_lobby() {
+        coEvery { mockApi.friends() } returns listOf(
+            at.aau.se2.skyjo.model.social.FriendDto("friend-1", "Buddy", online = true),
+        )
+        coEvery { mockApi.friendRequests() } returns
+            at.aau.se2.skyjo.model.social.FriendRequestsResponse(emptyList(), emptyList())
+        coEvery { mockApi.lobbyInvites() } returns emptyList()
+        val sentInvites = mutableListOf<Pair<String, String>>()
+        coEvery { mockApi.sendLobbyInvite(any(), any()) } answers {
+            sentInvites += (firstArg<String>() to secondArg<String>())
+            at.aau.se2.skyjo.model.social.LobbyInviteDto(
+                inviteId = "invite-1",
+                lobbyId = firstArg(),
+                joinCode = "ABC123",
+                from = at.aau.se2.skyjo.model.social.SocialUserDto("me", "Me"),
+                to = at.aau.se2.skyjo.model.social.SocialUserDto("friend-1", "Buddy"),
+                status = at.aau.se2.skyjo.model.social.LobbyInviteStatus.PENDING,
+                createdAt = 1L,
+            )
+        }
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "lobby-1",
+            joinCode = "ABC123",
+            players = listOf(LobbyPlayer("Me", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        val friendsViewModel = at.aau.se2.skyjo.viewmodel.FriendsViewModel(mockApplication, mockApi)
+        composeTestRule.setContent {
+            SkyjoTheme {
+                AppNavHost(
+                    navController = rememberNavController(),
+                    gameViewModel = viewModel,
+                    friendsViewModel = friendsViewModel,
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Invite").performClick()
+        composeTestRule.waitForIdle()
+
+        coVerify(exactly = 0) { mockApi.createLobby() }
+        assertEquals(listOf("lobby-1" to "friend-1"), sentInvites)
     }
 
     @Test

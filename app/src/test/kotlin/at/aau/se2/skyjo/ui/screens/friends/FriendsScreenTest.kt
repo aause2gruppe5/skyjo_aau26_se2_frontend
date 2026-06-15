@@ -1,6 +1,7 @@
 package at.aau.se2.skyjo.ui.screens.friends
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -84,17 +85,39 @@ class FriendsScreenTest {
     }
 
     @Test
-    fun friendsScreen_shows_friend_invite_button() {
+    fun friendsScreen_shows_invite_only_for_online_friends() {
         composeTestRule.setContent {
             SkyjoTheme {
                 FriendsScreen(
                     onNavigate = {},
-                    friends = listOf(FriendDto("user-1", "FriendOne", online = true)),
-                    activeLobbyId = "lobby-1",
+                    friends = listOf(
+                        FriendDto("user-1", "OnlineFriend", online = true),
+                        FriendDto("user-2", "OfflineFriend", online = false),
+                    ),
                 )
             }
         }
-        composeTestRule.onAllNodesWithText("Invite")[0].assertExists()
+        // Only the online friend gets an Invite button.
+        composeTestRule.onAllNodesWithText("Invite").assertCountEquals(1)
+    }
+
+    @Test
+    fun friendsScreen_invite_click_reports_online_friend_id() {
+        var invitedId: String? = null
+        composeTestRule.setContent {
+            SkyjoTheme {
+                FriendsScreen(
+                    onNavigate = {},
+                    friends = listOf(FriendDto("user-1", "OnlineFriend", online = true)),
+                    onInviteFriend = { invitedId = it },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Invite").performClick()
+        composeTestRule.waitForIdle()
+
+        assertTrue(invitedId == "user-1")
     }
 
     @Test
