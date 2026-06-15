@@ -2678,3 +2678,55 @@ private fun GameScreenPreview() {
         )
     }
 }
+
+@Preview(showBackground = true, showSystemUi = true, name = "Round Finished")
+@Composable
+private fun GameScreenRoundFinishedPreview() {
+    SkyjoTheme {
+        GameScreen(
+            gameState = GameUpdateMessage(
+                phase = PHASE_ROUND_FINISHED,
+                currentPlayerId = "player1",
+                roundNumber = 1,
+                gameOver = false,
+                totalScores = listOf(
+                    TotalScore("player1", "Alice", 12),
+                    TotalScore("player2", "Bob", 8),
+                ),
+                roundResult = RoundResult(
+                    finisherPlayerId = "player1",
+                    scores = listOf(
+                        PlayerRoundScore(playerId = "player1", rawScore = 12, finalScore = 12),
+                        PlayerRoundScore(playerId = "player2", rawScore = 8, finalScore = 8),
+                    ),
+                ),
+                players = listOf(
+                    GamePlayerState(
+                        playerId = "player1",
+                        nickname = "Alice",
+                        board = List(3) {
+                            List(4) {
+                                BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(id = 1, value = 3, type = "NUMBER"))
+                            }
+                        }
+                    ),
+                    GamePlayerState(
+                        playerId = "player2",
+                        nickname = "Bob",
+                        board = List(3) {
+                            List(4) {
+                                BoardSlot(type = "OCCUPIED", faceUp = true, card = Card(id = 2, value = 5, type = "NUMBER"))
+                            }
+                        }
+                    ),
+                ),
+                discardTopCard = Card(id = 1, value = 4, type = "NUMBER"),
+            ),
+            myPlayerId = "player1",
+            isMyTurn = false,
+            isHost = true,
+            onBack = {},
+            onNavigateToGameOver = {},
+        )
+    }
+}
