@@ -103,6 +103,18 @@ class GameStompClientTest {
     }
 
     @Test
+    fun `connectForInvites does not subscribe to lobby or game topics`() = runBlocking {
+        val client = GameStompClient(mockContext)
+        client.connectForInvites("ticket")
+        delay(300)
+
+        coVerify(exactly = 1) { any<StompSession>().subscribeText("/user/queue/invites") }
+        coVerify(exactly = 1) { any<StompSession>().subscribeText("/user/queue/errors") }
+        coVerify(exactly = 0) { any<StompSession>().subscribeText("/topic/lobby") }
+        coVerify(exactly = 0) { any<StompSession>().subscribeText("/topic/game") }
+    }
+
+    @Test
     fun `connect resets connectionError on success`() = runBlocking {
         val client = GameStompClient(mockContext)
         client.connect()

@@ -99,6 +99,7 @@ class AppNavHostTest {
         every { mockGameClient.hasRejoinedGame } returns fakeHasRejoinedGame
         coEvery { mockGameClient.connect() } just runs
         coEvery { mockGameClient.connect(any(), any()) } just runs
+        coEvery { mockGameClient.connectForInvites(any()) } just runs
         coEvery { mockGameClient.reconnect(any()) } just runs
         coEvery { mockApi.createWebSocketTicket() } returns WsTicketResponse("ticket", Long.MAX_VALUE)
         every { mockGameClient.joinLobby(any(), any()) } just runs
@@ -247,21 +248,11 @@ class AppNavHostTest {
         coVerify { mockApi.createLobby() }
         assertEquals(AppDestination.Lobby.route, navController.currentDestination?.route)
 
-        // Once the new lobby id is known, the queued invite is sent.
-        fakeLobbyState.value = LobbyUpdateMessage(
-            lobbyId = "lobby-9",
-            joinCode = "XYZ789",
-            players = listOf(LobbyPlayer("Me", isHost = true)),
-            status = "WAITING",
-            maxPlayers = 6,
-        )
-        composeTestRule.waitForIdle()
-
         assertEquals(listOf("lobby-9" to "friend-1"), sentInvites)
     }
 
     @Test
-    fun appNavHost_clears_pending_invite_when_lobby_creation_fails() {
+    fun appNavHost_does_not_invite_when_lobby_creation_fails() {
         coEvery { mockApi.friends() } returns listOf(
             at.aau.se2.skyjo.model.social.FriendDto("friend-1", "Buddy", online = true),
         )
@@ -300,15 +291,6 @@ class AppNavHostTest {
 
         coVerify(exactly = 1) { mockApi.createLobby() }
         assertEquals(AppDestination.Lobby.route, navController.currentDestination?.route)
-
-        fakeLobbyState.value = LobbyUpdateMessage(
-            lobbyId = "later-lobby",
-            joinCode = "LATER1",
-            players = listOf(LobbyPlayer("Me", isHost = true)),
-            status = "WAITING",
-            maxPlayers = 6,
-        )
-        composeTestRule.waitForIdle()
 
         coVerify(exactly = 0) { mockApi.sendLobbyInvite(any(), any()) }
     }

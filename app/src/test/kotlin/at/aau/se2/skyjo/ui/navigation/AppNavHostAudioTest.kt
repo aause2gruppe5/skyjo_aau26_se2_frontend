@@ -99,6 +99,7 @@ class AppNavHostAudioTest {
         every { mockGameClient.hasRejoinedGame } returns fakeHasRejoinedGame
         coEvery { mockGameClient.connect() } just runs
         coEvery { mockGameClient.connect(any(), any()) } just runs
+        coEvery { mockGameClient.connectForInvites(any()) } just runs
         coEvery { mockGameClient.reconnect(any()) } just runs
         coEvery { mockApi.createWebSocketTicket() } returns WsTicketResponse("ticket", Long.MAX_VALUE)
         every { mockGameClient.joinLobby(any(), any()) } just runs

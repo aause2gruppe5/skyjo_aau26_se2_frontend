@@ -72,7 +72,6 @@ fun AppNavHost(
     val hasRejoinedGame by gameViewModel.hasRejoinedGame.collectAsState()
     val currentLobbyState by gameViewModel.lobbyState.collectAsState()
     val currentGameState by gameViewModel.gameState.collectAsState()
-    val hostLobbyError by gameViewModel.lobbyError.collectAsState()
     val fallbackAuthState = remember { mutableStateOf(AuthUiState(isCheckingSession = false, isAuthenticated = true)) }
     val fallbackFriendsState = remember { mutableStateOf(FriendsUiState()) }
     val fallbackLeaderboardState = remember { mutableStateOf(LeaderboardUiState()) }
@@ -93,26 +92,6 @@ fun AppNavHost(
     LaunchedEffect(Unit) {
         gameViewModel.incomingInvites.collect { invite ->
             friendsViewModel?.addLobbyInvite(invite)
-        }
-    }
-
-    // When a friend is invited while the user is not yet in a lobby, we create one first and
-    // send the invite once the new lobby's id is available, so both players end up together.
-    var pendingInviteUserId by remember { mutableStateOf<String?>(null) }
-    var pendingInviteCreateInFlight by remember { mutableStateOf(false) }
-    LaunchedEffect(currentLobbyState?.lobbyId) {
-        val lobbyId = currentLobbyState?.lobbyId
-        val pending = pendingInviteUserId
-        if (lobbyId != null && pending != null) {
-            friendsViewModel?.inviteFriend(lobbyId, pending)
-            pendingInviteUserId = null
-            pendingInviteCreateInFlight = false
-        }
-    }
-    LaunchedEffect(hostLobbyError) {
-        if (pendingInviteCreateInFlight && hostLobbyError != null) {
-            pendingInviteUserId = null
-            pendingInviteCreateInFlight = false
         }
     }
 
@@ -322,11 +301,10 @@ fun AppNavHost(
                         if (activeLobbyId != null) {
                             friendsViewModel?.inviteFriend(activeLobbyId, friendUserId)
                         } else {
-                            // No lobby yet: create one, then the host-level effect sends the
-                            // invite once the new lobby id is known.
-                            pendingInviteUserId = friendUserId
-                            pendingInviteCreateInFlight = true
-                            gameViewModel.createLobby(authState.user?.username.orEmpty())
+                            gameViewModel.createLobbyAndInvite(
+                                username = authState.user?.username.orEmpty(),
+                                friendUserId = friendUserId,
+                            )
                         }
                         navController.navigate(AppDestination.Lobby.route)
                     },

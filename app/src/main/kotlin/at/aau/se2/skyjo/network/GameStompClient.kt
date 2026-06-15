@@ -67,16 +67,8 @@ class GameStompClient(context: Context) : GameRealtimeClient {
 
     override suspend fun connect(ticket: String?, lobbyJoinCode: String?) {
         _hasRejoinedGame.value = false
-        cancelSubscriptions()
         try {
-            session?.disconnect()
-        } catch (_: Exception) {}
-
-        try {
-            session = stompClient.connect(ticket?.let(::ticketUrl) ?: SERVER_URL)
-            _connectionError.value = null
-            _isConnected.value = true
-            Log.d(TAG, "Connected successfully")
+            replaceSession(ticket)
 
             // Subscribe before returning so lobby actions cannot miss first updates.
             val s = session!!
@@ -108,6 +100,26 @@ class GameStompClient(context: Context) : GameRealtimeClient {
         }
     }
 
+    override suspend fun connectForInvites(ticket: String?) {
+        _hasRejoinedGame.value = false
+        try {
+            replaceSession(ticket)
+
+            val s = session!!
+            val errorsFlow = s.subscribeText("/user/queue/errors")
+            val invitesFlow = s.subscribeText("/user/queue/invites")
+
+            subscriptionJobs += listOf(
+                scope.launch { collectErrors(errorsFlow) },
+                scope.launch { collectInvites(invitesFlow) },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Connection error: ${e.message}")
+            _isConnected.value = false
+            _connectionError.value = e.message ?: "Connection failed"
+        }
+    }
+
     private val retryDelays = listOf(1_000L, 3_000L, 9_000L)
 
     override suspend fun reconnect(playerName: String) {
@@ -127,6 +139,18 @@ class GameStompClient(context: Context) : GameRealtimeClient {
         subscriptionJobs.forEach { it.cancel() }
         subscriptionJobs.clear()
         subscribedGameIds.clear()
+    }
+
+    private suspend fun replaceSession(ticket: String?) {
+        cancelSubscriptions()
+        try {
+            session?.disconnect()
+        } catch (_: Exception) {}
+
+        session = stompClient.connect(ticket?.let(::ticketUrl) ?: SERVER_URL)
+        _connectionError.value = null
+        _isConnected.value = true
+        Log.d(TAG, "Connected successfully")
     }
 
     override fun applyLobbyState(lobby: LobbyUpdateMessage) {

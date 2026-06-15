@@ -24,6 +24,7 @@ import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.network.GameRealtimeClient
 import at.aau.se2.skyjo.network.SkyjoApi
 import io.mockk.clearAllMocks
+import io.mockk.coAnswers
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -31,11 +32,12 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -87,6 +89,7 @@ class GameViewModelTest {
 
         coEvery { mockGameClient.connect() } just runs
         coEvery { mockGameClient.connect(any(), any()) } just runs
+        coEvery { mockGameClient.connectForInvites(any()) } just runs
         coEvery { mockGameClient.reconnect(any()) } just runs
         coEvery { mockApi.createWebSocketTicket() } returns WsTicketResponse("ticket", Long.MAX_VALUE)
         every { mockGameClient.joinLobby(any(), any()) } just runs
@@ -285,8 +288,46 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `ensureInviteSubscription connects with ticket when disconnected`() = runTest {
-        coEvery { mockGameClient.connect("ticket", null) } answers {
+    fun `createLobbyAndInvite creates lobby applies state and sends invite`() {
+        coEvery { mockApi.createLobby() } returns lobbySummary(lobbyId = "lobby-9", joinCode = "XYZ789")
+        coEvery { mockApi.sendLobbyInvite("lobby-9", "friend-1") } returns lobbyInvite()
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.createLobbyAndInvite("Alice", "friend-1")
+
+        assertEquals("Alice", viewModel.myPlayerName.value)
+        assertEquals(null, viewModel.lobbyError.value)
+        coVerify(exactly = 1) { mockApi.createLobby() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "XYZ789") }
+        verify(exactly = 1) {
+            mockGameClient.applyLobbyState(
+                expectedLobbyUpdate(lobbyId = "lobby-9", joinCode = "XYZ789"),
+            )
+        }
+        coVerify(exactly = 1) { mockApi.sendLobbyInvite("lobby-9", "friend-1") }
+    }
+
+    @Test
+    fun `leaveLobby cancels createLobbyAndInvite before invite is sent`() = runTest {
+        val lobbyCreated = CompletableDeferred<Unit>()
+        val releaseLobby = CompletableDeferred<LobbySummaryResponse>()
+        coEvery { mockApi.createLobby() } coAnswers {
+            lobbyCreated.complete(Unit)
+            releaseLobby.await()
+        }
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.createLobbyAndInvite("Alice", "friend-1")
+        lobbyCreated.await()
+        viewModel.leaveLobby()
+        releaseLobby.complete(lobbySummary(lobbyId = "lobby-9", joinCode = "XYZ789"))
+
+        coVerify(exactly = 0) { mockApi.sendLobbyInvite(any(), any()) }
+    }
+
+    @Test
+    fun `ensureInviteSubscription connects only to invites when disconnected outside a lobby`() = runTest {
+        coEvery { mockGameClient.connectForInvites("ticket") } answers {
             fakeIsConnected.value = true
         }
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
@@ -295,7 +336,24 @@ class GameViewModelTest {
 
         assertTrue(ready)
         coVerify(exactly = 1) { mockApi.createWebSocketTicket() }
-        coVerify(exactly = 1) { mockGameClient.connect("ticket", null) }
+        coVerify(exactly = 1) { mockGameClient.connectForInvites("ticket") }
+        coVerify(exactly = 0) { mockGameClient.connect(any(), any()) }
+    }
+
+    @Test
+    fun `ensureInviteSubscription reconnects lobby topics when lobby is active`() = runTest {
+        fakeLobbyState.value = expectedLobbyUpdate()
+        coEvery { mockGameClient.connect("ticket", "ABC123") } answers {
+            fakeIsConnected.value = true
+        }
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        val ready = viewModel.ensureInviteSubscription()
+
+        assertTrue(ready)
+        coVerify(exactly = 1) { mockApi.createWebSocketTicket() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        coVerify(exactly = 0) { mockGameClient.connectForInvites(any()) }
     }
 
     @Test

@@ -25,6 +25,7 @@ interface GameRealtimeClient {
 
     suspend fun connect()
     suspend fun connect(ticket: String?, lobbyJoinCode: String?)
+    suspend fun connectForInvites(ticket: String?)
     suspend fun reconnect(playerName: String)
     fun applyLobbyState(lobby: LobbyUpdateMessage)
     fun joinLobby(playerName: String, gameId: String? = null)
