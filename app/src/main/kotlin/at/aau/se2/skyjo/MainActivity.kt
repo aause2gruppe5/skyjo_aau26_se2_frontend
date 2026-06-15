@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
         presenceHeartbeat = PresenceHeartbeat(
             api = SkyjoApiClient(EncryptedSessionStore(this)),
             isAuthenticated = { authViewModel.state.value.isAuthenticated },
+            beforeHeartbeat = { gameViewModel.ensureInviteSubscription() },
         )
 
         setContent {

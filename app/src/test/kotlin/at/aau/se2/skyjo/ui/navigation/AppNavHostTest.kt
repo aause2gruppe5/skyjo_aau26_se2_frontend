@@ -261,6 +261,59 @@ class AppNavHostTest {
     }
 
     @Test
+    fun appNavHost_clears_pending_invite_when_lobby_creation_fails() {
+        coEvery { mockApi.friends() } returns listOf(
+            at.aau.se2.skyjo.model.social.FriendDto("friend-1", "Buddy", online = true),
+        )
+        coEvery { mockApi.friendRequests() } returns
+            at.aau.se2.skyjo.model.social.FriendRequestsResponse(emptyList(), emptyList())
+        coEvery { mockApi.lobbyInvites() } returns emptyList()
+        coEvery { mockApi.createLobby() } throws IllegalStateException("network error")
+        coEvery { mockApi.sendLobbyInvite(any(), any()) } returns at.aau.se2.skyjo.model.social.LobbyInviteDto(
+            inviteId = "invite-1",
+            lobbyId = "later-lobby",
+            joinCode = "LATER1",
+            from = at.aau.se2.skyjo.model.social.SocialUserDto("me", "Me"),
+            to = at.aau.se2.skyjo.model.social.SocialUserDto("friend-1", "Buddy"),
+            status = at.aau.se2.skyjo.model.social.LobbyInviteStatus.PENDING,
+            createdAt = 1L,
+        )
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        val friendsViewModel = at.aau.se2.skyjo.viewmodel.FriendsViewModel(mockApplication, mockApi)
+        lateinit var navController: NavHostController
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(
+                    navController = navController,
+                    gameViewModel = viewModel,
+                    friendsViewModel = friendsViewModel,
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("Friends").onLast().performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Invite").performClick()
+        composeTestRule.waitForIdle()
+
+        coVerify(exactly = 1) { mockApi.createLobby() }
+        assertEquals(AppDestination.Lobby.route, navController.currentDestination?.route)
+
+        fakeLobbyState.value = LobbyUpdateMessage(
+            lobbyId = "later-lobby",
+            joinCode = "LATER1",
+            players = listOf(LobbyPlayer("Me", isHost = true)),
+            status = "WAITING",
+            maxPlayers = 6,
+        )
+        composeTestRule.waitForIdle()
+
+        coVerify(exactly = 0) { mockApi.sendLobbyInvite(any(), any()) }
+    }
+
+    @Test
     fun appNavHost_inviting_online_friend_while_in_lobby_sends_invite_without_creating_lobby() {
         coEvery { mockApi.friends() } returns listOf(
             at.aau.se2.skyjo.model.social.FriendDto("friend-1", "Buddy", online = true),

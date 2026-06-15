@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -281,6 +282,32 @@ class GameViewModelTest {
         assertEquals("user is already in a lobby", viewModel.lobbyError.value)
         coVerify(exactly = 0) { mockGameClient.connect(any(), any()) }
         verify(exactly = 0) { mockGameClient.applyLobbyState(any()) }
+    }
+
+    @Test
+    fun `ensureInviteSubscription connects with ticket when disconnected`() = runTest {
+        coEvery { mockGameClient.connect("ticket", null) } answers {
+            fakeIsConnected.value = true
+        }
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        val ready = viewModel.ensureInviteSubscription()
+
+        assertTrue(ready)
+        coVerify(exactly = 1) { mockApi.createWebSocketTicket() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", null) }
+    }
+
+    @Test
+    fun `ensureInviteSubscription does not reconnect when already connected`() = runTest {
+        fakeIsConnected.value = true
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        val ready = viewModel.ensureInviteSubscription()
+
+        assertTrue(ready)
+        coVerify(exactly = 0) { mockApi.createWebSocketTicket() }
+        coVerify(exactly = 0) { mockGameClient.connect(any(), any()) }
     }
 
     @Test

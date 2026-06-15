@@ -127,6 +127,15 @@ class GameViewModel(
         }
     }
 
+    suspend fun ensureInviteSubscription(): Boolean {
+        if (isConnected.value) return true
+        return runCatching {
+            val ticket = apiClient.createWebSocketTicket().ticket
+            gameClient.connect(ticket = ticket, lobbyJoinCode = lobbyState.value?.joinCode)
+            isConnected.value
+        }.getOrDefault(false)
+    }
+
     fun createLobby(username: String) {
         _myPlayerName.value = username
         viewModelScope.launch {

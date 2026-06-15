@@ -36,6 +36,51 @@ class PresenceHeartbeatTest {
     }
 
     @Test
+    fun `runs prerequisite before sending heartbeat`() = runTest {
+        val api = CountingApi()
+        var prerequisiteCalls = 0
+        val heartbeat = PresenceHeartbeat(
+            api = api,
+            isAuthenticated = { true },
+            beforeHeartbeat = {
+                prerequisiteCalls++
+                true
+            },
+            intervalMs = 1_000L,
+        )
+
+        heartbeat.start(backgroundScope)
+        runCurrent()
+
+        assertEquals(1, prerequisiteCalls)
+        assertEquals(1, api.calls)
+        heartbeat.stop()
+    }
+
+    @Test
+    fun `skips heartbeat when prerequisite is not ready`() = runTest {
+        val api = CountingApi()
+        var prerequisiteCalls = 0
+        val heartbeat = PresenceHeartbeat(
+            api = api,
+            isAuthenticated = { true },
+            beforeHeartbeat = {
+                prerequisiteCalls++
+                false
+            },
+            intervalMs = 1_000L,
+        )
+
+        heartbeat.start(backgroundScope)
+        advanceTimeBy(2_500L)
+        runCurrent()
+
+        assertTrue("prerequisite should be retried", prerequisiteCalls >= 2)
+        assertEquals(0, api.calls)
+        heartbeat.stop()
+    }
+
+    @Test
     fun `swallows heartbeat errors and keeps looping`() = runTest {
         val api = CountingApi(error = RuntimeException("boom"))
         val heartbeat = PresenceHeartbeat(api, isAuthenticated = { true }, intervalMs = 1_000L)
