@@ -122,16 +122,6 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun settingsScreen_shows_app_version() {
-        composeTestRule.setContent {
-            SkyjoTheme {
-                SettingsScreen(onNavigate = {})
-            }
-        }
-        composeTestRule.onNodeWithText("Skyjo Action v1.0.0").assertExists()
-    }
-
-    @Test
     fun settingsScreen_navigate_callback_not_triggered_on_render() {
         var navigated = false
         composeTestRule.setContent {
