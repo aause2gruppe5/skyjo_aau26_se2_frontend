@@ -188,19 +188,7 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Footer ───────────────────────────────────────────────────
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Skyjo Action v1.0.0",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MutedText,
-                )
-                Text(
-                    text = "Privacy Policy - Terms of Service",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MutedText,
-                )
-            }
+            // ── Footer Removed
 
             Spacer(modifier = Modifier.height(8.dp))
         }
