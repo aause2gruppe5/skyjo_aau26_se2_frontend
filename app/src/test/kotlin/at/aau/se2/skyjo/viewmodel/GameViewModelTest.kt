@@ -24,7 +24,6 @@ import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.network.GameRealtimeClient
 import at.aau.se2.skyjo.network.SkyjoApi
 import io.mockk.clearAllMocks
-import io.mockk.coAnswers
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -310,19 +309,31 @@ class GameViewModelTest {
     @Test
     fun `leaveLobby cancels createLobbyAndInvite before invite is sent`() = runTest {
         val lobbyCreated = CompletableDeferred<Unit>()
-        val releaseLobby = CompletableDeferred<LobbySummaryResponse>()
-        coEvery { mockApi.createLobby() } coAnswers {
-            lobbyCreated.complete(Unit)
-            releaseLobby.await()
+        val releaseLobby = CompletableDeferred<Unit>()
+        var inviteSent = false
+        val suspendingApi = object : SkyjoApi {
+            override suspend fun createLobby(): LobbySummaryResponse {
+                lobbyCreated.complete(Unit)
+                releaseLobby.await()
+                return lobbySummary(lobbyId = "lobby-9", joinCode = "XYZ789")
+            }
+
+            override suspend fun createWebSocketTicket(): WsTicketResponse =
+                WsTicketResponse("ticket", Long.MAX_VALUE)
+
+            override suspend fun sendLobbyInvite(lobbyId: String, toUserId: String): LobbyInviteDto {
+                inviteSent = true
+                return lobbyInvite()
+            }
         }
-        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        val viewModel = GameViewModel(mockApplication, suspendingApi, mockGameClient)
 
         viewModel.createLobbyAndInvite("Alice", "friend-1")
         lobbyCreated.await()
         viewModel.leaveLobby()
-        releaseLobby.complete(lobbySummary(lobbyId = "lobby-9", joinCode = "XYZ789"))
+        releaseLobby.complete(Unit)
 
-        coVerify(exactly = 0) { mockApi.sendLobbyInvite(any(), any()) }
+        assertFalse(inviteSent)
     }
 
     @Test
@@ -669,9 +680,10 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `authenticated reconnect is triggered when connection drops with player name set`() {
+    fun `authenticated reconnect is triggered when connection drops with player name and active lobby set`() {
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.connect("Alice")
+        fakeLobbyState.value = expectedLobbyUpdate()
 
         fakeIsConnected.value = true
         fakeIsConnected.value = false
@@ -695,6 +707,7 @@ class GameViewModelTest {
         coEvery { mockApi.currentLobby() } returns lobbySummary()
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.connect("Alice")
+        fakeLobbyState.value = expectedLobbyUpdate()
 
         fakeIsConnected.value = true
         fakeIsConnected.value = false
@@ -708,6 +721,7 @@ class GameViewModelTest {
         coEvery { mockApi.currentLobby() } returns null
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
         viewModel.connect("Alice")
+        fakeLobbyState.value = expectedLobbyUpdate()
 
         fakeIsConnected.value = true
         fakeIsConnected.value = false
