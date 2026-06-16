@@ -308,6 +308,7 @@ class GameStompClient(context: Context) : GameRealtimeClient {
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Invite subscribe error: ${e.message}")
+            _isConnected.value = false
         }
     }
 

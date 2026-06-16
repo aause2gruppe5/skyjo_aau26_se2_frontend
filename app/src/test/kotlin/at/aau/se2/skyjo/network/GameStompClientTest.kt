@@ -14,6 +14,7 @@ import at.aau.se2.skyjo.model.PlayActionCardCommand
 import io.mockk.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.hildan.krossbow.stomp.StompClient
@@ -22,6 +23,7 @@ import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -112,6 +114,19 @@ class GameStompClientTest {
         coVerify(exactly = 1) { any<StompSession>().subscribeText("/user/queue/errors") }
         coVerify(exactly = 0) { any<StompSession>().subscribeText("/topic/lobby") }
         coVerify(exactly = 0) { any<StompSession>().subscribeText("/topic/game") }
+    }
+
+    @Test
+    fun `connectForInvites marks disconnected when invite subscription fails`() = runBlocking {
+        coEvery { any<StompSession>().subscribeText("/user/queue/invites") } returns flow {
+            throw RuntimeException("invite stream closed")
+        }
+
+        val client = GameStompClient(mockContext)
+        client.connectForInvites("ticket")
+        delay(300)
+
+        assertFalse(client.isConnected.value)
     }
 
     @Test
