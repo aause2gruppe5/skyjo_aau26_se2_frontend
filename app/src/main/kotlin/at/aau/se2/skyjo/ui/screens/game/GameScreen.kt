@@ -136,6 +136,7 @@ fun GameScreen(
     myPlayerId: String? = null,
     isMyTurn: Boolean = false,
     isHost: Boolean = false,
+    lobbyJoinCode: String? = null,
     privateActionCardResult: ActionCardResultMessage? = null,
     privateCheatPeekResult: CheatPeekResultMessage? = null,
     onDrawFromDeck: () -> Unit = {},
@@ -283,6 +284,7 @@ fun GameScreen(
             isMyTurn = isMyTurn,
             currentPlayerNickname = currentPlayerNickname,
             currentPhase = currentPhase,
+            lobbyJoinCode = lobbyJoinCode,
             penaltyFlashPlayerIds = penaltyFlashPlayerIds,
             onBack = onBack,
         )
@@ -545,6 +547,7 @@ private fun GameScreenHeader(
     isMyTurn: Boolean,
     currentPlayerNickname: String,
     currentPhase: String?,
+    lobbyJoinCode: String?,
     penaltyFlashPlayerIds: Set<String>,
     onBack: () -> Unit,
 ) {
@@ -583,6 +586,16 @@ private fun GameScreenHeader(
             }
 
             if (gameState != null) {
+                lobbyJoinCode?.takeIf { it.isNotBlank() }?.let { code ->
+                    Text(
+                        text = "Join Code: $code",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = PrimaryGreen,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

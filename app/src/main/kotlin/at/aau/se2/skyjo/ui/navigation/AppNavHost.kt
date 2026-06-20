@@ -248,6 +248,7 @@ fun AppNavHost(
                     myPlayerId = myPlayerId,
                     isMyTurn = isMyTurn,
                     isHost = isHost,
+                    lobbyJoinCode = currentLobbyState?.joinCode,
                     privateActionCardResult = privateActionCardResult,
                     privateCheatPeekResult = privateCheatPeekResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },

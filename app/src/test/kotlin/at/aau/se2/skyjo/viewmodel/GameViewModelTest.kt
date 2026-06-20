@@ -393,6 +393,18 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `joinLobbyByCode requests game state when returned lobby is already in game`() {
+        coEvery { mockApi.joinLobby("abc123") } returns lobbySummary(status = "IN_GAME")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.joinLobbyByCode("Alice", "abc123")
+
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "ABC123") }
+        verify(exactly = 1) { mockGameClient.applyLobbyState(expectedLobbyUpdate(status = "IN_GAME")) }
+        verify(exactly = 1) { mockGameClient.joinLobby("Alice", null) }
+    }
+
+    @Test
     fun `joinLobbyByCode emits joined event and no error on success`() {
         coEvery { mockApi.joinLobby("abc123") } returns lobbySummary()
         val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)

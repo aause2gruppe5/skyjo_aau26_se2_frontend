@@ -214,6 +214,9 @@ class GameViewModel(
                         maxPlayers = lobby.maxPlayers,
                     ),
                 )
+                if (lobby.status == "IN_GAME") {
+                    gameClient.joinLobby(username)
+                }
             }.onSuccess {
                 _lobbyJoined.trySend(Unit)
             }.onFailure { error ->
