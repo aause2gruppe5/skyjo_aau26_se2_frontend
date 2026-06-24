@@ -248,6 +248,7 @@ fun AppNavHost(
                     myPlayerId = myPlayerId,
                     isMyTurn = isMyTurn,
                     isHost = isHost,
+                    lobbyJoinCode = currentLobbyState?.joinCode,
                     privateActionCardResult = privateActionCardResult,
                     privateCheatPeekResult = privateCheatPeekResult,
                     onDrawFromDeck = { gameViewModel.drawFromDeck() },
@@ -292,13 +293,21 @@ fun AppNavHost(
                     lobbyInvites = friendsState.lobbyInvites,
                     searchResults = friendsState.searchResults,
                     query = friendsState.query,
-                    activeLobbyId = gameViewModel.lobbyState.collectAsState().value?.lobbyId,
                     onQueryChange = { friendsViewModel?.updateSearch(it) },
                     onSendRequest = { friendsViewModel?.sendFriendRequest(it) },
                     onAcceptRequest = { friendsViewModel?.acceptRequest(it) },
                     onDeclineRequest = { friendsViewModel?.declineRequest(it) },
                     onInviteFriend = { friendUserId ->
-                        friendsViewModel?.inviteFriend(gameViewModel.lobbyState.value?.lobbyId, friendUserId)
+                        val activeLobbyId = gameViewModel.lobbyState.value?.lobbyId
+                        if (activeLobbyId != null) {
+                            friendsViewModel?.inviteFriend(activeLobbyId, friendUserId)
+                        } else {
+                            gameViewModel.createLobbyAndInvite(
+                                username = authState.user?.username.orEmpty(),
+                                friendUserId = friendUserId,
+                            )
+                        }
+                        navController.navigate(AppDestination.Lobby.route)
                     },
                     onAcceptInvite = { inviteId ->
                         friendsViewModel?.removeLobbyInvite(inviteId)

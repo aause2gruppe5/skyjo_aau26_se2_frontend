@@ -54,7 +54,6 @@ fun FriendsScreen(
     lobbyInvites: List<LobbyInviteDto> = emptyList(),
     searchResults: List<SocialUserDto> = emptyList(),
     query: String = "",
-    activeLobbyId: String? = null,
     onQueryChange: (String) -> Unit = {},
     onSendRequest: (String) -> Unit = {},
     onAcceptRequest: (String) -> Unit = {},
@@ -121,7 +120,7 @@ fun FriendsScreen(
                         Text("No friends yet", color = MutedText)
                     } else {
                         friends.forEach { friend ->
-                            FriendRow(friend, showInvite = activeLobbyId != null, onInviteFriend = onInviteFriend)
+                            FriendRow(friend, showInvite = friend.online, onInviteFriend = onInviteFriend)
                         }
                     }
                 }

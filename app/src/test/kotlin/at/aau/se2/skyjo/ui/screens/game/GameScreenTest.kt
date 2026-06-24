@@ -97,6 +97,21 @@ class GameScreenTest {
     }
 
     @Test
+    fun gameScreen_shows_lobby_join_code_when_available() {
+        composeTestRule.setContent {
+            SkyjoTheme {
+                GameScreen(
+                    gameState = makeGameState(),
+                    myPlayerId = "p1",
+                    lobbyJoinCode = "ABC123",
+                    onBack = {}, onNavigateToGameOver = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Join Code: ABC123").assertIsDisplayed()
+    }
+
+    @Test
     fun gameScreen_shows_my_grid_section_when_state_present() {
         composeTestRule.setContent {
             SkyjoTheme {

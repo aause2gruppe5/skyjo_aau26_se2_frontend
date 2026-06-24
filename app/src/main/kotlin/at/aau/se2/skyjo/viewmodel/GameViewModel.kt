@@ -15,9 +15,14 @@ import at.aau.se2.skyjo.network.SkyjoApi
 import at.aau.se2.skyjo.network.SkyjoApiClient
 import at.aau.se2.skyjo.session.EncryptedSessionStore
 import at.aau.se2.skyjo.session.SessionStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 
 class GameViewModel(
     application: Application,
@@ -65,7 +70,8 @@ class GameViewModel(
     private val _lobbyJoinError = Channel<String>(Channel.BUFFERED)
     val lobbyJoinError: Flow<String> = _lobbyJoinError.receiveAsFlow()
 
-    private var leaveJob: kotlinx.coroutines.Job? = null
+    private var leaveJob: Job? = null
+    private var createLobbyJob: Job? = null
 
     val isHost: StateFlow<Boolean> = combine(lobbyState, myPlayerName) { lobby, name ->
         name.isNotEmpty() && lobby?.players?.find { it.nickname == name }?.isHost == true
@@ -87,7 +93,7 @@ class GameViewModel(
                 .filter { !it }
                 .collect {
                     val name = _myPlayerName.value
-                    if (name.isNotEmpty()) {
+                    if (name.isNotEmpty() && (lobbyState.value != null || gameState.value != null)) {
                         runCatching {
                             val ticket = apiClient.createWebSocketTicket().ticket
                             gameClient.connect(ticket = ticket, lobbyJoinCode = lobbyState.value?.joinCode)
@@ -127,14 +133,40 @@ class GameViewModel(
         }
     }
 
+    suspend fun ensureInviteSubscription(): Boolean {
+        if (isConnected.value) return true
+        return runCatching {
+            val ticket = apiClient.createWebSocketTicket().ticket
+            val joinCode = lobbyState.value?.joinCode
+            if (joinCode != null) {
+                gameClient.connect(ticket = ticket, lobbyJoinCode = joinCode)
+            } else {
+                gameClient.connectForInvites(ticket)
+            }
+            isConnected.value
+        }.getOrDefault(false)
+    }
+
     fun createLobby(username: String) {
+        startCreateLobby(username, inviteFriendUserId = null)
+    }
+
+    fun createLobbyAndInvite(username: String, friendUserId: String) {
+        startCreateLobby(username, inviteFriendUserId = friendUserId)
+    }
+
+    private fun startCreateLobby(username: String, inviteFriendUserId: String?) {
         _myPlayerName.value = username
-        viewModelScope.launch {
-            runCatching { leaveJob?.join() }
-            _lobbyError.value = null
-            runCatching {
+        createLobbyJob?.cancel()
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                leaveJob?.join()
+                coroutineContext.ensureActive()
+                _lobbyError.value = null
                 val lobby = apiClient.createLobby()
+                coroutineContext.ensureActive()
                 connectToLobby(lobby.joinCode)
+                coroutineContext.ensureActive()
                 gameClient.applyLobbyState(
                     LobbyUpdateMessage(
                         lobbyId = lobby.lobbyId,
@@ -144,10 +176,25 @@ class GameViewModel(
                         maxPlayers = lobby.maxPlayers,
                     ),
                 )
-            }.onFailure { error ->
-                _lobbyError.value = error.message ?: "Could not create lobby"
+                inviteFriendUserId?.let { friendUserId ->
+                    apiClient.sendLobbyInvite(lobby.lobbyId, friendUserId)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                _lobbyError.value = error.message ?: if (inviteFriendUserId == null) {
+                    "Could not create lobby"
+                } else {
+                    "Could not create lobby and invite friend"
+                }
+            } finally {
+                if (createLobbyJob === coroutineContext[Job]) {
+                    createLobbyJob = null
+                }
             }
         }
+        createLobbyJob = job
+        job.start()
     }
 
     fun joinLobbyByCode(username: String, joinCode: String) {
@@ -167,6 +214,9 @@ class GameViewModel(
                         maxPlayers = lobby.maxPlayers,
                     ),
                 )
+                if (lobby.status == "IN_GAME") {
+                    gameClient.joinLobby(username)
+                }
             }.onSuccess {
                 _lobbyJoined.trySend(Unit)
             }.onFailure { error ->
@@ -207,13 +257,15 @@ class GameViewModel(
     }
 
     fun leaveLobby() {
+        createLobbyJob?.cancel()
+        createLobbyJob = null
         leaveJob = viewModelScope.launch {
             lobbyState.value?.lobbyId?.let { lobbyId ->
                 runCatching { apiClient.leaveLobby(lobbyId) }
             } ?: run { gameClient.leaveLobby() }
+            _myPlayerName.value = ""
             gameClient.clearStoredGame()
             gameClient.disconnect()
-            _myPlayerName.value = ""
         }
     }
 

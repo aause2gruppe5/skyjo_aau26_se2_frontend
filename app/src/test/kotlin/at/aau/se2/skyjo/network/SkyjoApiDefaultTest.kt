@@ -23,6 +23,7 @@ class SkyjoApiDefaultTest {
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.leaveLobby("lobby") } }
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.searchUsers("a") } }
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.friends() } }
+        assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.heartbeat() } }
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.friendRequests() } }
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.sendFriendRequest("user") } }
         assertThrows(UnsupportedOperationException::class.java) { runBlocking { api.acceptFriendRequest("request") } }

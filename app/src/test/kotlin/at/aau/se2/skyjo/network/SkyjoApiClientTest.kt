@@ -57,6 +57,7 @@ class SkyjoApiClientTest {
             200 to lobbyJson,
             200 to """[{"userId":"user-b","username":"Bob","relationshipStatus":"NONE"}]""",
             200 to friendJson,
+            204 to "",
             200 to requestsJson,
             201 to """{"requestId":"request-1","from":{"userId":"from","username":"From"},"to":{"userId":"to","username":"To"},"status":"PENDING","createdAt":1}""",
             200 to """{"requestId":"request-1","from":{"userId":"from","username":"From"},"to":{"userId":"to","username":"To"},"status":"ACCEPTED","createdAt":1,"respondedAt":2}""",
@@ -76,6 +77,7 @@ class SkyjoApiClientTest {
         assertEquals("lobby/1", api.leaveLobby("lobby/1").lobbyId)
         assertEquals("Bob", api.searchUsers("Bo B").single().username)
         assertEquals("Friend", api.friends().single().username)
+        api.heartbeat()
         assertTrue(api.friendRequests().incoming.isEmpty())
         assertEquals("request-1", api.sendFriendRequest("friend-1").requestId)
         assertEquals("ACCEPTED", api.acceptFriendRequest("request/1").status.name)
@@ -92,6 +94,7 @@ class SkyjoApiClientTest {
         assertTrue(paths.contains("/api/friends/requests/request%2F1/accept"))
         assertTrue(paths.contains("/api/lobbies/lobby%2F1/invites"))
         assertTrue(paths.contains("/api/lobbies/invites/invite%2F1/decline"))
+        assertTrue(paths.contains("/api/social/heartbeat"))
     }
 
     @Test
