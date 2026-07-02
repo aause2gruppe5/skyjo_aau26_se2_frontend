@@ -8,6 +8,7 @@ import at.aau.se2.skyjo.model.BoardLineTargetType
 import at.aau.se2.skyjo.model.GameAction
 import at.aau.se2.skyjo.model.LobbyUpdateMessage
 import at.aau.se2.skyjo.model.PlayActionCardCommand
+import at.aau.se2.skyjo.model.lobby.LobbySummaryResponse
 import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.network.GameRealtimeClient
 import at.aau.se2.skyjo.network.GameStompClient
@@ -163,7 +164,7 @@ class GameViewModel(
                 leaveJob?.join()
                 coroutineContext.ensureActive()
                 _lobbyError.value = null
-                val lobby = apiClient.createLobby()
+                val lobby = createLobbyClearingStaleMembership()
                 coroutineContext.ensureActive()
                 connectToLobby(lobby.joinCode)
                 coroutineContext.ensureActive()
@@ -366,5 +367,22 @@ class GameViewModel(
     private suspend fun connectToLobby(joinCode: String) {
         val ticket = apiClient.createWebSocketTicket().ticket
         gameClient.connect(ticket = ticket, lobbyJoinCode = joinCode)
+    }
+
+    // A session that ended abruptly (app killed/crashed) can leave the user registered in a
+    // lobby server-side until the socket times out. In that window createLobby fails with
+    // "user is already in a lobby". Release that stale membership once and retry so the user
+    // isn't stuck, even when there is no local lobby state to leave from.
+    private suspend fun createLobbyClearingStaleMembership(): LobbySummaryResponse {
+        return try {
+            apiClient.createLobby()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            if (error.message?.contains("already in a lobby", ignoreCase = true) != true) throw error
+            val staleLobbyId = apiClient.currentLobby()?.lobbyId ?: throw error
+            apiClient.leaveLobby(staleLobbyId)
+            apiClient.createLobby()
+        }
     }
 }

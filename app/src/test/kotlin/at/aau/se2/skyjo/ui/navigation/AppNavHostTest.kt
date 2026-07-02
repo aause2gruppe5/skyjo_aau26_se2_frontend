@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -779,6 +780,36 @@ class AppNavHostTest {
         // Optional: Überprüfe, ob wir uns wieder auf der Startseite befinden,
         // indem wir nach einem Element suchen, das spezifisch für den StartScreen ist.
         composeTestRule.onNodeWithText("Create Lobby", ignoreCase = true, substring = true).assertExists()
+    }
+
+    @Test
+    fun appNavHost_game_back_button_clears_lobby_and_navigates_to_start() {
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+        fakeGameState.value = makeGameState()
+        viewModel.connect("Alice")
+        lateinit var navController: NavHostController
+
+        composeTestRule.setContent {
+            SkyjoTheme {
+                navController = rememberNavController()
+                AppNavHost(navController = navController, gameViewModel = viewModel)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Rejoin drives navigation into the running game.
+        fakeHasRejoinedGame.value = true
+        composeTestRule.waitForIdle()
+        assertEquals(AppDestination.Game.route, navController.currentDestination?.route)
+
+        // The in-game back button (ArrowBack, contentDescription "Back") must leave the game.
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+
+        // Leaving releases the server-side lobby membership...
+        verify(exactly = 1) { mockGameClient.leaveLobby() }
+        // ...and returns to the Start screen.
+        assertEquals(AppDestination.Start.route, navController.currentDestination?.route)
     }
 
     // Helper function

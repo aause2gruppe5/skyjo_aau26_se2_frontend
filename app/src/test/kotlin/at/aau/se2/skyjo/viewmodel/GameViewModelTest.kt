@@ -287,6 +287,24 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `createLobby clears stale membership and retries when already in a lobby`() {
+        coEvery { mockApi.createLobby() } throws
+            IllegalStateException("user is already in a lobby") andThen
+            lobbySummary(lobbyId = "lobby-2", joinCode = "NEW123")
+        coEvery { mockApi.currentLobby() } returns lobbySummary(lobbyId = "stale-1")
+        coEvery { mockApi.leaveLobby("stale-1") } returns lobbySummary(lobbyId = "stale-1")
+        val viewModel = GameViewModel(mockApplication, mockApi, mockGameClient)
+
+        viewModel.createLobby("Alice")
+
+        assertEquals(null, viewModel.lobbyError.value)
+        coVerify(exactly = 1) { mockApi.currentLobby() }
+        coVerify(exactly = 1) { mockApi.leaveLobby("stale-1") }
+        coVerify(exactly = 2) { mockApi.createLobby() }
+        coVerify(exactly = 1) { mockGameClient.connect("ticket", "NEW123") }
+    }
+
+    @Test
     fun `createLobbyAndInvite creates lobby applies state and sends invite`() {
         coEvery { mockApi.createLobby() } returns lobbySummary(lobbyId = "lobby-9", joinCode = "XYZ789")
         coEvery { mockApi.sendLobbyInvite("lobby-9", "friend-1") } returns lobbyInvite()
