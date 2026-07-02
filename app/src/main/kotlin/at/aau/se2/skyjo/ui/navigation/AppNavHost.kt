@@ -222,6 +222,19 @@ fun AppNavHost(
                     mutableStateOf<CheatPeekResultMessage?>(null)
                 }
 
+                // Backing out of a running game (system gesture or the in-game back button)
+                // must release the server-side lobby membership, otherwise the backend keeps
+                // reporting "user is already in a lobby" on the Start screen.
+                val leaveGame: () -> Unit = {
+                    gameViewModel.leaveLobby()
+                    navController.navigate(AppDestination.Start.route) {
+                        popUpTo(AppDestination.Start.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+
+                BackHandler(onBack = leaveGame)
+
                 LaunchedEffect(Unit) {
                     gameViewModel.actionCardResults.collect { result ->
                         privateActionCardResult = result
@@ -272,7 +285,7 @@ fun AppNavHost(
                     onReportCheat = { gameViewModel.cheatReportCurrentPlayer() },
                     onDismissCheatPeekResult = { privateCheatPeekResult = null },
                     onReadyForNextRoundClick = { gameViewModel.startNextRound() },
-                    onBack = { navController.popBackStack() },
+                    onBack = leaveGame,
                     onNavigateToGameOver = {
                         navController.navigate(AppDestination.GameOver.route) {
                             // Das Spiel wird aus dem Verlauf gelöscht,
