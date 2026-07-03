@@ -71,10 +71,11 @@ class GameStompClient(context: Context) : GameRealtimeClient {
             replaceSession(ticket)
 
             // Subscribe before returning so lobby actions cannot miss first updates.
+            // Authenticated only: the lobby topic is per join-code and game updates
+            // arrive via /user/queue/gamestate -> /topic/games/{id} (subscribeGameTopic).
+            // The former global /topic/lobby and /topic/game topics are no longer used.
             val s = session!!
-            val lobbyFlow       = s.subscribeText(lobbyJoinCode?.let { "/topic/lobbies/$it" } ?: "/topic/lobby")
             val lobbyDirectFlow = s.subscribeText("/user/queue/lobby")
-            val gameFlow        = s.subscribeText("/topic/game")
             val errorsFlow      = s.subscribeText("/user/queue/errors")
             val rejoinFlow      = s.subscribeText("/user/queue/gamestate")
             val actionCardResultsFlow = s.subscribeText("/user/queue/action-card-results")
@@ -82,10 +83,9 @@ class GameStompClient(context: Context) : GameRealtimeClient {
             val cheatReportResultsFlow = s.subscribeText("/user/queue/cheat-report-results")
             val invitesFlow = s.subscribeText("/user/queue/invites")
 
-            subscriptionJobs += listOf(
-                scope.launch { collectLobby(lobbyFlow) },
+            subscriptionJobs += listOfNotNull(
+                lobbyJoinCode?.let { code -> scope.launch { collectLobby(s.subscribeText("/topic/lobbies/$code")) } },
                 scope.launch { collectLobbyDirect(lobbyDirectFlow) },
-                scope.launch { collectGame(gameFlow) },
                 scope.launch { collectErrors(errorsFlow) },
                 scope.launch { collectRejoinState(rejoinFlow) },
                 scope.launch { collectActionCardResults(actionCardResultsFlow) },
