@@ -77,10 +77,10 @@ fun GameOverScreen(
             }
         }
     ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Wichtig: Scaffold-Padding anwenden, damit die TopBar nichts verdeckt
                 .padding(24.dp), // Dein bestehendes Screen-Padding
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -136,6 +136,9 @@ fun GameOverScreen(
                 text = "BACK TO START",
                 onClick = onBackToStart
             )
+        }
+            // Celebrate the finish with an in-screen confetti burst.
+            ConfettiOverlay(show = true, modifier = Modifier.fillMaxSize())
         }
     }
 }
