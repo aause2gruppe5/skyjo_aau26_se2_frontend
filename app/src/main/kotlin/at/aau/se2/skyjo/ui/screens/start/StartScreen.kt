@@ -41,6 +41,7 @@ import at.aau.se2.skyjo.model.stats.PlayerStatsDto
 import at.aau.se2.skyjo.ui.components.AvatarBadge
 import at.aau.se2.skyjo.ui.components.PrimaryButton
 import at.aau.se2.skyjo.ui.components.SkyjoCard
+import at.aau.se2.skyjo.ui.components.entrance
 import at.aau.se2.skyjo.ui.components.SkyjoDrawerScaffold
 import at.aau.se2.skyjo.ui.components.screenHorizontalPadding
 import at.aau.se2.skyjo.ui.navigation.AppDestination
@@ -82,7 +83,7 @@ fun StartScreen(
                     .padding(horizontal = screenHorizontalPadding(), vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                SkyjoCard {
+                SkyjoCard(modifier = Modifier.entrance()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -125,7 +126,7 @@ fun StartScreen(
                     }
                 }
 
-                SkyjoCard {
+                SkyjoCard(modifier = Modifier.entrance(delayMillis = 90)) {
                     Text(
                         text = "Lobby",
                         style = MaterialTheme.typography.titleLarge,

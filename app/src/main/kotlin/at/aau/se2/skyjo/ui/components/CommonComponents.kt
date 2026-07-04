@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -20,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,17 +49,22 @@ fun PrimaryButton(
     enabled: Boolean = true,
 ) {
     val haptic = LocalHaptic.current
+    val interactionSource = remember { MutableInteractionSource() }
     Button(
         onClick = {
             haptic?.tick()
             onClick()
         },
         enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .fillMaxWidth()
+            .bouncyPress(interactionSource),
         shape = MaterialTheme.shapes.extraLarge,
         colors = ButtonDefaults.buttonColors(
             containerColor = PrimaryGreen,
         ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp, pressedElevation = 1.dp),
     ) {
         Text(
             text = text,
@@ -75,12 +82,16 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHaptic.current
+    val interactionSource = remember { MutableInteractionSource() }
     OutlinedButton(
         onClick = {
             haptic?.tick()
             onClick()
         },
-        modifier = modifier.fillMaxWidth(),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .fillMaxWidth()
+            .bouncyPress(interactionSource),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
         Text(
@@ -101,7 +112,7 @@ fun SkyjoCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp, pressedElevation = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
